@@ -13,6 +13,9 @@ from .utils import calcular_plantao_atual, determinar_tipo_acesso, verificar_pla
 from .decorators import admin_required
 from django.contrib.auth.models import User
 import json
+import csv
+from django.contrib.auth.views import LoginView
+from django.urls import reverse_lazy
 
 def is_staff(user):
     return user.is_staff
@@ -492,12 +495,14 @@ def importar_servidores(request):
     if request.method == 'POST':
         try:
             arquivo = request.FILES['arquivo']
-            df = pd.read_excel(arquivo)
+            # Decodifica o arquivo CSV
+            decoded_file = arquivo.read().decode('utf-8').splitlines()
+            reader = csv.DictReader(decoded_file)
             
             servidores_criados = 0
             servidores_atualizados = 0
             
-            for _, row in df.iterrows():
+            for row in reader:
                 servidor, created = Servidor.objects.update_or_create(
                     numero_documento=row['Número do Documento'],
                     defaults={
@@ -533,18 +538,12 @@ def importar_servidores(request):
 @login_required
 @admin_required
 def download_modelo_importacao(request):
-    # Cria um DataFrame com as colunas necessárias
-    df = pd.DataFrame(columns=['Nome', 'Número do Documento', 'Setor', 'Veículo'])
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename=modelo_importacao.csv'
     
-    # Adiciona uma linha de exemplo
-    df.loc[0] = ['João da Silva', '12.345.678-9', 'Administrativo', 'ABC-1234']
-    
-    # Cria o arquivo Excel
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=modelo_importacao.xlsx'
-    
-    with pd.ExcelWriter(response, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False)
+    writer = csv.writer(response)
+    writer.writerow(['Nome', 'Número do Documento', 'Setor', 'Veículo'])
+    writer.writerow(['João da Silva', '12.345.678-9', 'Administrativo', 'ABC-1234'])
     
     return response
 
@@ -647,3 +646,8 @@ def servidor_delete(request, pk):
             return redirect('servidor_list')
     
     return redirect('servidor_list')
+
+class CustomLoginView(LoginView):
+    template_name = 'core/login.html'
+    redirect_authenticated_user = True
+    success_url = reverse_lazy('home')

@@ -1,8 +1,11 @@
 from django.urls import path
 from . import views
+from django.contrib.auth.views import LogoutView
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('login/', views.CustomLoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(next_page='login'), name='logout'),
     path('servidores/', views.servidor_list, name='servidor_list'),
     path('servidores/novo/', views.servidor_create, name='servidor_create'),
     path('servidores/<int:pk>/editar/', views.servidor_update, name='servidor_update'),

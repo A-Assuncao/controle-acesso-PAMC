@@ -130,16 +130,23 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 # Whitenoise for static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Security settings
+# Configuração de SSL/HTTPS
+SECURE_SSL_REDIRECT = False  # Nunca redireciona para HTTPS em desenvolvimento
+SECURE_PROXY_SSL_HEADER = None
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+
+# Configurações de segurança apenas para produção
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_BROWSER_XSS_FILTER = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -147,7 +154,9 @@ if not DEBUG:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Login/Logout URLs
-LOGIN_URL = '/admin/login/'
+LOGIN_URL = '/'  # Alterado para a página inicial
+LOGIN_REDIRECT_URL = '/'  # Página após o login
+LOGOUT_REDIRECT_URL = '/'  # Página após o logout
 
 # Configurações de Sessão
 SESSION_COOKIE_AGE = 3600  # 1 hora em segundos
