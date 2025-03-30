@@ -1,18 +1,13 @@
 {
     "version": 2,
-    "builds": [
-        {
-            "src": "controle_acesso/wsgi.py",
-            "use": "@vercel/python"
-        },
-        {
-            "src": "build_files.sh",
-            "use": "@vercel/static-build",
-            "config": {
-                "distDir": "staticfiles"
-            }
+    "builds": [{
+        "src": "controle_acesso/wsgi.py",
+        "use": "@vercel/python",
+        "config": {
+            "maxLambdaSize": "15mb",
+            "runtime": "python3.9"
         }
-    ],
+    }],
     "routes": [
         {
             "src": "/static/(.*)",
@@ -24,6 +19,7 @@
         }
     ],
     "env": {
-        "DJANGO_SETTINGS_MODULE": "controle_acesso.settings"
+        "DJANGO_SETTINGS_MODULE": "controle_acesso.settings",
+        "PYTHONPATH": "."
     }
 } 
