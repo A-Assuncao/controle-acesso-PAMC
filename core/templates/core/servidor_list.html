@@ -1,0 +1,141 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Servidores - Controle de Acesso{% endblock %}
+
+{% block content %}
+{% if messages %}
+<div class="mb-4">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Servidores</h5>
+        <div>
+            {% if user.is_staff %}
+            <button type="button" class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#limparBancoModal">
+                <i class="bi bi-trash"></i> Limpar Banco
+            </button>
+            <a href="{% url 'importar_servidores' %}" class="btn btn-outline-success">
+                <i class="bi bi-upload"></i> Importar
+            </a>
+            {% endif %}
+            <a href="{% url 'servidor_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus"></i> Novo Servidor
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+            <table class="table table-hover">
+                <thead style="position: sticky; top: 0; background-color: white; z-index: 1;">
+                    <tr>
+                        <th>Nome</th>
+                        <th>Documento</th>
+                        <th>Setor</th>
+                        <th>Veículo</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for servidor in servidores %}
+                    <tr>
+                        <td>{{ servidor.nome }}</td>
+                        <td>{{ servidor.numero_documento }}</td>
+                        <td>{{ servidor.setor|default:'-' }}</td>
+                        <td>{{ servidor.veiculo|default:'-' }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{% url 'servidor_update' servidor.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% if user.is_staff %}
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#excluirServidorModal{{ servidor.id }}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Modal Excluir Servidor -->
+                            <div class="modal fade" id="excluirServidorModal{{ servidor.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title text-danger">⚠️ Excluir Servidor</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="alert alert-danger">
+                                                <h6 class="alert-heading">ATENÇÃO!</h6>
+                                                <p>Você está prestes a excluir o servidor:</p>
+                                                <p><strong>{{ servidor.nome }}</strong></p>
+                                                <p>Esta ação é <strong>IRREVERSÍVEL</strong>!</p>
+                                            </div>
+                                            <form id="excluirServidorForm{{ servidor.id }}" 
+                                                  method="post" 
+                                                  action="{% url 'servidor_delete' servidor.id %}">
+                                                {% csrf_token %}
+                                            </form>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                            <button type="submit" form="excluirServidorForm{{ servidor.id }}" class="btn btn-danger">
+                                                <i class="bi bi-trash"></i> Confirmar Exclusão
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">Nenhum servidor encontrado</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Limpar Banco -->
+<div class="modal fade" id="limparBancoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger">⚠️ Limpar Banco de Dados</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <h6 class="alert-heading">ATENÇÃO!</h6>
+                    <p>Esta ação irá excluir <strong>TODOS</strong> os servidores do banco de dados.</p>
+                    <p>Esta ação é <strong>IRREVERSÍVEL</strong>!</p>
+                </div>
+                <form id="limparBancoForm" method="post" action="{% url 'limpar_banco_servidores' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="senha" class="form-label">Digite sua senha para confirmar:</label>
+                        <input type="password" class="form-control" id="senha" name="senha" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="limparBancoForm" class="btn btn-danger">
+                    <i class="bi bi-trash"></i> Confirmar Exclusão
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

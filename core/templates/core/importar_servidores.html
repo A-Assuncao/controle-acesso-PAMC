@@ -1,0 +1,46 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Importar Servidores - Controle de Acesso{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Importar Servidores</h2>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Instruções</h5>
+            <p>Para importar servidores, siga os passos abaixo:</p>
+            <ol>
+                <li>Faça o download do arquivo modelo clicando <a href="{% url 'download_modelo_importacao' %}" class="text-primary">aqui</a></li>
+                <li>Preencha o arquivo com os dados dos servidores nas colunas:</li>
+                <ul>
+                    <li><strong>NOME</strong> - Nome completo do servidor</li>
+                    <li><strong>DOCUMENTO</strong> - Número do documento (RG, CPF ou CNH)</li>
+                    <li><strong>VEÍCULO</strong> - Placa do veículo (se houver)</li>
+                    <li><strong>SETOR</strong> - Setor do servidor</li>
+                </ul>
+                <li>Salve o arquivo e faça o upload abaixo</li>
+            </ol>
+            
+            <form method="post" enctype="multipart/form-data" class="mt-4">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="arquivo">Selecione o arquivo Excel:</label>
+                    <input type="file" class="form-control-file" id="arquivo" name="arquivo" accept=".xlsx" required>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Importar</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

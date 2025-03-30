@@ -1,0 +1,145 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Histórico - Controle de Acesso{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Data Início</label>
+                <input type="date" name="data_inicio" class="form-control" value="{{ filtros.data_inicio }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Data Fim</label>
+                <input type="date" name="data_fim" class="form-control" value="{{ filtros.data_fim }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Servidor</label>
+                <input type="text" name="servidor" class="form-control" value="{{ filtros.servidor }}" placeholder="Nome ou documento">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Plantão</label>
+                <select name="plantao" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="ALFA" {% if filtros.plantao == 'ALFA' %}selected{% endif %}>ALFA</option>
+                    <option value="BRAVO" {% if filtros.plantao == 'BRAVO' %}selected{% endif %}>BRAVO</option>
+                    <option value="CHARLIE" {% if filtros.plantao == 'CHARLIE' %}selected{% endif %}>CHARLIE</option>
+                    <option value="DELTA" {% if filtros.plantao == 'DELTA' %}selected{% endif %}>DELTA</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+                <a href="{% url 'historico' %}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Limpar
+                </a>
+                <button type="button" class="btn btn-success" onclick="exportarExcel()">
+                    <i class="bi bi-file-excel"></i> Exportar Excel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Histórico de Registros</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ORD</th>
+                        <th>Plantão</th>
+                        <th>Data</th>
+                        <th>Operador</th>
+                        <th>Servidor</th>
+                        <th>Documento</th>
+                        <th>Setor</th>
+                        <th>Veículo</th>
+                        <th>ISV</th>
+                        <th>Entrada</th>
+                        <th>Saída</th>
+                        <th>Alterado</th>
+                        <th>Justificativa</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for registro in registros %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ registro.plantao }}</td>
+                        <td>{{ registro.data_hora|date:"d/m/Y" }}</td>
+                        <td>{{ registro.operador.get_full_name|default:registro.operador.username }}</td>
+                        <td>{{ registro.servidor.nome }}</td>
+                        <td>{{ registro.servidor.tipo_documento }} {{ registro.servidor.numero_documento }}</td>
+                        <td>{{ registro.servidor.setor|default:'-' }}</td>
+                        <td>{{ registro.veiculo|default:'-' }}</td>
+                        <td>
+                            <span class="badge {% if registro.isv %}bg-success{% else %}bg-secondary{% endif %}">
+                                {% if registro.isv %}Sim{% else %}Não{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {% if registro.tipo_acesso == 'ENTRADA' %}
+                            <span class="badge bg-success">{{ registro.data_hora|date:"H:i" }}</span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if registro.tipo_acesso == 'SAIDA' %}
+                            <span class="badge bg-danger">{{ registro.data_hora|date:"H:i" }}</span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if registro.data_hora_manual %}
+                            <span class="badge bg-warning" title="Registro alterado em {{ registro.data_hora_manual|date:'d/m/Y H:i' }}">
+                                <i class="bi bi-pencil"></i>
+                            </span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ registro.justificativa|default:'-' }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="13" class="text-center">Nenhum registro encontrado</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exportarExcel() {
+    // Pega os valores dos filtros
+    const dataInicio = document.querySelector('input[name="data_inicio"]').value;
+    const dataFim = document.querySelector('input[name="data_fim"]').value;
+    const servidor = document.querySelector('input[name="servidor"]').value;
+    const plantao = document.querySelector('select[name="plantao"]').value;
+    
+    // Constrói a URL com os parâmetros
+    const params = new URLSearchParams({
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        servidor: servidor,
+        plantao: plantao,
+        format: 'excel'
+    });
+    
+    // Redireciona para a URL de download
+    window.location.href = `{% url 'historico' %}?${params.toString()}`;
+}
+</script>
+{% endblock %} 

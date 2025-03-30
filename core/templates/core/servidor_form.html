@@ -1,0 +1,69 @@
+{% extends 'core/base.html' %}
+
+{% block title %}{{ servidor.id|yesno:'Editar,Novo' }} Servidor - Controle de Acesso{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">{{ servidor.id|yesno:'Editar,Novo' }} Servidor</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            
+            <div class="row">
+                <div class="col-md-8 mb-3">
+                    <label class="form-label">Nome*</label>
+                    {{ form.nome }}
+                    {% if form.nome.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.nome.errors.0 }}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Número do Documento*</label>
+                    {{ form.numero_documento }}
+                    {% if form.numero_documento.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.numero_documento.errors.0 }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Setor</label>
+                    {{ form.setor }}
+                    {% if form.setor.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.setor.errors.0 }}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Veículo</label>
+                    {{ form.veiculo }}
+                    {% if form.veiculo.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ form.veiculo.errors.0 }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Salvar
+                </button>
+                <a href="{% url 'servidor_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 

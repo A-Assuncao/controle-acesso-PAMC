@@ -1,0 +1,17 @@
+{
+    "builds": [
+        {
+            "src": "controle_acesso/wsgi.py",
+            "use": "@vercel/python"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "controle_acesso/wsgi.py"
+        }
+    ],
+    "env": {
+        "DJANGO_SETTINGS_MODULE": "controle_acesso.settings"
+    }
+} 

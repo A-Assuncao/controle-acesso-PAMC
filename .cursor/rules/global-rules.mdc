@@ -1,0 +1,62 @@
+---
+description: Regras globais de programação Python
+globs: 
+alwaysApply: true
+---
+
+# Your rule content
+
+- You can @ files here
+- You can use markdown but dont have to
+
+Use a biblioteca uv (https://docs.astral.sh/uv/) para gerenciar o projeto, versões do python, virtual env, buid, etc
+
+Esteja de acordo com as PEP's do Python
+
+Sempre que executar um comando python se certifique que está usando o ambiente virtual do projeto. Se não estiver usando, ative o ambiente virtual. Se não existir ambiente virtual, crie e o ative.
+
+Todo o código deve ser escrito de uma forma que um iniciante consiga entender e um expert consiga ler.
+
+Arquitetura e Organização de Código
+
+Estruturar o projeto em camadas claras (por exemplo, MVC ou Hexagonal, ou outra qualquer) para separar responsabilidades e facilitar escalabilidade.
+
+Isolar o domínio (regras de negócio) de detalhes de infraestrutura ou apresentação.
+
+Princípios de Código Limpo
+
+Aplicar princípios SOLID (SRP, OCP, LSP, ISP, DIP) para garantir classes e módulos coesos.
+Seguir o DRY (Don’t Repeat Yourself), evitando duplicação de lógica.
+Manter o código em conformidade com a PEP 8 e respeitar o Zen of Python (PEP 20).
+Modularização e Reutilização
+
+Criar módulos coesos, refletindo funcionalidades ou contextos de domínio.
+Reaproveitar bibliotecas internas em múltiplos projetos, quando pertinente.
+Ferramentas e Ambientes
+
+Utilizar gerenciadores de dependências (Poetry, Pipenv) para controle de versões.
+Automatizar formatação (Black) e linting (Flake8, Ruff) para padronizar o código.
+Empregar Mypy para verificação estática de tipos.
+Concorrência e Desempenho
+
+Escolher asyncio para tarefas I/O-bound, threading para necessidades específicas de compatibilidade e multiprocessing para tarefas CPU-bound.
+Otimizar e mensurar performance conforme o tipo de workload.
+
+Testes e Qualidade de Código
+
+Adotar TDD ou BDD conforme o perfil do projeto, priorizando clareza e manutenibilidade.
+Empregar pytest como framework de testes principal e Hypothesis em casos que exijam testes baseados em propriedades.
+Incluir testes automatizados no pipeline de CI/CD.
+Segurança em Aplicações Python
+
+Prevenir SQL Injection, XSS e CSRF por meio de parametrização de queries, escaping de dados e tokens de proteção.
+Centralizar o armazenamento de credenciais usando variáveis de ambiente ou gerenciadores de segredos (ex.: Vault).
+Tipagem e Documentação
+
+Usar Type Hints para ampliar clareza e segurança do código, validando com Mypy.
+Documentar via docstrings (reST ou Google-style) e gerar documentação com Sphinx.
+Referências e Recursos
+
+Consultar PEP 8 e PEP 20 para convenções de estilo e filosofia Python.
+Estudar princípios de DDD (Domain-Driven Design) e padrões de arquitetura (Arquitetura Hexagonal).
+Revisar periodicamente bibliotecas e frameworks (Django, Flask, FastAPI) para atualização de boas práticas.

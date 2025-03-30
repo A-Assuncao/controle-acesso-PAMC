@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">{% if form.instance.pk %}Editar{% else %}Nova{% endif %} Pessoa</h1>
+                <a href="{% url 'pessoa_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i> Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário -->
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                {{ form.nome|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.tipo_documento|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                {{ form.numero_documento|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                {{ form.placa_veiculo|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i> Salvar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+{% block extra_js %}
+<script>
+    // Validação do formulário
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
+
+    // Máscara para o número do documento
+    document.addEventListener('DOMContentLoaded', function() {
+        var numeroDocumento = document.getElementById('id_numero_documento');
+        var tipoDocumento = document.getElementById('id_tipo_documento');
+
+        function aplicarMascara() {
+            var tipo = tipoDocumento.value;
+            var numero = numeroDocumento.value.replace(/\D/g, '');
+
+            if (tipo === 'CPF') {
+                numero = numero.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+            } else if (tipo === 'RG') {
+                numero = numero.replace(/(\d{2})(\d{3})(\d{3})(\d{1})/, '$1.$2.$3-$4');
+            }
+
+            numeroDocumento.value = numero;
+        }
+
+        tipoDocumento.addEventListener('change', aplicarMascara);
+        numeroDocumento.addEventListener('input', aplicarMascara);
+    });
+</script>
+{% endblock %}
+{% endblock %} 

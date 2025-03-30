@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">Pessoas Cadastradas</h1>
+                <div>
+                    <a href="{% url 'pessoa_create' %}" class="btn btn-primary me-2">
+                        <i class="fas fa-plus me-2"></i> Nova Pessoa
+                    </a>
+                    <a href="{% url 'home' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i> Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtro -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <form method="get" class="d-flex">
+                <input type="text" name="q" class="form-control me-2" placeholder="Buscar por nome ou documento..." value="{{ query }}">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de Pessoas -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Documento</th>
+                                    <th>Veículo</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pessoa in pessoas %}
+                                <tr class="pessoa-row" data-pessoa-id="{{ pessoa.id }}" data-pessoa-nome="{{ pessoa.nome }}" data-pessoa-documento="{{ pessoa.tipo_documento }}: {{ pessoa.numero_documento }}" data-pessoa-veiculo="{{ pessoa.placa_veiculo }}">
+                                    <td>{{ pessoa.nome }}</td>
+                                    <td>{{ pessoa.tipo_documento }}: {{ pessoa.numero_documento }}</td>
+                                    <td>{{ pessoa.placa_veiculo|default:"-" }}</td>
+                                    <td>
+                                        <a href="{% url 'pessoa_update' pessoa.id %}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center">Nenhuma pessoa encontrada</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginação -->
+                    {% if pessoas.has_other_pages %}
+                    <nav aria-label="Navegação de páginas" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if pessoas.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ pessoas.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">Anterior</a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in pessoas.paginator.page_range %}
+                                {% if pessoas.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                                {% else %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}">{{ num }}</a>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if pessoas.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ pessoas.next_page_number }}{% if query %}&q={{ query }}{% endif %}">Próxima</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Registro de Acesso -->
+<div class="modal fade" id="registroAcessoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Acesso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="registroAcessoForm" method="post" action="{% url 'registro_acesso_create' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="pessoa" id="modal_pessoa_id">
+                    <div class="mb-3">
+                        <label class="form-label">Pessoa</label>
+                        <input type="text" class="form-control" id="modal_pessoa_nome" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Documento</label>
+                        <input type="text" class="form-control" id="modal_pessoa_documento" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Veículo</label>
+                        <input type="text" class="form-control" id="modal_pessoa_veiculo" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Acesso</label>
+                        <select name="tipo_acesso" class="form-control" required>
+                            <option value="">Selecione...</option>
+                            <option value="ENTRADA">Entrada</option>
+                            <option value="SAIDA">Saída</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observação</label>
+                        <textarea name="observacao" class="form-control" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="registroAcessoForm" class="btn btn-primary">Registrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const registroModal = new bootstrap.Modal(document.getElementById('registroAcessoModal'));
+    
+    // Adiciona evento de duplo clique nas linhas da tabela
+    document.querySelectorAll('.pessoa-row').forEach(row => {
+        row.addEventListener('dblclick', function() {
+            const pessoaId = this.dataset.pessoaId;
+            const pessoaNome = this.dataset.pessoaNome;
+            const pessoaDocumento = this.dataset.pessoaDocumento;
+            const pessoaVeiculo = this.dataset.pessoaVeiculo;
+
+            document.getElementById('modal_pessoa_id').value = pessoaId;
+            document.getElementById('modal_pessoa_nome').value = pessoaNome;
+            document.getElementById('modal_pessoa_documento').value = pessoaDocumento;
+            document.getElementById('modal_pessoa_veiculo').value = pessoaVeiculo;
+
+            registroModal.show();
+        });
+    });
+});
+</script>
+{% endblock %} 

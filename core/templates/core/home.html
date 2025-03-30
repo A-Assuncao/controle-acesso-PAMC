@@ -1,0 +1,542 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Dashboard - Controle de Acesso{% endblock %}
+
+{% block content %}
+<!-- Cards de resumo -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h5 class="card-title">Plantão Atual</h5>
+                <h2 class="card-text">{{ plantao_atual.nome }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">Entradas</h5>
+                <h2 class="card-text">{{ total_entradas }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h5 class="card-title">Saídas</h5>
+                <h2 class="card-text">{{ total_saidas }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <h5 class="card-title">Saídas Pendentes</h5>
+                <h2 class="card-text">{{ total_pendentes }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Busca e Registro -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Buscar Servidor</h5>
+                <div class="input-group">
+                    <input type="text" id="busca-servidor" class="form-control" 
+                           placeholder="Digite o nome ou documento do servidor"
+                           autocomplete="off"
+                           oninput="buscarServidor(this.value)">
+                    <button class="btn btn-primary" type="button" onclick="buscarServidor(document.getElementById('busca-servidor').value)">
+                        <i class="bi bi-search"></i> Buscar
+                    </button>
+                </div>
+                <div id="resultados-busca" class="list-group mt-2 shadow-sm" style="display: none; position: absolute; z-index: 1000; width: 95%;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Registrar Acesso</h5>
+                <button type="button" class="btn btn-success w-100 mb-2" onclick="abrirModalRegistro()">
+                    <i class="bi bi-box-arrow-in-right"></i> Registrar Acesso
+                </button>
+                <button type="button" class="btn btn-outline-dark w-100" onclick="abrirModalSaidaDefinitiva()">
+                    <i class="bi bi-box-arrow-right"></i> Saída definitiva de interno
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabela de registros -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Registros</h5>
+        <div>
+            <button class="btn btn-sm btn-success me-2" onclick="exportarExcel()">
+                <i class="bi bi-file-excel"></i> Exportar Excel
+            </button>
+            <button class="btn btn-sm btn-outline-secondary me-2" onclick="atualizarRegistros()">
+                <i class="bi bi-arrow-clockwise"></i> Atualizar
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="confirmarLimparPlanilha()">
+                <i class="bi bi-trash"></i> Limpar Planilha
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ORD</th>
+                        <th>Plantão</th>
+                        <th>Data</th>
+                        <th>Operador</th>
+                        <th>Servidor</th>
+                        <th>Documento</th>
+                        <th>Setor</th>
+                        <th>Veículo</th>
+                        <th>ISV</th>
+                        <th>Entrada</th>
+                        <th>Saída</th>
+                    </tr>
+                </thead>
+                <tbody id="registros-tbody">
+                    {% for registro in registros %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ plantao_atual.nome }}</td>
+                        <td>{{ registro.data_hora|date:"d/m/Y" }}</td>
+                        <td>{{ registro.operador.get_full_name|default:registro.operador.username }}</td>
+                        <td>{{ registro.servidor.nome }}</td>
+                        <td>{{ registro.servidor.tipo_documento }} {{ registro.servidor.numero_documento }}</td>
+                        <td>{{ registro.servidor.setor|default:'-' }}</td>
+                        <td>{{ registro.veiculo|default:'-' }}</td>
+                        <td>
+                            <span class="badge {% if registro.isv %}bg-success{% else %}bg-secondary{% endif %}">
+                                {% if registro.isv %}Sim{% else %}Não{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {% if registro.tipo_acesso == 'ENTRADA' %}
+                            <span class="badge bg-success">{{ registro.data_hora|date:"H:i" }}</span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if registro.tipo_acesso == 'SAIDA' %}
+                            <span class="badge bg-danger">{{ registro.data_hora|date:"H:i" }}</span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="11" class="text-center">Nenhum registro encontrado</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Registro -->
+<div class="modal fade" id="registroModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Acesso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="registroForm" method="post" action="{% url 'registro_acesso_create' %}">
+                    {% csrf_token %}
+                    
+                    <input type="hidden" name="servidor" id="servidor_id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Servidor*</label>
+                        <input type="text" id="servidor_nome" class="form-control" required readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Data/Hora*</label>
+                        <input type="datetime-local" name="data_hora" class="form-control" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Acesso*</label>
+                        <select name="tipo_acesso" class="form-select" required>
+                            <option value="ENTRADA">Entrada</option>
+                            <option value="SAIDA">Saída</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Observação</label>
+                        <textarea name="observacao" class="form-control" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" name="isv" class="form-check-input" id="isv">
+                            <label class="form-check-label" for="isv">
+                                Inspeção de Segurança Veicular (ISV)
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="registroForm" class="btn btn-primary">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Exclusão -->
+<div class="modal fade" id="excluirModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Excluir Registro</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir este registro?</p>
+                <form id="excluirForm">
+                    <div class="mb-3">
+                        <label class="form-label">Justificativa*</label>
+                        <textarea name="justificativa" class="form-control" rows="2" required></textarea>
+                        <div class="invalid-feedback">
+                            Por favor, informe a justificativa da exclusão.
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="confirmarExclusao()">Excluir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Limpeza -->
+<div class="modal fade" id="limparPlanilhaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Limpar Planilha</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <strong>Atenção!</strong> Esta ação é irreversível e irá excluir todos os registros do plantão atual.
+                </div>
+                <p>Tem certeza que deseja continuar?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="limparPlanilha()">
+                    <i class="bi bi-trash"></i> Limpar Planilha
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Saída Definitiva -->
+<div class="modal fade" id="saidaDefinitivaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Saída definitiva de interno</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formSaidaDefinitiva">
+                    <div class="mb-3">
+                        <label class="form-label">Nome*</label>
+                        <input type="text" class="form-control" id="nomePreso" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Documento*</label>
+                        <select class="form-select" id="tipoDocumentoPreso" required>
+                            <option value="">Selecione...</option>
+                            <option value="RG">RG</option>
+                            <option value="CPF">CPF</option>
+                            <option value="CNH">CNH</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Número do Documento*</label>
+                        <input type="text" class="form-control" id="numeroDocumentoPreso" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Justificativa*</label>
+                        <textarea class="form-control" id="justificativaSaida" rows="3" required></textarea>
+                        <div class="form-text">A justificativa será registrada no campo Setor.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="registrarSaidaDefinitiva()">
+                    <i class="bi bi-box-arrow-right"></i> Registrar Saída
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let registroParaExcluir = null;
+let timeoutBusca = null;
+const registroModal = new bootstrap.Modal(document.getElementById('registroModal'));
+const excluirModal = new bootstrap.Modal(document.getElementById('excluirModal'));
+const limparPlanilhaModal = new bootstrap.Modal(document.getElementById('limparPlanilhaModal'));
+const saidaDefinitivaModal = new bootstrap.Modal(document.getElementById('saidaDefinitivaModal'));
+
+function buscarServidor(query) {
+    clearTimeout(timeoutBusca);
+    const resultados = document.getElementById('resultados-busca');
+    
+    if (query.length < 3) {
+        resultados.style.display = 'none';
+        return;
+    }
+    
+    // Aguarda 300ms após o último caractere digitado para fazer a busca
+    timeoutBusca = setTimeout(() => {
+        fetch(`/buscar-servidor/?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                resultados.innerHTML = '';
+                data.forEach(servidor => {
+                    const item = document.createElement('a');
+                    item.href = '#';
+                    item.className = 'list-group-item list-group-item-action';
+                    item.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${servidor.nome}</strong><br>
+                                <small>${servidor.tipo_documento} ${servidor.numero_documento}</small>
+                            </div>
+                            <button class="btn btn-sm btn-success" onclick="selecionarServidor(event, ${servidor.id}, '${servidor.nome}')">
+                                Selecionar
+                            </button>
+                        </div>
+                    `;
+                    resultados.appendChild(item);
+                });
+                resultados.style.display = data.length ? 'block' : 'none';
+            });
+    }, 300);
+}
+
+// Fecha o autocomplete quando clicar fora
+document.addEventListener('click', function(e) {
+    const resultados = document.getElementById('resultados-busca');
+    const busca = document.getElementById('busca-servidor');
+    if (!resultados.contains(e.target) && !busca.contains(e.target)) {
+        resultados.style.display = 'none';
+    }
+});
+
+function selecionarServidor(event, id, nome) {
+    event.preventDefault();
+    document.getElementById('servidor_id').value = id;
+    document.getElementById('servidor_nome').value = nome;
+    document.getElementById('resultados-busca').style.display = 'none';
+    document.getElementById('busca-servidor').value = nome;
+    registroModal.show();
+}
+
+function abrirModalRegistro() {
+    const servidorId = document.getElementById('servidor_id').value;
+    if (!servidorId) {
+        alert('Por favor, selecione um servidor primeiro.');
+        document.getElementById('busca-servidor').focus();
+        return;
+    }
+    
+    // Preenche a data/hora atual
+    const agora = new Date();
+    const dataHora = agora.toISOString().slice(0, 16);
+    document.querySelector('input[name="data_hora"]').value = dataHora;
+    
+    // Abre o modal
+    registroModal.show();
+}
+
+function novoRegistro(tipo) {
+    document.querySelector('select[name="tipo_acesso"]').value = tipo;
+    const agora = new Date();
+    const dataHora = agora.toISOString().slice(0, 16);
+    document.querySelector('input[name="data_hora"]').value = dataHora;
+}
+
+function atualizarRegistros() {
+    fetch('/registros-plantao/')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('registros-tbody');
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center">Nenhum registro encontrado</td></tr>';
+                return;
+            }
+            
+            data.forEach((registro, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${registro.plantao}</td>
+                    <td>${registro.data}</td>
+                    <td>${registro.operador}</td>
+                    <td>${registro.servidor_nome}</td>
+                    <td>${registro.servidor_documento}</td>
+                    <td>${registro.setor || '-'}</td>
+                    <td>${registro.veiculo || '-'}</td>
+                    <td>
+                        <span class="badge ${registro.isv ? 'bg-success' : 'bg-secondary'}">
+                            ${registro.isv ? 'Sim' : 'Não'}
+                        </span>
+                    </td>
+                    <td>
+                        ${registro.tipo_acesso === 'ENTRADA' ? 
+                          `<span class="badge bg-success">${registro.hora}</span>` : 
+                          '-'}
+                    </td>
+                    <td>
+                        ${registro.tipo_acesso === 'SAIDA' ? 
+                          `<span class="badge bg-danger">${registro.hora}</span>` : 
+                          '-'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+}
+
+function excluirRegistro(id) {
+    registroParaExcluir = id;
+    excluirModal.show();
+}
+
+function confirmarExclusao() {
+    const form = document.getElementById('excluirForm');
+    const justificativa = form.querySelector('textarea[name="justificativa"]').value;
+    
+    if (!justificativa) {
+        form.classList.add('was-validated');
+        return;
+    }
+    
+    fetch(`/registro/${registroParaExcluir}/excluir/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({ justificativa: justificativa })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            excluirModal.hide();
+            atualizarRegistros();
+        } else {
+            alert(data.message || 'Erro ao excluir registro');
+        }
+    });
+}
+
+function exportarExcel() {
+    window.location.href = '/encerrar-plantao/';
+}
+
+function confirmarLimparPlanilha() {
+    limparPlanilhaModal.show();
+}
+
+function limparPlanilha() {
+    fetch('/limpar-plantao/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            limparPlanilhaModal.hide();
+            atualizarRegistros();
+            alert('Planilha limpa com sucesso!');
+        } else {
+            alert(data.message || 'Erro ao limpar planilha');
+        }
+    });
+}
+
+function abrirModalSaidaDefinitiva() {
+    saidaDefinitivaModal.show();
+}
+
+function registrarSaidaDefinitiva() {
+    const nome = document.getElementById('nomePreso').value;
+    const tipoDocumento = document.getElementById('tipoDocumentoPreso').value;
+    const numeroDocumento = document.getElementById('numeroDocumentoPreso').value;
+    const justificativa = document.getElementById('justificativaSaida').value;
+    
+    if (!nome || !tipoDocumento || !numeroDocumento || !justificativa) {
+        alert('Por favor, preencha todos os campos obrigatórios.');
+        return;
+    }
+    
+    fetch('/registro/saida-definitiva/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            nome: nome,
+            tipo_documento: tipoDocumento,
+            numero_documento: numeroDocumento,
+            justificativa: justificativa
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            saidaDefinitivaModal.hide();
+            document.getElementById('formSaidaDefinitiva').reset();
+            atualizarRegistros();
+            alert('Saída definitiva registrada com sucesso!');
+        } else {
+            alert(data.message || 'Erro ao registrar saída definitiva');
+        }
+    });
+}
+
+// Atualiza os registros a cada 30 segundos
+setInterval(atualizarRegistros, 30000);
+</script>
+{% endblock %} 

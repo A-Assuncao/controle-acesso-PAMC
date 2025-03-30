@@ -1,0 +1,93 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Editar Registro - Controle de Acesso{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Editar Registro</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Servidor</label>
+                        <input type="text" class="form-control" value="{{ registro.servidor.nome }}" disabled>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Data/Hora*</label>
+                        <input type="datetime-local" name="data_hora" class="form-control" value="{{ registro.data_hora|date:'Y-m-d\TH:i' }}" required>
+                        <div class="invalid-feedback">
+                            Por favor, informe a data e hora.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Acesso*</label>
+                        <select name="tipo_acesso" class="form-select" required>
+                            <option value="ENTRADA" {% if registro.tipo_acesso == 'ENTRADA' %}selected{% endif %}>Entrada</option>
+                            <option value="SAIDA" {% if registro.tipo_acesso == 'SAIDA' %}selected{% endif %}>Saída</option>
+                        </select>
+                        <div class="invalid-feedback">
+                            Por favor, selecione o tipo de acesso.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Observação</label>
+                        <textarea name="observacao" class="form-control" rows="2">{{ registro.observacao }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Justificativa da Edição*</label>
+                        <textarea name="justificativa" class="form-control" rows="2" required></textarea>
+                        <div class="invalid-feedback">
+                            Por favor, informe a justificativa da edição.
+                        </div>
+                        <div class="form-text">
+                            Explique o motivo da edição deste registro.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input type="checkbox" name="isv" class="form-check-input" id="isv" {% if registro.isv %}checked{% endif %}>
+                            <label class="form-check-label" for="isv">
+                                Inspeção de Segurança Veicular (ISV)
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'home' %}" class="btn btn-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+// Validação do formulário
+(function () {
+    'use strict'
+    var forms = document.querySelectorAll('.needs-validation')
+    Array.prototype.slice.call(forms).forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })
+})()
+</script>
+{% endblock %}
+{% endblock %} 
