@@ -3,121 +3,163 @@
 {% block title %}Histórico - Controle de Acesso{% endblock %}
 
 {% block content %}
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label">Data Início</label>
-                <input type="date" name="data_inicio" class="form-control" value="{{ filtros.data_inicio }}">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Data Fim</label>
-                <input type="date" name="data_fim" class="form-control" value="{{ filtros.data_fim }}">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Servidor</label>
-                <input type="text" name="servidor" class="form-control" value="{{ filtros.servidor }}" placeholder="Nome ou documento">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Plantão</label>
-                <select name="plantao" class="form-select">
-                    <option value="">Todos</option>
-                    <option value="ALFA" {% if filtros.plantao == 'ALFA' %}selected{% endif %}>ALFA</option>
-                    <option value="BRAVO" {% if filtros.plantao == 'BRAVO' %}selected{% endif %}>BRAVO</option>
-                    <option value="CHARLIE" {% if filtros.plantao == 'CHARLIE' %}selected{% endif %}>CHARLIE</option>
-                    <option value="DELTA" {% if filtros.plantao == 'DELTA' %}selected{% endif %}>DELTA</option>
-                </select>
-            </div>
-            <div class="col-12">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-search"></i> Filtrar
-                </button>
-                <a href="{% url 'historico' %}" class="btn btn-secondary">
-                    <i class="bi bi-x-circle"></i> Limpar
-                </a>
-                <button type="button" class="btn btn-success" onclick="exportarExcel()">
-                    <i class="bi bi-file-excel"></i> Exportar Excel
-                </button>
-            </div>
-        </form>
+<div class="container-fluid mt-4">
+    <h2>Histórico</h2>
+    
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="data_inicio" class="form-label">Data Início</label>
+                    <input type="date" class="form-control" id="data_inicio" name="data_inicio" value="{{ data_inicio }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="data_fim" class="form-label">Data Fim</label>
+                    <input type="date" class="form-control" id="data_fim" name="data_fim" value="{{ data_fim }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="plantao" class="form-label">Plantão</label>
+                    <select class="form-select" id="plantao" name="plantao">
+                        <option value="">Todos</option>
+                        <option value="A" {% if plantao == 'A' %}selected{% endif %}>A</option>
+                        <option value="B" {% if plantao == 'B' %}selected{% endif %}>B</option>
+                        <option value="C" {% if plantao == 'C' %}selected{% endif %}>C</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="servidor" class="form-label">Servidor</label>
+                    <input type="text" class="form-control" id="servidor" name="servidor" value="{{ servidor }}" placeholder="Nome do servidor">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Filtrar
+                    </button>
+                    <a href="{% url 'historico' %}" class="btn btn-secondary">
+                        <i class="bi bi-x-circle"></i> Limpar
+                    </a>
+                    <button type="submit" class="btn btn-success" name="format" value="excel">
+                        <i class="bi bi-file-excel"></i> Exportar Excel
+                    </button>
+                    {% if user.is_superuser %}
+                    <button type="button" class="btn btn-danger" onclick="confirmarLimparHistorico()">
+                        <i class="bi bi-trash"></i> Limpar Histórico
+                    </button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabela de Registros -->
+    <div class="table-responsive">
+        <table class="table table-striped table-hover table-sm">
+            <thead>
+                <tr>
+                    <th>Plantão</th>
+                    <th>Data</th>
+                    <th>Operador</th>
+                    <th>Servidor</th>
+                    <th>Documento</th>
+                    <th>Setor</th>
+                    <th>Veículo</th>
+                    <th>ISV</th>
+                    <th>Entrada</th>
+                    <th>OBS Entrada</th>
+                    <th>Saída</th>
+                    <th>OBS Saída</th>
+                    <th>Alteração</th>
+                    <th>Data/Hora</th>
+                    <th>Justificativa</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for registro in registros %}
+                <tr>
+                    <td>{{ registro.plantao }}</td>
+                    <td>{{ registro.data_hora|date:"d/m/Y" }}</td>
+                    <td>{{ registro.operador.get_full_name|default:registro.operador.username }}</td>
+                    <td>{{ registro.servidor.nome }}</td>
+                    <td>{{ registro.servidor.numero_documento }}</td>
+                    <td>{{ registro.servidor.setor|default:"-" }}</td>
+                    <td>{{ registro.veiculo|default:"-" }}</td>
+                    <td>
+                        <span class="badge {% if registro.isv %}bg-success{% else %}bg-secondary{% endif %}">
+                            {% if registro.isv %}Sim{% else %}Não{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        {% if registro.tipo_acesso == 'ENTRADA' %}
+                        <span class="badge bg-success">{{ registro.data_hora|date:"H:i" }}</span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>{{ registro.observacao|default:"-" }}</td>
+                    <td>
+                        {% if registro.data_hora_saida %}
+                        <span class="badge bg-danger">{{ registro.data_hora_saida|date:"H:i" }}</span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>{{ registro.observacao_saida|default:"-" }}</td>
+                    <td>
+                        <span class="badge {% if registro.status_alteracao == 'ORIGINAL' %}bg-primary{% elif registro.status_alteracao == 'EDITADO' %}bg-warning{% else %}bg-danger{% endif %}">
+                            {{ registro.status_alteracao|default:"Original" }}
+                        </span>
+                    </td>
+                    <td>{{ registro.data_hora_alteracao|date:"d/m/Y H:i"|default:"-" }}</td>
+                    <td>{{ registro.justificativa|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="15" class="text-center">Nenhum registro encontrado</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">Histórico de Registros</h5>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>ORD</th>
-                        <th>Plantão</th>
-                        <th>Data</th>
-                        <th>Operador</th>
-                        <th>Servidor</th>
-                        <th>Documento</th>
-                        <th>Setor</th>
-                        <th>Veículo</th>
-                        <th>ISV</th>
-                        <th>Entrada</th>
-                        <th>Saída</th>
-                        <th>Alterado</th>
-                        <th>Justificativa</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for registro in registros %}
-                    <tr>
-                        <td>{{ forloop.counter }}</td>
-                        <td>{{ registro.plantao }}</td>
-                        <td>{{ registro.data_hora|date:"d/m/Y" }}</td>
-                        <td>{{ registro.operador.get_full_name|default:registro.operador.username }}</td>
-                        <td>{{ registro.servidor.nome }}</td>
-                        <td>{{ registro.servidor.tipo_documento }} {{ registro.servidor.numero_documento }}</td>
-                        <td>{{ registro.servidor.setor|default:'-' }}</td>
-                        <td>{{ registro.veiculo|default:'-' }}</td>
-                        <td>
-                            <span class="badge {% if registro.isv %}bg-success{% else %}bg-secondary{% endif %}">
-                                {% if registro.isv %}Sim{% else %}Não{% endif %}
-                            </span>
-                        </td>
-                        <td>
-                            {% if registro.tipo_acesso == 'ENTRADA' %}
-                            <span class="badge bg-success">{{ registro.data_hora|date:"H:i" }}</span>
-                            {% else %}
-                            -
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if registro.tipo_acesso == 'SAIDA' %}
-                            <span class="badge bg-danger">{{ registro.data_hora|date:"H:i" }}</span>
-                            {% else %}
-                            -
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if registro.data_hora_manual %}
-                            <span class="badge bg-warning" title="Registro alterado em {{ registro.data_hora_manual|date:'d/m/Y H:i' }}">
-                                <i class="bi bi-pencil"></i>
-                            </span>
-                            {% else %}
-                            -
-                            {% endif %}
-                        </td>
-                        <td>{{ registro.justificativa|default:'-' }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="13" class="text-center">Nenhum registro encontrado</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<!-- Modal Limpar Histórico -->
+{% if user.is_superuser %}
+<div class="modal fade" id="modalLimparHistorico" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Limpar Histórico</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'limpar_historico' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>ATENÇÃO!</strong> Esta ação é irreversível!
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Data Início</label>
+                        <input type="date" name="data_inicio" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Data Fim</label>
+                        <input type="date" name="data_fim" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirme sua senha</label>
+                        <input type="password" name="senha" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Limpar Histórico</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -140,6 +182,11 @@ function exportarExcel() {
     
     // Redireciona para a URL de download
     window.location.href = `{% url 'historico' %}?${params.toString()}`;
+}
+
+function confirmarLimparHistorico() {
+    const modal = new bootstrap.Modal(document.getElementById('modalLimparHistorico'));
+    modal.show();
 }
 </script>
 {% endblock %} 

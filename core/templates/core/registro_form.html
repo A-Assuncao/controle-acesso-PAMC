@@ -19,11 +19,9 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">Data/Hora*</label>
-                        <input type="datetime-local" name="data_hora" class="form-control" value="{{ registro.data_hora|date:'Y-m-d\TH:i' }}" required>
-                        <div class="invalid-feedback">
-                            Por favor, informe a data e hora.
-                        </div>
+                        <label class="form-label">Data/Hora</label>
+                        <input type="hidden" name="data_hora" value="{{ registro.data_hora|date:'Y-m-d\TH:i' }}">
+                        <p class="form-control-plaintext">{{ registro.data_hora|date:'d/m/Y' }} às {{ registro.data_hora|date:'H:i' }}</p>
                     </div>
                     
                     <div class="mb-3">
@@ -57,7 +55,7 @@
                         <div class="form-check">
                             <input type="checkbox" name="isv" class="form-check-input" id="isv" {% if registro.isv %}checked{% endif %}>
                             <label class="form-check-label" for="isv">
-                                Inspeção de Segurança Veicular (ISV)
+                                Serviço Voluntário (ISV)
                             </label>
                         </div>
                     </div>

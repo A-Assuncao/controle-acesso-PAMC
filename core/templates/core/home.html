@@ -91,13 +91,10 @@
     </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-striped table-hover">
                 <thead>
                     <tr>
                         <th>ORD</th>
-                        <th>Plantão</th>
-                        <th>Data</th>
-                        <th>Operador</th>
                         <th>Servidor</th>
                         <th>Documento</th>
                         <th>Setor</th>
@@ -105,44 +102,11 @@
                         <th>ISV</th>
                         <th>Entrada</th>
                         <th>Saída</th>
+                        <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody id="registros-tbody">
-                    {% for registro in registros %}
-                    <tr>
-                        <td>{{ forloop.counter }}</td>
-                        <td>{{ plantao_atual.nome }}</td>
-                        <td>{{ registro.data_hora|date:"d/m/Y" }}</td>
-                        <td>{{ registro.operador.get_full_name|default:registro.operador.username }}</td>
-                        <td>{{ registro.servidor.nome }}</td>
-                        <td>{{ registro.servidor.tipo_documento }} {{ registro.servidor.numero_documento }}</td>
-                        <td>{{ registro.servidor.setor|default:'-' }}</td>
-                        <td>{{ registro.veiculo|default:'-' }}</td>
-                        <td>
-                            <span class="badge {% if registro.isv %}bg-success{% else %}bg-secondary{% endif %}">
-                                {% if registro.isv %}Sim{% else %}Não{% endif %}
-                            </span>
-                        </td>
-                        <td>
-                            {% if registro.tipo_acesso == 'ENTRADA' %}
-                            <span class="badge bg-success">{{ registro.data_hora|date:"H:i" }}</span>
-                            {% else %}
-                            -
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if registro.tipo_acesso == 'SAIDA' %}
-                            <span class="badge bg-danger">{{ registro.data_hora|date:"H:i" }}</span>
-                            {% else %}
-                            -
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="11" class="text-center">Nenhum registro encontrado</td>
-                    </tr>
-                    {% endfor %}
+                    <!-- Os registros serão inseridos aqui via JavaScript -->
                 </tbody>
             </table>
         </div>
@@ -162,6 +126,7 @@
                     {% csrf_token %}
                     
                     <input type="hidden" name="servidor" id="servidor_id">
+                    <input type="hidden" name="tipo_acesso" id="tipo_acesso" value="ENTRADA">
                     
                     <div class="mb-3">
                         <label class="form-label">Servidor*</label>
@@ -169,16 +134,15 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">Data/Hora*</label>
-                        <input type="datetime-local" name="data_hora" class="form-control" required>
-                    </div>
-                    
-                    <div class="mb-3">
                         <label class="form-label">Tipo de Acesso*</label>
-                        <select name="tipo_acesso" class="form-select" required>
-                            <option value="ENTRADA">Entrada</option>
-                            <option value="SAIDA">Saída</option>
-                        </select>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-success flex-grow-1" onclick="selecionarTipoAcesso('ENTRADA')">
+                                <i class="bi bi-box-arrow-in-right"></i> Entrada
+                            </button>
+                            <button type="button" class="btn btn-outline-danger flex-grow-1" onclick="selecionarTipoAcesso('SAIDA')">
+                                <i class="bi bi-box-arrow-right"></i> Saída
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -190,7 +154,7 @@
                         <div class="form-check">
                             <input type="checkbox" name="isv" class="form-check-input" id="isv">
                             <label class="form-check-label" for="isv">
-                                Inspeção de Segurança Veicular (ISV)
+                                É Serviço Voluntário (ISV)?
                             </label>
                         </div>
                     </div>
@@ -272,15 +236,6 @@
                         <input type="text" class="form-control" id="nomePreso" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Tipo de Documento*</label>
-                        <select class="form-select" id="tipoDocumentoPreso" required>
-                            <option value="">Selecione...</option>
-                            <option value="RG">RG</option>
-                            <option value="CPF">CPF</option>
-                            <option value="CNH">CNH</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
                         <label class="form-label">Número do Documento*</label>
                         <input type="text" class="form-control" id="numeroDocumentoPreso" required>
                     </div>
@@ -300,6 +255,52 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Edição Manual -->
+<div class="modal fade" id="editarModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Registro</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editarForm">
+                    <input type="hidden" id="registro_id">
+                    <div class="mb-3">
+                        <label class="form-label">Servidor</label>
+                        <input type="text" class="form-control" id="servidor_nome_edit" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Data*</label>
+                        <input type="date" class="form-control" id="data_edit" required>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label class="form-label">Hora de Entrada</label>
+                            <input type="time" class="form-control" id="hora_entrada_edit">
+                        </div>
+                        <div class="col">
+                            <label class="form-label">Hora de Saída</label>
+                            <input type="time" class="form-control" id="hora_saida_edit">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Justificativa*</label>
+                        <textarea class="form-control" id="justificativa_edit" rows="3" required></textarea>
+                        <div class="form-text">Por favor, explique o motivo da edição.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarEdicao()">
+                    <i class="bi bi-save"></i> Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -310,6 +311,7 @@ const registroModal = new bootstrap.Modal(document.getElementById('registroModal
 const excluirModal = new bootstrap.Modal(document.getElementById('excluirModal'));
 const limparPlanilhaModal = new bootstrap.Modal(document.getElementById('limparPlanilhaModal'));
 const saidaDefinitivaModal = new bootstrap.Modal(document.getElementById('saidaDefinitivaModal'));
+const editarModal = new bootstrap.Modal(document.getElementById('editarModal'));
 
 function buscarServidor(query) {
     clearTimeout(timeoutBusca);
@@ -330,13 +332,14 @@ function buscarServidor(query) {
                     const item = document.createElement('a');
                     item.href = '#';
                     item.className = 'list-group-item list-group-item-action';
+                    const nomeEscapado = servidor.nome.replace(/'/g, "\\'");
                     item.innerHTML = `
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <strong>${servidor.nome}</strong><br>
-                                <small>${servidor.tipo_documento} ${servidor.numero_documento}</small>
+                                <small>${servidor.numero_documento} (${servidor.setor || '-'})</small>
                             </div>
-                            <button class="btn btn-sm btn-success" onclick="selecionarServidor(event, ${servidor.id}, '${servidor.nome}')">
+                            <button class="btn btn-sm btn-success" onclick="selecionarServidor(event, ${servidor.id}, '${nomeEscapado}')">
                                 Selecionar
                             </button>
                         </div>
@@ -374,21 +377,60 @@ function abrirModalRegistro() {
         return;
     }
     
-    // Preenche a data/hora atual
-    const agora = new Date();
-    const dataHora = agora.toISOString().slice(0, 16);
-    document.querySelector('input[name="data_hora"]').value = dataHora;
-    
     // Abre o modal
     registroModal.show();
 }
 
-function novoRegistro(tipo) {
-    document.querySelector('select[name="tipo_acesso"]').value = tipo;
-    const agora = new Date();
-    const dataHora = agora.toISOString().slice(0, 16);
-    document.querySelector('input[name="data_hora"]').value = dataHora;
+function selecionarTipoAcesso(tipo) {
+    document.getElementById('tipo_acesso').value = tipo;
+    
+    // Atualiza visual dos botões
+    const btnEntrada = document.querySelector('button[onclick="selecionarTipoAcesso(\'ENTRADA\')"]');
+    const btnSaida = document.querySelector('button[onclick="selecionarTipoAcesso(\'SAIDA\')"]');
+    
+    if (tipo === 'ENTRADA') {
+        btnEntrada.classList.remove('btn-outline-success');
+        btnEntrada.classList.add('btn-success');
+        btnSaida.classList.remove('btn-danger');
+        btnSaida.classList.add('btn-outline-danger');
+    } else {
+        btnEntrada.classList.remove('btn-success');
+        btnEntrada.classList.add('btn-outline-success');
+        btnSaida.classList.remove('btn-outline-danger');
+        btnSaida.classList.add('btn-danger');
+    }
 }
+
+// Inicializa o tipo de acesso como ENTRADA quando o modal abre
+document.getElementById('registroModal').addEventListener('show.bs.modal', function () {
+    selecionarTipoAcesso('ENTRADA');
+});
+
+document.getElementById('registroForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    
+    const tipoAcesso = document.getElementById('tipo_acesso').value;
+    const servidorId = document.getElementById('servidor_id').value;
+    
+    // Verifica se existe entrada sem saída para este servidor
+    fetch(`/verificar-entrada/${servidorId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (tipoAcesso === 'ENTRADA') {
+                if (data.tem_entrada) {
+                    alert('Este servidor já possui uma entrada sem saída registrada. Registre a saída antes de fazer uma nova entrada.');
+                    return;
+                }
+                this.submit();
+            } else { // SAIDA
+                if (!data.tem_entrada) {
+                    alert('Servidor não possui entrada registrada no plantão atual.');
+                    return;
+                }
+                this.submit();
+            }
+        });
+});
 
 function atualizarRegistros() {
     fetch('/registros-plantao/')
@@ -397,41 +439,41 @@ function atualizarRegistros() {
             const tbody = document.getElementById('registros-tbody');
             tbody.innerHTML = '';
             
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="11" class="text-center">Nenhum registro encontrado</td></tr>';
-                return;
-            }
-            
             data.forEach((registro, index) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${index + 1}</td>
-                    <td>${registro.plantao}</td>
-                    <td>${registro.data}</td>
-                    <td>${registro.operador}</td>
                     <td>${registro.servidor_nome}</td>
                     <td>${registro.servidor_documento}</td>
-                    <td>${registro.setor || '-'}</td>
-                    <td>${registro.veiculo || '-'}</td>
+                    <td>${registro.setor}</td>
+                    <td>${registro.veiculo}</td>
                     <td>
                         <span class="badge ${registro.isv ? 'bg-success' : 'bg-secondary'}">
                             ${registro.isv ? 'Sim' : 'Não'}
                         </span>
                     </td>
                     <td>
-                        ${registro.tipo_acesso === 'ENTRADA' ? 
-                          `<span class="badge bg-success">${registro.hora}</span>` : 
-                          '-'}
+                        <span class="badge bg-success">${registro.hora_entrada || '-'}</span>
                     </td>
                     <td>
-                        ${registro.tipo_acesso === 'SAIDA' ? 
-                          `<span class="badge bg-danger">${registro.hora}</span>` : 
-                          '-'}
+                        ${registro.hora_saida ? 
+                            `<span class="badge bg-danger">${registro.hora_saida}</span>` : 
+                            `<span class="badge bg-warning">Pendente</span>`
+                        }
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="editarRegistro('${registro.id}')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="excluirRegistro('${registro.id}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
-        });
+        })
+        .catch(error => console.error('Erro ao atualizar registros:', error));
 }
 
 function excluirRegistro(id) {
@@ -448,19 +490,21 @@ function confirmarExclusao() {
         return;
     }
     
+    const formData = new FormData();
+    formData.append('justificativa', justificativa);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
     fetch(`/registro/${registroParaExcluir}/excluir/`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        },
-        body: JSON.stringify({ justificativa: justificativa })
+        body: formData
     })
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
             excluirModal.hide();
+            form.reset();
             atualizarRegistros();
+            alert('Registro excluído com sucesso!');
         } else {
             alert(data.message || 'Erro ao excluir registro');
         }
@@ -468,7 +512,7 @@ function confirmarExclusao() {
 }
 
 function exportarExcel() {
-    window.location.href = '/encerrar-plantao/';
+    window.location.href = '/exportar-excel/';
 }
 
 function confirmarLimparPlanilha() {
@@ -501,11 +545,10 @@ function abrirModalSaidaDefinitiva() {
 
 function registrarSaidaDefinitiva() {
     const nome = document.getElementById('nomePreso').value;
-    const tipoDocumento = document.getElementById('tipoDocumentoPreso').value;
     const numeroDocumento = document.getElementById('numeroDocumentoPreso').value;
     const justificativa = document.getElementById('justificativaSaida').value;
     
-    if (!nome || !tipoDocumento || !numeroDocumento || !justificativa) {
+    if (!nome || !numeroDocumento || !justificativa) {
         alert('Por favor, preencha todos os campos obrigatórios.');
         return;
     }
@@ -517,8 +560,7 @@ function registrarSaidaDefinitiva() {
             'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
         },
         body: JSON.stringify({
-            nome: nome,
-            tipo_documento: tipoDocumento,
+            nome: `Egresso: ${nome}`,
             numero_documento: numeroDocumento,
             justificativa: justificativa
         })
@@ -529,14 +571,84 @@ function registrarSaidaDefinitiva() {
             saidaDefinitivaModal.hide();
             document.getElementById('formSaidaDefinitiva').reset();
             atualizarRegistros();
-            alert('Saída definitiva registrada com sucesso!');
         } else {
             alert(data.message || 'Erro ao registrar saída definitiva');
         }
     });
 }
 
+function editarRegistro(id) {
+    // Busca os dados do registro
+    fetch(`/registro/${id}/`)
+        .then(response => response.json())
+        .then(registro => {
+            document.getElementById('registro_id').value = id;
+            
+            // Preenche o servidor
+            document.getElementById('servidor_nome_edit').value = registro.servidor_nome;
+            
+            // Preenche a data
+            const data = new Date(registro.data_hora);
+            document.getElementById('data_edit').value = data.toISOString().split('T')[0];
+            
+            // Preenche hora de entrada
+            if (registro.hora_entrada !== '-') {
+                document.getElementById('hora_entrada_edit').value = registro.hora_entrada;
+            } else {
+                document.getElementById('hora_entrada_edit').value = '';
+            }
+            
+            // Preenche hora de saída
+            if (registro.hora_saida && registro.hora_saida !== '-') {
+                document.getElementById('hora_saida_edit').value = registro.hora_saida;
+            } else {
+                document.getElementById('hora_saida_edit').value = '';
+            }
+            
+            editarModal.show();
+        });
+}
+
+function salvarEdicao() {
+    const id = document.getElementById('registro_id').value;
+    const data = document.getElementById('data_edit').value;
+    const horaEntrada = document.getElementById('hora_entrada_edit').value;
+    const horaSaida = document.getElementById('hora_saida_edit').value;
+    const justificativa = document.getElementById('justificativa_edit').value;
+    
+    if (!data || !justificativa) {
+        alert('Por favor, preencha todos os campos obrigatórios.');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('data', data);
+    formData.append('hora_entrada', horaEntrada);
+    formData.append('hora_saida', horaSaida);
+    formData.append('justificativa', justificativa);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch(`/registro/${id}/editar/`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            editarModal.hide();
+            document.getElementById('editarForm').reset();
+            atualizarRegistros();
+            alert('Registro atualizado com sucesso!');
+        } else {
+            alert(data.message || 'Erro ao atualizar registro');
+        }
+    });
+}
+
 // Atualiza os registros a cada 30 segundos
 setInterval(atualizarRegistros, 30000);
+
+// Atualiza os registros quando a página carrega
+document.addEventListener('DOMContentLoaded', atualizarRegistros);
 </script>
 {% endblock %} 

@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Case, When, DateTimeField
 from django.utils import timezone
 from datetime import datetime, timedelta
 import pandas as pd
@@ -14,8 +14,8 @@ from .decorators import admin_required
 from django.contrib.auth.models import User
 import json
 import csv
-from django.contrib.auth.views import LoginView
-from django.urls import reverse_lazy
+import pytz
+from io import BytesIO
 
 def is_staff(user):
     return user.is_staff
@@ -27,20 +27,20 @@ def home(request):
     # Filtra registros do plantão atual
     registros = RegistroAcesso.objects.filter(
         data_hora__gte=plantao_atual['inicio'],
-        data_hora__lte=plantao_atual['fim']
-    ).select_related('servidor', 'operador').order_by('-data_hora')
+        data_hora__lte=plantao_atual['fim'],
+        tipo_acesso='ENTRADA'
+    ).select_related('servidor', 'operador')
     
     # Calcula totais para os cards
-    total_entradas = registros.filter(tipo_acesso='ENTRADA').count()
-    total_saidas = registros.filter(tipo_acesso='SAIDA').count()
-    total_pendentes = registros.filter(tipo_acesso='ENTRADA', saida_pendente=True).count()
+    total_entradas = registros.count()  # Total de entradas
+    total_saidas = registros.filter(data_hora_saida__isnull=False).count()  # Entradas que já têm saída
+    total_pendentes = registros.filter(saida_pendente=True).count()  # Entradas sem saída
     
     # Lista de servidores para os modais
     servidores = Servidor.objects.filter(ativo=True).order_by('nome')
     
     context = {
         'plantao_atual': plantao_atual,
-        'registros': registros,
         'total_entradas': total_entradas,
         'total_saidas': total_saidas,
         'total_pendentes': total_pendentes,
@@ -110,8 +110,18 @@ def buscar_servidor(request):
             Q(nome__icontains=query) |
             Q(numero_documento__icontains=query),
             ativo=True
-        ).values('id', 'nome', 'numero_documento')
-        return JsonResponse(list(servidores), safe=False)
+        ).values('id', 'nome', 'numero_documento', 'setor')
+        
+        # Formata os resultados para o autocomplete
+        resultados = []
+        for servidor in servidores:
+            resultados.append({
+                'id': servidor['id'],
+                'nome': servidor['nome'],
+                'numero_documento': servidor['numero_documento'],
+                'setor': servidor['setor'] or '-'
+            })
+        return JsonResponse(resultados, safe=False)
     return JsonResponse([], safe=False)
 
 @login_required
@@ -123,33 +133,60 @@ def registro_acesso_create(request):
         isv = request.POST.get('isv') == 'on'
         
         servidor = get_object_or_404(Servidor, id=servidor_id)
+        plantao_atual = calcular_plantao_atual()
         
-        # Cria o registro
-        registro = RegistroAcesso.objects.create(
+        # Verifica se já existe uma entrada sem saída
+        entrada_pendente = RegistroAcesso.objects.filter(
             servidor=servidor,
-            operador=request.user,
-            tipo_acesso=tipo_acesso,
-            observacao=observacao,
-            isv=isv
-        )
+            data_hora__gte=plantao_atual['inicio'],
+            data_hora__lte=plantao_atual['fim'],
+            tipo_acesso='ENTRADA',
+            saida_pendente=True
+        ).exists()
         
-        # Atualiza saída pendente
         if tipo_acesso == 'ENTRADA':
-            registro.saida_pendente = True
-            registro.save()
+            if entrada_pendente:
+                messages.error(request, 'Este servidor já possui uma entrada sem saída registrada. Registre a saída antes de fazer uma nova entrada.')
+                return redirect('home')
+            
+            # Cria um novo registro de entrada
+            registro = RegistroAcesso.objects.create(
+                servidor=servidor,
+                operador=request.user,
+                tipo_acesso='ENTRADA',
+                observacao=observacao,
+                isv=isv,
+                saida_pendente=True,
+                status_alteracao='ORIGINAL'
+            )
+            
+            messages.success(request, 'Entrada registrada com sucesso!')
+            return redirect('home')
+            
         elif tipo_acesso == 'SAIDA':
-            # Marca a última entrada como não pendente
+            if not entrada_pendente:
+                messages.error(request, 'Não foi encontrada uma entrada sem saída para este servidor. Registre uma entrada primeiro.')
+                return redirect('home')
+            
+            # Procura a última entrada sem saída
             ultima_entrada = RegistroAcesso.objects.filter(
                 servidor=servidor,
+                data_hora__gte=plantao_atual['inicio'],
+                data_hora__lte=plantao_atual['fim'],
                 tipo_acesso='ENTRADA',
-                saida_pendente=True
+                saida_pendente=True,
+                data_hora_saida__isnull=True
             ).first()
-            if ultima_entrada:
-                ultima_entrada.saida_pendente = False
-                ultima_entrada.save()
-        
-        messages.success(request, f'{tipo_acesso.title()} registrada com sucesso!')
-        return redirect('home')
+            
+            # Atualiza a entrada com os dados da saída
+            ultima_entrada.data_hora_saida = timezone.now()
+            ultima_entrada.operador_saida = request.user
+            ultima_entrada.observacao_saida = observacao
+            ultima_entrada.saida_pendente = False
+            ultima_entrada.save()
+            
+            messages.success(request, 'Saída registrada com sucesso!')
+            return redirect('home')
     
     return redirect('home')
 
@@ -200,91 +237,192 @@ def registros_plantao(request):
     plantao_atual = calcular_plantao_atual()
     registros = RegistroAcesso.objects.filter(
         data_hora__gte=plantao_atual['inicio'],
-        data_hora__lte=plantao_atual['fim']
-    ).select_related('servidor', 'operador').order_by('-data_hora')
+        data_hora__lte=plantao_atual['fim'],
+        status_alteracao__in=['ORIGINAL', 'EDITADO']  # Mostra apenas registros originais e editados
+    ).select_related('servidor', 'operador', 'operador_saida').order_by('data_hora', 'id')
+    
+    # Define o timezone UTC-4
+    tz = pytz.timezone('America/Manaus')
     
     data = []
     for registro in registros:
-        data.append({
-            'id': registro.id,
-            'plantao': plantao_atual['nome'],
-            'data': registro.data_hora.strftime('%d/%m/%Y'),
-            'hora': registro.data_hora.strftime('%H:%M'),
-            'operador': registro.operador.get_full_name() or registro.operador.username,
-            'servidor_nome': registro.servidor.nome,
-            'servidor_documento': registro.servidor.numero_documento,
-            'setor': registro.servidor.setor or '-',
-            'veiculo': registro.veiculo or '-',
-            'tipo_acesso': registro.tipo_acesso,
-            'isv': registro.isv
-        })
+        # Converte os horários para UTC-4
+        data_hora = timezone.localtime(registro.data_hora, tz)
+        data_hora_saida = timezone.localtime(registro.data_hora_saida, tz) if registro.data_hora_saida else None
+        
+        # Se for uma entrada normal
+        if registro.tipo_acesso == 'ENTRADA':
+            data.append({
+                'id': registro.id,
+                'servidor_nome': registro.servidor.nome,
+                'servidor_documento': registro.servidor.numero_documento,
+                'setor': registro.servidor.setor or '-',
+                'veiculo': registro.veiculo or '-',
+                'isv': registro.isv,
+                'hora_entrada': data_hora.strftime('%H:%M'),
+                'hora_saida': data_hora_saida.strftime('%H:%M') if data_hora_saida else None
+            })
+        # Se for uma saída definitiva
+        elif registro.tipo_acesso == 'SAIDA':
+            data.append({
+                'id': registro.id,
+                'servidor_nome': f"Egresso: {registro.servidor.nome}" if not registro.servidor.nome.startswith('Egresso:') else registro.servidor.nome,
+                'servidor_documento': registro.servidor.numero_documento,
+                'setor': registro.setor or '-',
+                'veiculo': registro.veiculo or '-',
+                'isv': registro.isv,
+                'hora_entrada': '-',
+                'hora_saida': data_hora.strftime('%H:%M')
+            })
     
     return JsonResponse(data, safe=False)
 
 @login_required
-def registro_acesso_update(request, registro_id):
+def registro_detalhe(request, registro_id):
+    """Retorna os detalhes de um registro para edição."""
     registro = get_object_or_404(RegistroAcesso, id=registro_id)
+    tz = pytz.timezone('America/Manaus')
     
+    # Converte os horários para UTC-4
+    data_hora = timezone.localtime(registro.data_hora, tz)
+    data_hora_saida = timezone.localtime(registro.data_hora_saida, tz) if registro.data_hora_saida else None
+    
+    return JsonResponse({
+        'data_hora': data_hora.isoformat(),
+        'hora_entrada': data_hora.strftime('%H:%M') if registro.tipo_acesso == 'ENTRADA' else '-',
+        'hora_saida': data_hora_saida.strftime('%H:%M') if data_hora_saida else '-',
+        'tipo_acesso': registro.tipo_acesso,
+        'servidor_nome': registro.servidor.nome
+    })
+
+@login_required
+def registro_acesso_update(request, registro_id):
     if request.method == 'POST':
-        tipo_acesso = request.POST.get('tipo_acesso')
-        observacao = request.POST.get('observacao', '')
-        justificativa = request.POST.get('justificativa')
-        isv = request.POST.get('isv') == 'on'
-        data_hora = request.POST.get('data_hora')
-        
-        if not justificativa:
-            messages.error(request, 'É necessário informar uma justificativa para editar o registro.')
-            return redirect('home')
-        
-        # Registra a edição no log de auditoria
-        LogAuditoria.objects.create(
-            usuario=request.user,
-            tipo_acao='EDICAO',
-            modelo='RegistroAcesso',
-            objeto_id=registro.id,
-            detalhes=f"Edição de registro de {registro.servidor.nome}. Justificativa: {justificativa}"
-        )
-        
-        # Atualiza o registro
-        registro.tipo_acesso = tipo_acesso
-        registro.observacao = observacao
-        registro.isv = isv
-        registro.data_hora = data_hora
-        registro.save()
-        
-        messages.success(request, 'Registro atualizado com sucesso!')
-        return redirect('home')
+        try:
+            registro = get_object_or_404(RegistroAcesso, id=registro_id)
+            
+            # Verifica se a justificativa foi fornecida
+            justificativa = request.POST.get('justificativa')
+            if not justificativa:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'É necessário informar uma justificativa para editar o registro.'
+                }, status=400)
+            
+            # Converte a data e hora para datetime
+            data_base = datetime.strptime(request.POST.get('data'), '%Y-%m-%d')
+            tz = pytz.timezone('America/Manaus')
+            
+            # Cria uma cópia do registro original com as novas informações
+            novo_registro = RegistroAcesso.objects.create(
+                servidor=registro.servidor,
+                operador=request.user,
+                tipo_acesso=registro.tipo_acesso,
+                observacao=registro.observacao,
+                isv=registro.isv,
+                veiculo=registro.veiculo,
+                setor=registro.setor,
+                registro_original=registro,
+                status_alteracao='EDITADO',
+                data_hora_alteracao=timezone.now(),
+                justificativa=justificativa,
+                data_hora=registro.data_hora  # Mantém a data/hora original
+            )
+            
+            # Processa hora de entrada
+            hora_entrada = request.POST.get('hora_entrada')
+            if hora_entrada and registro.tipo_acesso == 'ENTRADA':
+                hora_entrada = datetime.strptime(hora_entrada, '%H:%M').time()
+                data_hora = tz.localize(datetime.combine(data_base.date(), hora_entrada))
+                novo_registro.data_hora = data_hora
+                novo_registro.data_hora_manual = data_hora
+            
+            # Processa hora de saída
+            hora_saida = request.POST.get('hora_saida')
+            if hora_saida:
+                hora_saida = datetime.strptime(hora_saida, '%H:%M').time()
+                data_hora_saida = tz.localize(datetime.combine(data_base.date(), hora_saida))
+                novo_registro.data_hora_saida = data_hora_saida
+                novo_registro.saida_pendente = False
+            else:
+                novo_registro.data_hora_saida = None
+                novo_registro.saida_pendente = True
+            
+            novo_registro.save()
+            
+            # Atualiza o registro no dashboard (mantém o original no histórico)
+            if registro.data_hora >= calcular_plantao_atual()['inicio'] and registro.data_hora <= calcular_plantao_atual()['fim']:
+                registro.data_hora = novo_registro.data_hora
+                registro.data_hora_saida = novo_registro.data_hora_saida
+                registro.saida_pendente = novo_registro.saida_pendente
+                registro.status_alteracao = 'EDITADO'
+                registro.save()
+            
+            return JsonResponse({'status': 'success'})
+            
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            }, status=400)
     
-    return render(request, 'core/registro_form.html', {'registro': registro})
+    return JsonResponse({'status': 'error', 'message': 'Método não permitido'}, status=405)
 
 @login_required
 def excluir_registro(request, registro_id):
     if request.method == 'POST':
-        registro = get_object_or_404(RegistroAcesso, id=registro_id)
-        justificativa = request.POST.get('justificativa')
-        
-        if not justificativa:
+        try:
+            registro = get_object_or_404(RegistroAcesso, id=registro_id)
+            justificativa = request.POST.get('justificativa')
+            
+            if not justificativa:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'É necessário informar uma justificativa para excluir o registro.'
+                }, status=400)
+            
+            # Cria uma cópia do registro com status EXCLUIDO para o histórico
+            registro_excluido = RegistroAcesso.objects.create(
+                servidor=registro.servidor,
+                operador=registro.operador,
+                tipo_acesso=registro.tipo_acesso,
+                observacao=registro.observacao,
+                observacao_saida=registro.observacao_saida,
+                isv=registro.isv,
+                veiculo=registro.veiculo,
+                setor=registro.setor,
+                data_hora=registro.data_hora,
+                data_hora_saida=registro.data_hora_saida,
+                operador_saida=registro.operador_saida,
+                registro_original=registro,
+                status_alteracao='EXCLUIDO',
+                data_hora_alteracao=timezone.now(),
+                justificativa=justificativa,
+                saida_pendente=registro.saida_pendente
+            )
+            
+            # Remove apenas do dashboard (plantão atual)
+            if registro.data_hora >= calcular_plantao_atual()['inicio'] and registro.data_hora <= calcular_plantao_atual()['fim']:
+                registro.delete()
+            else:
+                # Se não estiver no plantão atual, apenas marca como excluído
+                registro.status_alteracao = 'EXCLUIDO'
+                registro.data_hora_alteracao = timezone.now()
+                registro.justificativa = justificativa
+                registro.save()
+            
+            return JsonResponse({'status': 'success'})
+            
+        except Exception as e:
             return JsonResponse({
                 'status': 'error',
-                'message': 'É necessário informar uma justificativa para excluir o registro.'
+                'message': str(e)
             }, status=400)
-        
-        # Registra a exclusão no log de auditoria
-        LogAuditoria.objects.create(
-            usuario=request.user,
-            tipo_acao='EXCLUSAO',
-            modelo='RegistroAcesso',
-            objeto_id=registro.id,
-            detalhes=f"Exclusão de {registro.get_tipo_acesso_display()} de {registro.servidor.nome}. Justificativa: {justificativa}"
-        )
-        
-        registro.delete()
-        return JsonResponse({'status': 'success'})
     
-    return JsonResponse({'status': 'error'}, status=405)
+    return JsonResponse({'status': 'error', 'message': 'Método não permitido'}, status=405)
 
 @login_required
-def encerrar_plantao(request):
+def exportar_excel(request):
     plantao_atual = calcular_plantao_atual()
     inicio_plantao = plantao_atual['inicio']
     fim_plantao = plantao_atual['fim']
@@ -292,30 +430,70 @@ def encerrar_plantao(request):
     registros = RegistroAcesso.objects.filter(
         data_hora__gte=inicio_plantao,
         data_hora__lte=fim_plantao
-    ).select_related('servidor', 'operador').order_by('data_hora')
+    ).select_related('servidor', 'operador', 'operador_saida').order_by('data_hora', 'id')
+    
+    # Define o timezone UTC-4
+    tz = pytz.timezone('America/Manaus')
     
     # Cria um DataFrame com os registros
     data = []
     for registro in registros:
-        data.append({
-            'Data/Hora': registro.data_hora.strftime('%d/%m/%Y %H:%M'),
-            'Servidor': registro.servidor.nome,
-            'Tipo': registro.get_tipo_acesso_display(),
-            'Função': registro.servidor.get_tipo_funcionario_display(),
-            'Plantão': registro.servidor.get_plantao_display() or '-',
-            'ISV': 'Sim' if registro.isv else 'Não',
-            'Operador': registro.operador.get_full_name() or registro.operador.username,
-            'Observação': registro.observacao or '-'
-        })
+        # Converte os horários para UTC-4
+        data_hora = timezone.localtime(registro.data_hora, tz)
+        data_hora_saida = timezone.localtime(registro.data_hora_saida, tz) if registro.data_hora_saida else None
+        
+        # Se for uma entrada normal
+        if registro.tipo_acesso == 'ENTRADA':
+            data.append({
+                'ORD': len(data) + 1,
+                'Plantão': plantao_atual['nome'],
+                'Data': data_hora.strftime('%d/%m/%Y'),
+                'Operador': registro.operador.get_full_name() or registro.operador.username,
+                'Servidor': registro.servidor.nome,
+                'Documento': registro.servidor.numero_documento,
+                'Setor': registro.servidor.setor or '-',
+                'Veículo': registro.veiculo or '-',
+                'ISV': 'Sim' if registro.isv else 'Não',
+                'Entrada': data_hora.strftime('%H:%M'),
+                'Saída': data_hora_saida.strftime('%H:%M') if data_hora_saida else 'Pendente'
+            })
+        # Se for uma saída definitiva
+        elif registro.tipo_acesso == 'SAIDA':
+            data.append({
+                'ORD': len(data) + 1,
+                'Plantão': plantao_atual['nome'],
+                'Data': data_hora.strftime('%d/%m/%Y'),
+                'Operador': registro.operador.get_full_name() or registro.operador.username,
+                'Servidor': f"Egresso: {registro.servidor.nome}" if not registro.servidor.nome.startswith('Egresso:') else registro.servidor.nome,
+                'Documento': registro.servidor.numero_documento,
+                'Setor': registro.setor or '-',  # Aqui estará a justificativa
+                'Veículo': registro.veiculo or '-',
+                'ISV': 'Sim' if registro.isv else 'Não',
+                'Entrada': '-',
+                'Saída': data_hora.strftime('%H:%M')
+            })
     
-    df = pd.DataFrame(data)
+    # Cria o DataFrame com as colunas na ordem especificada
+    df = pd.DataFrame(data, columns=[
+        'ORD', 'Plantão', 'Data', 'Operador', 'Servidor', 'Documento', 
+        'Setor', 'Veículo', 'ISV', 'Entrada', 'Saída'
+    ])
     
     # Cria o arquivo Excel
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename=plantao_{plantao_atual["nome"].lower()}_{timezone.now().strftime("%Y%m%d_%H%M")}.xlsx'
+    response['Content-Disposition'] = f'attachment; filename=plantao_{plantao_atual["nome"].lower()}_{timezone.localtime(timezone.now(), tz).strftime("%Y%m%d_%H%M")}.xlsx'
     
     with pd.ExcelWriter(response, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Registros')
+        
+        # Ajusta a largura das colunas
+        worksheet = writer.sheets['Registros']
+        for idx, col in enumerate(df.columns):
+            max_length = max(
+                df[col].astype(str).apply(len).max(),
+                len(col)
+            )
+            worksheet.column_dimensions[chr(65 + idx)].width = max_length + 2
     
     return response
 
@@ -385,37 +563,45 @@ def user_delete(request, pk):
     return redirect('user_list')
 
 @login_required
-@user_passes_test(is_staff)
 def historico(request):
     data_inicio = request.GET.get('data_inicio')
     data_fim = request.GET.get('data_fim')
     plantao = request.GET.get('plantao')
     servidor = request.GET.get('servidor')
-    format = request.GET.get('format')
     
-    registros = RegistroAcesso.objects.all().select_related('servidor', 'operador')
+    registros = RegistroAcesso.objects.all().select_related('servidor', 'operador', 'operador_saida')
     
     if data_inicio:
+        data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d').date()
         registros = registros.filter(data_hora__date__gte=data_inicio)
+    
     if data_fim:
+        data_fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
         registros = registros.filter(data_hora__date__lte=data_fim)
+    
     if plantao:
-        registros = registros.filter(servidor__plantao=plantao)
-    if servidor:
         registros = registros.filter(
             Q(servidor__nome__icontains=servidor) |
             Q(servidor__numero_documento__icontains=servidor)
         )
     
-    registros = registros.order_by('-data_hora')
+    # Ordena por data_hora_alteracao (se existir) ou data_hora, mais recentes primeiro
+    registros = registros.order_by(
+        Case(
+            When(data_hora_alteracao__isnull=False, then='data_hora_alteracao'),
+            default='data_hora'
+        ),
+        '-data_hora'
+    )
     
-    if format == 'excel':
+    if request.GET.get('format') == 'excel':
         # Cria um DataFrame com os registros
         data = []
         for registro in registros:
+            # Calcula o plantão com base na data/hora do registro
+            plantao_registro = calcular_plantao_atual(registro.data_hora)
             data.append({
-                'ORD': len(data) + 1,
-                'Plantão': registro.servidor.get_plantao_display() or '-',
+                'Plantão': plantao_registro['nome'],
                 'Data': registro.data_hora.strftime('%d/%m/%Y'),
                 'Operador': registro.operador.get_full_name() or registro.operador.username,
                 'Servidor': registro.servidor.nome,
@@ -424,8 +610,11 @@ def historico(request):
                 'Veículo': registro.veiculo or '-',
                 'ISV': 'Sim' if registro.isv else 'Não',
                 'Entrada': registro.data_hora.strftime('%H:%M') if registro.tipo_acesso == 'ENTRADA' else '-',
-                'Saída': registro.data_hora.strftime('%H:%M') if registro.tipo_acesso == 'SAIDA' else '-',
-                'Alterado': registro.data_hora_manual.strftime('%d/%m/%Y %H:%M') if registro.data_hora_manual else '-',
+                'OBS Entrada': registro.observacao or '-',
+                'Saída': registro.data_hora_saida.strftime('%H:%M') if registro.data_hora_saida else '-',
+                'OBS Saída': registro.observacao_saida or '-',
+                'Alteração': registro.status_alteracao or 'Original',
+                'Data/Hora': registro.data_hora_alteracao.strftime('%d/%m/%Y %H:%M') if registro.data_hora_alteracao else '-',
                 'Justificativa': registro.justificativa or '-'
             })
         
@@ -437,17 +626,45 @@ def historico(request):
         
         with pd.ExcelWriter(response, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='Histórico')
+            
+            # Ajusta a largura das colunas
+            worksheet = writer.sheets['Histórico']
+            for idx, col in enumerate(df.columns):
+                max_length = max(
+                    df[col].astype(str).apply(len).max(),
+                    len(col)
+                )
+                worksheet.column_dimensions[chr(65 + idx)].width = max_length + 2
         
         return response
     
+    # Prepara os registros para exibição na tabela
+    registros_formatados = []
+    for registro in registros:
+        # Calcula o plantão com base na data/hora do registro
+        plantao_registro = calcular_plantao_atual(registro.data_hora)
+        registros_formatados.append({
+            'plantao': plantao_registro['nome'],
+            'data_hora': registro.data_hora,
+            'operador': registro.operador,
+            'servidor': registro.servidor,
+            'tipo_acesso': registro.tipo_acesso,
+            'observacao': registro.observacao,
+            'observacao_saida': registro.observacao_saida,
+            'isv': registro.isv,
+            'veiculo': registro.veiculo,
+            'data_hora_saida': registro.data_hora_saida,
+            'status_alteracao': registro.status_alteracao,
+            'data_hora_alteracao': registro.data_hora_alteracao,
+            'justificativa': registro.justificativa
+        })
+    
     context = {
-        'registros': registros,
-        'filtros': {
-            'data_inicio': data_inicio,
-            'data_fim': data_fim,
-            'plantao': plantao,
-            'servidor': servidor
-        }
+        'registros': registros_formatados,
+        'data_inicio': data_inicio.strftime('%Y-%m-%d') if data_inicio else '',
+        'data_fim': data_fim.strftime('%Y-%m-%d') if data_fim else '',
+        'plantao': plantao or '',
+        'servidor': servidor or ''
     }
     return render(request, 'core/historico.html', context)
 
@@ -470,7 +687,8 @@ def saida_definitiva(request):
                 operador=request.user,
                 tipo_acesso='SAIDA',
                 setor=data['justificativa'],  # Usa o campo setor para a justificativa
-                data_hora=timezone.now()
+                data_hora=timezone.now(),
+                status_alteracao='ORIGINAL'  # Marca como registro original
             )
             
             # Registra no log de auditoria
@@ -647,7 +865,63 @@ def servidor_delete(request, pk):
     
     return redirect('servidor_list')
 
-class CustomLoginView(LoginView):
-    template_name = 'core/login.html'
-    redirect_authenticated_user = True
-    success_url = reverse_lazy('home')
+@login_required
+def verificar_entrada(request, servidor_id):
+    """Verifica se existe uma entrada sem saída para o servidor."""
+    plantao_atual = calcular_plantao_atual()
+    tem_entrada = RegistroAcesso.objects.filter(
+        servidor_id=servidor_id,
+        data_hora__gte=plantao_atual['inicio'],
+        data_hora__lte=plantao_atual['fim'],
+        tipo_acesso='ENTRADA',
+        saida_pendente=True
+    ).exists()
+    
+    return JsonResponse({'tem_entrada': tem_entrada})
+
+@login_required
+def is_superuser(user):
+    return user.is_superuser
+
+@login_required
+@user_passes_test(is_superuser)
+def limpar_historico(request):
+    if request.method == 'POST':
+        try:
+            senha = request.POST.get('senha')
+            data_inicio = request.POST.get('data_inicio')
+            data_fim = request.POST.get('data_fim')
+            
+            # Verifica se a senha está correta
+            if not request.user.check_password(senha):
+                messages.error(request, 'Senha incorreta!')
+                return redirect('historico')
+            
+            # Verifica se as datas foram fornecidas
+            if not data_inicio or not data_fim:
+                messages.error(request, 'É necessário informar o período para limpeza do histórico!')
+                return redirect('historico')
+            
+            # Registra a ação no log de auditoria
+            LogAuditoria.objects.create(
+                usuario=request.user,
+                tipo_acao='EXCLUSAO',
+                modelo='RegistroAcesso',
+                objeto_id=None,
+                detalhes=f'Limpeza do histórico de registros entre {data_inicio} e {data_fim}'
+            )
+            
+            # Exclui os registros do período selecionado
+            RegistroAcesso.objects.filter(
+                data_hora__date__gte=data_inicio,
+                data_hora__date__lte=data_fim
+            ).delete()
+            
+            messages.success(request, 'Histórico limpo com sucesso!')
+            return redirect('historico')
+            
+        except Exception as e:
+            messages.error(request, f'Erro ao limpar histórico: {str(e)}')
+            return redirect('historico')
+    
+    return redirect('historico')

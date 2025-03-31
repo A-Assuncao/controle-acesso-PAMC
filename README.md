@@ -1,27 +1,29 @@
-# Sistema de Controle de Acesso - PAMC
+# Sistema de Controle de Acesso
 
-Sistema para controle de entrada e saída de pessoas em uma penitenciária, desenvolvido com Django e Bootstrap 5.
+Sistema para controle de acesso de servidores, desenvolvido em Django.
 
 ## Requisitos
 
-- Python 3.8 ou superior
-- PostgreSQL
-- pip (gerenciador de pacotes Python)
+- Python 3.9 ou superior
+- pip (gerenciador de pacotes do Python)
+- ngrok (opcional, para demonstrações)
 
-## Instalação
+## Instalação Local
 
 1. Clone o repositório:
 ```bash
-git clone https://github.com/seu-usuario/controle-acesso-PAMC.git
+git clone https://github.com/A-Assuncao/controle-acesso-PAMC.git
 cd controle-acesso-PAMC
 ```
 
-2. Crie um ambiente virtual e ative-o:
+2. Crie e ative um ambiente virtual:
 ```bash
+# Windows
 python -m venv venv
-# No Windows:
 venv\Scripts\activate
-# No Linux/Mac:
+
+# Linux/Mac
+python3 -m venv venv
 source venv/bin/activate
 ```
 
@@ -30,76 +32,69 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Configure o banco de dados PostgreSQL:
-- Crie um banco de dados chamado `controle_acesso`
-- Edite o arquivo `controle_acesso/settings.py` e atualize as configurações do banco de dados:
-```python
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'controle_acesso',
-        'USER': 'seu_usuario',
-        'PASSWORD': 'sua_senha',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
-}
-```
-
-5. Execute as migrações:
+4. Execute as migrações do banco de dados:
 ```bash
-python manage.py makemigrations
 python manage.py migrate
 ```
 
-6. Crie um superusuário:
+5. Crie um superusuário (administrador):
 ```bash
 python manage.py createsuperuser
 ```
 
-7. Inicie o servidor de desenvolvimento:
+6. Inicie o servidor:
 ```bash
+# Servidor local
 python manage.py runserver
+
+# OU para demonstração com ngrok
+python run_with_ngrok.py
 ```
 
-8. Acesse o sistema em `http://localhost:8000`
+7. Acesse o sistema:
+- Local: http://localhost:8000
+- Demonstração: A URL do ngrok será exibida no terminal
+
+## Configurando o ngrok para Demonstrações
+
+1. Instale o ngrok:
+```bash
+# Windows (com Chocolatey)
+choco install ngrok
+
+# Linux
+snap install ngrok
+
+# Mac
+brew install ngrok
+```
+
+2. Autentique o ngrok:
+```bash
+ngrok config add-authtoken SEU_TOKEN_AQUI
+```
+
+3. Para demonstrar o sistema, use:
+```bash
+python run_with_ngrok.py
+```
+
+## Uso
+
+1. Faça login com o usuário administrador criado
+2. Cadastre os servidores no sistema
+3. Registre entradas e saídas
+4. Gere relatórios conforme necessário
 
 ## Funcionalidades
 
-- Cadastro de pessoas com nome, documento e placa de veículo
-- Registro de entrada e saída de pessoas
-- Histórico de registros com filtros por data
-- Geração de relatórios em PDF e Excel
-- Sistema de logs de auditoria
-- Interface responsiva com Bootstrap 5
+- Registro de entrada e saída de servidores
+- Controle de plantões
+- Histórico de acessos
+- Relatórios em Excel
+- Gerenciamento de usuários
+- Log de auditoria
 
-## Segurança
+## Backup
 
-- Autenticação de usuários
-- Proteção contra alterações não autorizadas nos registros
-- Logs de auditoria para rastreamento de ações
-- Validação de dados em formulários
-
-## Manutenção
-
-Para manter o sistema atualizado:
-
-1. Atualize as dependências periodicamente:
-```bash
-pip install -r requirements.txt --upgrade
-```
-
-2. Faça backup regular do banco de dados:
-```bash
-pg_dump -U seu_usuario controle_acesso > backup.sql
-```
-
-3. Monitore os logs de auditoria para identificar atividades suspeitas
-
-## Suporte
-
-Em caso de problemas ou dúvidas, abra uma issue no repositório do GitHub.
-
-## Licença
-
-Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para detalhes. 
+O banco de dados SQLite está localizado em `db.sqlite3`. Faça backups regulares deste arquivo para manter seus dados seguros. 

@@ -33,6 +33,12 @@ class RegistroAcesso(models.Model):
         ('SAIDA', 'Saída'),
     ]
     
+    STATUS_ALTERACAO = [
+        ('ORIGINAL', 'Original'),
+        ('EDITADO', 'Editado'),
+        ('EXCLUIDO', 'Excluído')
+    ]
+    
     servidor = models.ForeignKey(Servidor, on_delete=models.PROTECT)
     data_hora = models.DateTimeField(auto_now_add=True)
     operador = models.ForeignKey(User, on_delete=models.PROTECT)
@@ -44,6 +50,14 @@ class RegistroAcesso(models.Model):
     data_hora_manual = models.DateTimeField(null=True, blank=True)
     veiculo = models.CharField(max_length=50, blank=True, null=True)
     setor = models.CharField(max_length=100, blank=True, null=True)
+    data_hora_saida = models.DateTimeField(null=True, blank=True)
+    operador_saida = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True, related_name='saidas_registradas')
+    observacao_saida = models.TextField(blank=True)
+    
+    # Novos campos para controle de histórico
+    status_alteracao = models.CharField(max_length=10, choices=STATUS_ALTERACAO, default='ORIGINAL')
+    registro_original = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='registros_alterados')
+    data_hora_alteracao = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
         return str(f"{self.servidor.nome} - {self.get_tipo_acesso_display()} - {self.data_hora}")
