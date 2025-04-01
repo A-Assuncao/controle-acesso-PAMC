@@ -113,8 +113,8 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 # Configurações de Sessão
-SESSION_COOKIE_AGE = 3600  # 1 hora em segundos
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_COOKIE_AGE = 86400  # 24 horas em segundos
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = True
 
 # Media files
@@ -123,5 +123,9 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Configurações para o ngrok
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = False  # Permite cookies em HTTP para desenvolvimento
+CSRF_COOKIE_SECURE = False    # Permite cookies em HTTP para desenvolvimento
+
+# Em produção, ative estas configurações:
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True

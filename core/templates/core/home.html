@@ -200,21 +200,48 @@
 <div class="modal fade" id="limparPlanilhaModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Limpar Planilha</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Limpar Planilha
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    <strong>Atenção!</strong> Esta ação é irreversível e irá excluir todos os registros do plantão atual.
+                <div class="alert alert-danger" style="font-size: 1.1em;">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <strong>ATENÇÃO! Esta ação é irreversível!</strong>
                 </div>
-                <p>Tem certeza que deseja continuar?</p>
+                <div class="mb-4">
+                    <h6 class="fw-bold">Esta ação irá:</h6>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item text-danger">
+                            <i class="bi bi-x-circle me-2"></i>
+                            Excluir todos os registros que já têm saída registrada
+                        </li>
+                        <li class="list-group-item text-warning">
+                            <i class="bi bi-exclamation-circle me-2"></i>
+                            Manter apenas os registros com saída pendente
+                        </li>
+                        <li class="list-group-item text-danger">
+                            <i class="bi bi-x-circle me-2"></i>
+                            Esta ação não pode ser desfeita
+                        </li>
+                    </ul>
+                </div>
+                <div class="form-group">
+                    <label for="senhaLimpar" class="form-label fw-bold">Digite sua senha para confirmar:</label>
+                    <input type="password" class="form-control" id="senhaLimpar" required>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" onclick="limparPlanilha()">
-                    <i class="bi bi-trash"></i> Limpar Planilha
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" onclick="limparDashboard()">
+                    <i class="bi bi-trash me-2"></i>
+                    Confirmar Limpeza
                 </button>
             </div>
         </div>
@@ -462,10 +489,10 @@ function atualizarRegistros() {
                         }
                     </td>
                     <td>
-                        <button class="btn btn-sm btn-primary" onclick="editarRegistro('${registro.id}')">
+                        <button type="button" class="btn btn-warning" onclick="editarRegistro(${registro.id})">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <button class="btn btn-sm btn-danger" onclick="excluirRegistro('${registro.id}')">
+                        <button type="button" class="btn btn-danger" onclick="excluirRegistro(${registro.id})">
                             <i class="bi bi-trash"></i>
                         </button>
                     </td>
@@ -516,27 +543,8 @@ function exportarExcel() {
 }
 
 function confirmarLimparPlanilha() {
-    limparPlanilhaModal.show();
-}
-
-function limparPlanilha() {
-    fetch('/limpar-plantao/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            limparPlanilhaModal.hide();
-            atualizarRegistros();
-            alert('Planilha limpa com sucesso!');
-        } else {
-            alert(data.message || 'Erro ao limpar planilha');
-        }
-    });
+    const modal = new bootstrap.Modal(document.getElementById('limparPlanilhaModal'));
+    modal.show();
 }
 
 function abrirModalSaidaDefinitiva() {
@@ -544,26 +552,24 @@ function abrirModalSaidaDefinitiva() {
 }
 
 function registrarSaidaDefinitiva() {
-    const nome = document.getElementById('nomePreso').value;
-    const numeroDocumento = document.getElementById('numeroDocumentoPreso').value;
-    const justificativa = document.getElementById('justificativaSaida').value;
+    const nome = document.getElementById('nomePreso').value.trim();
+    const numeroDocumento = document.getElementById('numeroDocumentoPreso').value.trim();
+    const justificativa = document.getElementById('justificativaSaida').value.trim();
     
     if (!nome || !numeroDocumento || !justificativa) {
         alert('Por favor, preencha todos os campos obrigatórios.');
         return;
     }
     
+    const formData = new FormData();
+    formData.append('nome', nome);
+    formData.append('numero_documento', numeroDocumento);
+    formData.append('observacao', justificativa);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
     fetch('/registro/saida-definitiva/', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        },
-        body: JSON.stringify({
-            nome: `Egresso: ${nome}`,
-            numero_documento: numeroDocumento,
-            justificativa: justificativa
-        })
+        body: formData
     })
     .then(response => response.json())
     .then(data => {
@@ -645,10 +651,62 @@ function salvarEdicao() {
     });
 }
 
+function limparDashboard() {
+    const senha = document.getElementById('senhaLimpar').value;
+    
+    if (!senha) {
+        alert('Por favor, digite sua senha para confirmar.');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('senha', senha);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('/limpar-dashboard/', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data && data.status === 'success') {
+            limparPlanilhaModal.hide();
+            document.getElementById('senhaLimpar').value = '';
+            atualizarRegistros();
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao limpar dashboard. Verifique sua senha e tente novamente.');
+    });
+}
+
 // Atualiza os registros a cada 30 segundos
 setInterval(atualizarRegistros, 30000);
 
 // Atualiza os registros quando a página carrega
 document.addEventListener('DOMContentLoaded', atualizarRegistros);
+
+// Função para obter o token CSRF
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
 </script>
 {% endblock %} 
