@@ -81,8 +81,8 @@
             <button class="btn btn-sm btn-success me-2" onclick="exportarExcel()">
                 <i class="bi bi-file-excel"></i> Exportar Excel
             </button>
-            <button class="btn btn-sm btn-outline-secondary me-2" onclick="atualizarRegistros()">
-                <i class="bi bi-arrow-clockwise"></i> Atualizar
+            <button class="btn btn-sm btn-warning me-2" onclick="retirarFaltas()">
+                <i class="bi bi-person-check"></i> Retirar Faltas
             </button>
             <button class="btn btn-sm btn-danger" onclick="confirmarLimparPlanilha()">
                 <i class="bi bi-trash"></i> Limpar Planilha
@@ -90,6 +90,9 @@
         </div>
     </div>
     <div class="card-body">
+        <div class="mb-3">
+            <input type="text" class="form-control" id="filtroRegistros" placeholder="Filtrar por nome..." oninput="filtrarRegistros(this.value)">
+        </div>
         <div class="table-responsive">
             <table class="table table-striped table-hover">
                 <thead>
@@ -102,7 +105,6 @@
                         <th>ISV</th>
                         <th>Entrada</th>
                         <th>Saída</th>
-                        <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody id="registros-tbody">
@@ -111,6 +113,19 @@
             </table>
         </div>
     </div>
+</div>
+
+<!-- Menu de Contexto -->
+<div class="dropdown-menu context-menu" id="contextMenu">
+    <button class="dropdown-item" type="button" id="menuEditar">
+        <i class="bi bi-pencil"></i> Editar
+    </button>
+    <button class="dropdown-item" type="button" id="menuExcluir">
+        <i class="bi bi-trash"></i> Excluir
+    </button>
+    <button class="dropdown-item" type="button" id="menuRegistrarSaida">
+        <i class="bi bi-box-arrow-right"></i> Registrar Saída
+    </button>
 </div>
 
 <!-- Modal de Registro -->
@@ -328,6 +343,70 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Faltas -->
+<div class="modal fade" id="faltasModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Lista de Faltas - <span id="plantaoFaltas"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Campo de Filtro -->
+                <div class="row mb-3">
+                    <div class="col">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" id="filtroFaltas" class="form-control" placeholder="Filtrar por nome ou documento...">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th class="text-center">ORD</th>
+                                <th>Nome</th>
+                                <th>Documento</th>
+                                <th>Setor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="faltasTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="semFaltas" class="alert alert-success" style="display: none;">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    Não há faltas registradas para o plantão atual!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="baixarPDFFaltas()">
+                    <i class="bi bi-file-pdf"></i> Baixar PDF
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.context-menu {
+    position: fixed;
+    z-index: 1000;
+}
+
+.table tbody tr {
+    cursor: context-menu;
+}
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -339,6 +418,9 @@ const excluirModal = new bootstrap.Modal(document.getElementById('excluirModal')
 const limparPlanilhaModal = new bootstrap.Modal(document.getElementById('limparPlanilhaModal'));
 const saidaDefinitivaModal = new bootstrap.Modal(document.getElementById('saidaDefinitivaModal'));
 const editarModal = new bootstrap.Modal(document.getElementById('editarModal'));
+const contextMenu = document.getElementById('contextMenu');
+let registroSelecionado = null;
+const faltasModal = new bootstrap.Modal(document.getElementById('faltasModal'));
 
 function buscarServidor(query) {
     clearTimeout(timeoutBusca);
@@ -480,6 +562,7 @@ function atualizarRegistros() {
                 
                 // Cria linha da tabela
                 const tr = document.createElement('tr');
+                tr.dataset.registroId = registro.id;
                 tr.innerHTML = `
                     <td>${index + 1}</td>
                     <td>${registro.servidor_nome}</td>
@@ -499,14 +582,6 @@ function atualizarRegistros() {
                             `<span class="badge bg-danger">${registro.hora_saida}</span>` : 
                             `<span class="badge bg-warning">Pendente</span>`
                         }
-                    </td>
-                    <td>
-                        <button type="button" class="btn btn-warning" onclick="editarRegistro(${registro.id})">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button type="button" class="btn btn-danger" onclick="excluirRegistro(${registro.id})">
-                            <i class="bi bi-trash"></i>
-                        </button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -621,11 +696,18 @@ function editarRegistro(id) {
                 document.getElementById('hora_entrada_edit').value = '';
             }
             
-            // Preenche hora de saída
-            if (registro.hora_saida && registro.hora_saida !== '-') {
-                document.getElementById('hora_saida_edit').value = registro.hora_saida;
+            // Preenche hora de saída e desabilita se estiver pendente
+            const horaSaidaInput = document.getElementById('hora_saida_edit');
+            if (registro.saida_pendente) {
+                horaSaidaInput.value = '';
+                horaSaidaInput.disabled = true;
             } else {
-                document.getElementById('hora_saida_edit').value = '';
+                horaSaidaInput.disabled = false;
+                if (registro.hora_saida && registro.hora_saida !== '-') {
+                    horaSaidaInput.value = registro.hora_saida;
+                } else {
+                    horaSaidaInput.value = '';
+                }
             }
             
             editarModal.show();
@@ -704,11 +786,122 @@ function limparDashboard() {
     });
 }
 
-// Atualiza os registros a cada 30 segundos
-setInterval(atualizarRegistros, 30000);
+function retirarFaltas() {
+    // Obtém o valor do filtro
+    const filtro = document.getElementById('filtroFaltas').value;
+    
+    // Faz a requisição para o backend incluindo o filtro
+    fetch(`/retirar-faltas/?nome=${encodeURIComponent(filtro)}`)
+        .then(response => response.json())
+        .then(data => {
+            // Atualiza o título do modal com o plantão atual
+            document.getElementById('plantaoFaltas').textContent = data.plantao_atual;
+            
+            const tableBody = document.getElementById('faltasTableBody');
+            const semFaltas = document.getElementById('semFaltas');
+            
+            // Limpa a tabela
+            tableBody.innerHTML = '';
+            
+            if (data.faltosos && data.faltosos.length > 0) {
+                // Mostra a tabela e esconde a mensagem de sem faltas
+                tableBody.closest('.table-responsive').style.display = '';
+                semFaltas.style.display = 'none';
+                
+                // Preenche a tabela com os dados
+                data.faltosos.forEach(faltoso => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="text-center">${faltoso.ord}</td>
+                        <td>${faltoso.nome}</td>
+                        <td>${faltoso.documento}</td>
+                        <td>${faltoso.setor || '-'}</td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            } else {
+                // Esconde a tabela e mostra a mensagem de sem faltas
+                tableBody.closest('.table-responsive').style.display = 'none';
+                semFaltas.style.display = '';
+            }
+            
+            // Abre o modal
+            const modal = new bootstrap.Modal(document.getElementById('faltasModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Erro ao buscar faltas:', error);
+            alert('Erro ao buscar lista de faltas. Por favor, tente novamente.');
+        });
+}
 
-// Atualiza os registros quando a página carrega
-document.addEventListener('DOMContentLoaded', atualizarRegistros);
+// Adiciona evento de input no campo de filtro
+document.getElementById('filtroFaltas').addEventListener('input', function() {
+    // Chama retirarFaltas() após um pequeno delay para evitar muitas requisições
+    clearTimeout(this.timeoutId);
+    this.timeoutId = setTimeout(() => {
+        retirarFaltas();
+    }, 300);
+});
+
+function baixarPDFFaltas() {
+    window.open('/retirar-faltas/?format=pdf', '_blank');
+}
+
+// Atualização automática a cada 30 segundos
+setInterval(function() {
+    fetch('/registros-plantao/')
+        .then(response => response.json())
+        .then(data => {
+            // Atualiza a tabela
+            const tbody = document.getElementById('registros-tbody');
+            tbody.innerHTML = '';
+            
+            // Calcula totais para os cards
+            let totalEntradas = 0;
+            let totalSaidas = 0;
+            let totalPendentes = 0;
+            
+            data.forEach((registro, index) => {
+                // Atualiza contadores
+                if (registro.hora_entrada !== '-') totalEntradas++;
+                if (registro.hora_saida) totalSaidas++;
+                if (registro.hora_entrada !== '-' && !registro.hora_saida) totalPendentes++;
+                
+                // Cria linha da tabela
+                const tr = document.createElement('tr');
+                tr.dataset.registroId = registro.id;
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${registro.servidor_nome}</td>
+                    <td>${registro.servidor_documento}</td>
+                    <td>${registro.setor}</td>
+                    <td>${registro.veiculo}</td>
+                    <td>
+                        <span class="badge ${registro.isv ? 'bg-success' : 'bg-secondary'}">
+                            ${registro.isv ? 'Sim' : 'Não'}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge bg-success">${registro.hora_entrada || '-'}</span>
+                    </td>
+                    <td>
+                        ${registro.hora_saida ? 
+                            `<span class="badge bg-danger">${registro.hora_saida}</span>` : 
+                            `<span class="badge bg-warning">Pendente</span>`
+                        }
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            // Atualiza os cards
+            document.querySelector('.card.bg-success .card-text').textContent = totalEntradas;
+            document.querySelector('.card.bg-danger .card-text').textContent = totalSaidas;
+            document.querySelector('.card.bg-warning .card-text').textContent = totalPendentes;
+        })
+        .catch(error => console.error('Erro ao atualizar registros:', error));
+}, 30000); // 30 segundos
 
 // Função para obter o token CSRF
 function getCookie(name) {
@@ -725,5 +918,144 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
+// Gerenciamento do menu de contexto
+document.addEventListener('contextmenu', function(e) {
+    const tr = e.target.closest('tr');
+    if (tr && tr.dataset.registroId) {
+        e.preventDefault();
+        registroSelecionado = tr.dataset.registroId;
+        
+        // Verifica se o registro tem saída pendente
+        const saidaCell = tr.querySelector('td:nth-child(8)'); // Coluna de saída
+        const isPendente = saidaCell.textContent.includes('Pendente');
+        
+        // Mostra/esconde opções do menu conforme o estado
+        document.getElementById('menuRegistrarSaida').style.display = isPendente ? 'block' : 'none';
+        document.getElementById('menuEditar').style.display = isPendente ? 'none' : 'block';
+        
+        // Posiciona o menu no local do clique
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = e.pageX + 'px';
+        contextMenu.style.top = e.pageY + 'px';
+    }
+});
+
+// Fecha o menu de contexto ao clicar fora
+document.addEventListener('click', function() {
+    contextMenu.style.display = 'none';
+});
+
+// Ações do menu de contexto
+document.getElementById('menuEditar').addEventListener('click', function() {
+    if (registroSelecionado) {
+        editarRegistro(registroSelecionado);
+    }
+});
+
+document.getElementById('menuExcluir').addEventListener('click', function() {
+    if (registroSelecionado) {
+        excluirRegistro(registroSelecionado);
+    }
+});
+
+document.getElementById('menuRegistrarSaida').addEventListener('click', function() {
+    if (registroSelecionado) {
+        registrarSaida(registroSelecionado);
+    }
+});
+
+function registrarSaida(id) {
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch(`/registro/${id}/registrar-saida/`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            atualizarRegistros();
+        } else {
+            alert(data.message || 'Erro ao registrar saída');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao registrar saída');
+    });
+}
+
+function filtrarRegistros(filtro) {
+    const tbody = document.getElementById('registros-tbody');
+    const linhas = tbody.getElementsByTagName('tr');
+    
+    filtro = filtro.toLowerCase();
+    
+    for (let linha of linhas) {
+        const nome = linha.getElementsByTagName('td')[1].textContent.toLowerCase();
+        if (nome.includes(filtro)) {
+            linha.style.display = '';
+        } else {
+            linha.style.display = 'none';
+        }
+    }
+}
+
+// Atualização inicial quando a página carrega
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/registros-plantao/')
+        .then(response => response.json())
+        .then(data => {
+            // Atualiza a tabela
+            const tbody = document.getElementById('registros-tbody');
+            tbody.innerHTML = '';
+            
+            // Calcula totais para os cards
+            let totalEntradas = 0;
+            let totalSaidas = 0;
+            let totalPendentes = 0;
+            
+            data.forEach((registro, index) => {
+                // Atualiza contadores
+                if (registro.hora_entrada !== '-') totalEntradas++;
+                if (registro.hora_saida) totalSaidas++;
+                if (registro.hora_entrada !== '-' && !registro.hora_saida) totalPendentes++;
+                
+                // Cria linha da tabela
+                const tr = document.createElement('tr');
+                tr.dataset.registroId = registro.id;
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${registro.servidor_nome}</td>
+                    <td>${registro.servidor_documento}</td>
+                    <td>${registro.setor}</td>
+                    <td>${registro.veiculo}</td>
+                    <td>
+                        <span class="badge ${registro.isv ? 'bg-success' : 'bg-secondary'}">
+                            ${registro.isv ? 'Sim' : 'Não'}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge bg-success">${registro.hora_entrada || '-'}</span>
+                    </td>
+                    <td>
+                        ${registro.hora_saida ? 
+                            `<span class="badge bg-danger">${registro.hora_saida}</span>` : 
+                            `<span class="badge bg-warning">Pendente</span>`
+                        }
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            // Atualiza os cards
+            document.querySelector('.card.bg-success .card-text').textContent = totalEntradas;
+            document.querySelector('.card.bg-danger .card-text').textContent = totalSaidas;
+            document.querySelector('.card.bg-warning .card-text').textContent = totalPendentes;
+        })
+        .catch(error => console.error('Erro ao atualizar registros:', error));
+});
 </script>
 {% endblock %} 

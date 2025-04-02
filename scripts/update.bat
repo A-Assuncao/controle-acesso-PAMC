@@ -4,7 +4,8 @@ echo Atualizando Sistema de Controle de Acesso...
 :: Vai para o diretório da aplicação
 cd "%PROGRAMFILES%\ControleAcesso\app"
 
-:: Para o serviço
+:: Para os serviços
+net stop ControleAcessoNgrok
 net stop ControleAcesso
 
 :: Ativa o ambiente virtual
@@ -25,8 +26,10 @@ python manage.py migrate
 :: Atualiza scripts de manutenção
 xcopy /Y "scripts\*.*" "%PROGRAMFILES%\ControleAcesso\scripts\"
 
-:: Inicia o serviço
+:: Inicia os serviços
 net start ControleAcesso
+timeout /t 5
+net start ControleAcessoNgrok
 
 echo Atualizacao concluida!
 timeout /t 5 

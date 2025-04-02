@@ -61,6 +61,34 @@
             background-color: #003366;
             color: white;
         }
+
+        .feedback-bar {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background-color: #003366;
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1040;
+            transition: transform 0.3s ease;
+        }
+
+        .feedback-bar:hover {
+            transform: translateY(-5px);
+        }
+
+        .feedback-bar a {
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feedback-bar i {
+            font-size: 1.2rem;
+        }
     </style>
 </head>
 <body>
@@ -142,6 +170,14 @@
             {% block content %}{% endblock %}
         </div>
     </main>
+
+    <!-- Feedback Bar -->
+    <div class="feedback-bar">
+        <a href="https://docs.google.com/forms/d/1bJh5YQDbyYgi94nKFN93AhhiBiEg3nK737sh1ObxiWk/edit" target="_blank">
+            <i class="bi bi-chat-right-text"></i>
+            <span>Feedback</span>
+        </a>
+    </div>
 
     <!-- Footer -->
     <footer class="footer">

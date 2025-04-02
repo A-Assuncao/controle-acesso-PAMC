@@ -29,6 +29,13 @@ echo A senha deve ter pelo menos 8 caracteres!
 goto password
 :passok
 
+:: Solicita token do ngrok
+echo.
+echo Para usar o acesso externo via ngrok, voce precisa de um token.
+echo Obtenha seu token em: https://dashboard.ngrok.com/get-started/your-authtoken
+echo.
+set /p NGROK_TOKEN=Digite seu token do ngrok (deixe em branco para configurar depois): 
+
 echo.
 echo Preparando instalacao...
 echo - Verificando requisitos...
@@ -93,6 +100,21 @@ echo - Instalando dependencias...
 python -m pip install --upgrade pip > "%TEMP%\ControleAcesso_Install_Logs\pip_upgrade.log" 2>&1
 pip install -r requirements.txt > "%TEMP%\ControleAcesso_Install_Logs\pip_install.log" 2>&1
 
+:: Verifica se existe o arquivo .env
+if not exist .env (
+    echo Criando arquivo .env...
+    if not "%NGROK_TOKEN%"=="" (
+        echo NGROK_AUTH_TOKEN=%NGROK_TOKEN%> .env
+    ) else (
+        echo NGROK_AUTH_TOKEN=seu_token_do_ngrok> .env
+        echo.
+        echo AVISO: Token do ngrok nao configurado.
+        echo Para configurar depois, edite o arquivo:
+        echo %PROGRAMFILES%\ControleAcesso\app\.env
+        echo.
+    )
+)
+
 :: Configura o banco de dados
 echo - Configurando banco de dados...
 python manage.py migrate > "%TEMP%\ControleAcesso_Install_Logs\db_migrate.log" 2>&1
@@ -105,16 +127,28 @@ python manage.py shell -c "from django.contrib.auth.models import User; User.obj
 echo - Configurando scripts de manutencao...
 xcopy /Y "scripts\*.*" "%PROGRAMFILES%\ControleAcesso\scripts\"
 
-:: Cria serviço Windows
-echo - Instalando servico Windows...
+:: Cria serviço Windows para o Django
+echo - Instalando servico Django...
 nssm install ControleAcesso "%PROGRAMFILES%\ControleAcesso\venv\Scripts\python.exe"
 nssm set ControleAcesso AppDirectory "%PROGRAMFILES%\ControleAcesso\app"
 nssm set ControleAcesso AppParameters "manage.py runserver 0.0.0.0:8000"
 nssm set ControleAcesso DisplayName "Sistema de Controle de Acesso"
 nssm set ControleAcesso Description "Servidor do Sistema de Controle de Acesso"
 nssm set ControleAcesso Start SERVICE_AUTO_START
-nssm set ControleAcesso AppStdout "%PROGRAMFILES%\ControleAcesso\logs\output.log"
-nssm set ControleAcesso AppStderr "%PROGRAMFILES%\ControleAcesso\logs\error.log"
+nssm set ControleAcesso AppStdout "%PROGRAMFILES%\ControleAcesso\logs\django_output.log"
+nssm set ControleAcesso AppStderr "%PROGRAMFILES%\ControleAcesso\logs\django_error.log"
+
+:: Cria serviço Windows para o Ngrok
+echo - Instalando servico Ngrok...
+nssm install ControleAcessoNgrok "%PROGRAMFILES%\ControleAcesso\venv\Scripts\python.exe"
+nssm set ControleAcessoNgrok AppDirectory "%PROGRAMFILES%\ControleAcesso\app"
+nssm set ControleAcessoNgrok AppParameters "run_with_ngrok.py"
+nssm set ControleAcessoNgrok DisplayName "Controle de Acesso - Ngrok"
+nssm set ControleAcessoNgrok Description "Tunel Ngrok para acesso externo"
+nssm set ControleAcessoNgrok Start SERVICE_AUTO_START
+nssm set ControleAcessoNgrok AppStdout "%PROGRAMFILES%\ControleAcesso\logs\ngrok_output.log"
+nssm set ControleAcessoNgrok AppStderr "%PROGRAMFILES%\ControleAcesso\logs\ngrok_error.log"
+nssm set ControleAcessoNgrok DependOnService ControleAcesso
 
 :: Cria atalho na área de trabalho
 echo - Criando atalho do sistema...
@@ -124,9 +158,10 @@ powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.Create
 echo - Configurando atualizacao automatica...
 schtasks /create /tn "AtualizarControleAcesso" /tr "\"%PROGRAMFILES%\ControleAcesso\scripts\update.bat\"" /sc daily /st 03:00 /ru SYSTEM /f
 
-:: Inicia o serviço
-echo - Iniciando servico...
+:: Inicia os serviços
+echo - Iniciando servicos...
 net start ControleAcesso
+net start ControleAcessoNgrok
 
 echo.
 echo ============================================
@@ -136,11 +171,25 @@ echo.
 echo Informacoes importantes:
 echo - Usuario: %ADMIN_USER%
 echo - Email: %ADMIN_EMAIL%
-echo - URL do sistema: http://localhost:8000
+echo - URL local: http://localhost:8000
+echo - URL do ngrok: Verifique em %PROGRAMFILES%\ControleAcesso\app\ngrok_url.txt
+echo.
+echo Logs do sistema:
+echo - Django: %PROGRAMFILES%\ControleAcesso\logs\django_*.log
+echo - Ngrok: %PROGRAMFILES%\ControleAcesso\logs\ngrok_*.log
 echo.
 echo Scripts de manutencao:
 echo Os scripts de manutencao estao em:
 echo %PROGRAMFILES%\ControleAcesso\scripts
 echo.
+echo Atualizacao automatica configurada para executar diariamente as 03:00
+echo.
+if "%NGROK_TOKEN%"=="" (
+    echo AVISO: Voce nao configurou o token do ngrok.
+    echo Para o acesso externo funcionar, edite o arquivo:
+    echo %PROGRAMFILES%\ControleAcesso\app\.env
+    echo E reinicie o servico ControleAcessoNgrok
+    echo.
+)
 echo Pressione qualquer tecla para concluir...
 pause > nul 

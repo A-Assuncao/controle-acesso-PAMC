@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, FileResponse
 from django.core.paginator import Paginator
 from django.db.models import Q, Case, When, DateTimeField, Subquery, OuterRef
 from django.utils import timezone
@@ -16,6 +16,11 @@ import json
 import csv
 import pytz
 from io import BytesIO
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 
 def is_staff(user):
     return user.is_staff
@@ -1017,3 +1022,197 @@ def limpar_dashboard(request):
             return redirect('home')
     
     return redirect('home')
+
+@login_required
+def registrar_saida(request, registro_id):
+    """Registra a saída diretamente para um registro pendente."""
+    if request.method == 'POST':
+        try:
+            # Obtém o registro do dashboard
+            registro_dashboard = get_object_or_404(RegistroDashboard, id=registro_id)
+            
+            # Verifica se o registro está pendente
+            if not registro_dashboard.saida_pendente:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Este registro não está pendente de saída.'
+                }, status=400)
+            
+            # Define o timezone UTC-4
+            tz = pytz.timezone('America/Manaus')
+            agora = timezone.now()
+            
+            # Atualiza o registro histórico
+            registro_historico = registro_dashboard.registro_historico
+            registro_historico.data_hora_saida = agora
+            registro_historico.operador_saida = request.user
+            registro_historico.saida_pendente = False
+            registro_historico.save()
+            
+            # Atualiza o registro no dashboard
+            registro_dashboard.data_hora_saida = agora
+            registro_dashboard.operador_saida = request.user
+            registro_dashboard.saida_pendente = False
+            registro_dashboard.save()
+            
+            return JsonResponse({'status': 'success'})
+            
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            }, status=400)
+    
+    return JsonResponse({'status': 'error', 'message': 'Método não permitido'}, status=405)
+
+@login_required
+def retirar_faltas(request):
+    # Obtém o plantão atual
+    plantao_atual = calcular_plantao_atual()
+    
+    # Obtém o filtro de nome da query string
+    filtro_nome = request.GET.get('nome', '').strip()
+    
+    # Busca todos os servidores do plantão atual (case insensitive e variações do nome)
+    servidores_plantao = Servidor.objects.filter(
+        Q(setor__icontains='DELTA') |  # DELTA
+        Q(setor__icontains='Plantão DELTA') |  # Plantão DELTA
+        Q(setor__icontains='PLANTAO DELTA') |  # PLANTAO DELTA
+        Q(setor__icontains='Plantao DELTA'),  # Plantao DELTA
+        ativo=True
+    ).order_by('nome')
+    
+    # Aplica filtro por nome se fornecido
+    if filtro_nome:
+        servidores_plantao = servidores_plantao.filter(
+            Q(nome__icontains=filtro_nome) |
+            Q(numero_documento__icontains=filtro_nome)
+        )
+    
+    # Busca os servidores que já entraram hoje
+    hoje = timezone.now().date()
+    servidores_presentes = RegistroDashboard.objects.filter(
+        data_hora__date=hoje,
+        tipo_acesso='ENTRADA'
+    ).values_list('servidor_id', flat=True)
+    
+    # Lista de faltosos (servidores do plantão que não entraram)
+    faltosos = []
+    for servidor in servidores_plantao:
+        if servidor.id not in servidores_presentes:
+            faltosos.append({
+                'ord': len(faltosos) + 1,  # Adiciona número de ordem
+                'nome': servidor.nome,
+                'documento': servidor.numero_documento,
+                'setor': servidor.setor
+            })
+    
+    # Ordena a lista de faltosos por nome
+    faltosos.sort(key=lambda x: x['nome'])
+    
+    # Atualiza os números de ordem após a ordenação
+    for i, faltoso in enumerate(faltosos, 1):
+        faltoso['ord'] = i
+    
+    # Se for solicitado PDF
+    if request.GET.get('format') == 'pdf':
+        # Cria um buffer para o PDF
+        buffer = BytesIO()
+        
+        # Cria o documento PDF
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        elements = []
+        
+        # Define estilos
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            spaceAfter=30,
+            alignment=1  # Centralizado
+        )
+        
+        # Adiciona título
+        title = Paragraph(f"Faltas do Plantão {plantao_atual['nome']}", title_style)
+        elements.append(title)
+        
+        # Adiciona data e hora
+        date_style = ParagraphStyle(
+            'DateStyle',
+            parent=styles['Normal'],
+            fontSize=12,
+            spaceAfter=20,
+            alignment=1  # Centralizado
+        )
+        current_datetime = timezone.localtime().strftime("%d/%m/%Y %H:%M:%S")
+        date_paragraph = Paragraph(f"Gerado em: {current_datetime}", date_style)
+        elements.append(date_paragraph)
+        
+        if faltosos:
+            # Prepara dados da tabela
+            table_data = [['ORD', 'Nome', 'Documento', 'Setor']]  # Cabeçalho
+            for faltoso in faltosos:
+                table_data.append([
+                    str(faltoso['ord']),
+                    faltoso['nome'],
+                    faltoso['documento'],
+                    faltoso['setor']
+                ])
+            
+            # Cria a tabela
+            table = Table(table_data, colWidths=[50, 200, 100, 150])
+            
+            # Estilo da tabela
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Centraliza coluna ORD
+                ('ALIGN', (1, 0), (-1, -1), 'LEFT'),  # Alinha à esquerda as outras colunas
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            elements.append(table)
+        else:
+            # Mensagem quando não há faltosos
+            no_data_style = ParagraphStyle(
+                'NoData',
+                parent=styles['Normal'],
+                fontSize=12,
+                spaceAfter=20,
+                alignment=1
+            )
+            no_data = Paragraph("Não há faltas registradas para o plantão atual!", no_data_style)
+            elements.append(no_data)
+        
+        # Gera o PDF
+        doc.build(elements)
+        
+        # Prepara a resposta
+        buffer.seek(0)
+        filename = f"faltas_plantao_{plantao_atual['nome'].replace(' ', '_')}_{hoje.strftime('%Y%m%d')}.pdf"
+        
+        return FileResponse(
+            buffer,
+            as_attachment=True,
+            filename=filename,
+            content_type='application/pdf'
+        )
+    
+    # Retorna JSON para requisição normal
+    return JsonResponse({
+        'plantao_atual': plantao_atual['nome'],
+        'faltosos': faltosos,
+        'total': len(faltosos)
+    })
