@@ -268,7 +268,9 @@ def registros_plantao(request):
                 'veiculo': registro.veiculo or '-',
                 'isv': registro.isv,
                 'hora_entrada': data_hora.strftime('%H:%M'),
-                'hora_saida': data_hora_saida.strftime('%H:%M') if data_hora_saida else None
+                'hora_saida': data_hora_saida.strftime('%H:%M') if data_hora_saida else None,
+                'tipo_acesso': registro.tipo_acesso,
+                'saida_pendente': registro.saida_pendente
             })
         # Se for uma saída definitiva
         elif registro.tipo_acesso == 'SAIDA':
@@ -280,7 +282,9 @@ def registros_plantao(request):
                 'veiculo': registro.veiculo or '-',
                 'isv': registro.isv,
                 'hora_entrada': '-',
-                'hora_saida': data_hora.strftime('%H:%M')
+                'hora_saida': data_hora.strftime('%H:%M'),
+                'tipo_acesso': registro.tipo_acesso,
+                'saida_pendente': False
             })
     
     return JsonResponse(data, safe=False)

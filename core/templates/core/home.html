@@ -463,10 +463,22 @@ function atualizarRegistros() {
     fetch('/registros-plantao/')
         .then(response => response.json())
         .then(data => {
+            // Atualiza a tabela
             const tbody = document.getElementById('registros-tbody');
             tbody.innerHTML = '';
             
+            // Calcula totais para os cards
+            let totalEntradas = 0;
+            let totalSaidas = 0;
+            let totalPendentes = 0;
+            
             data.forEach((registro, index) => {
+                // Atualiza contadores
+                if (registro.hora_entrada !== '-') totalEntradas++;
+                if (registro.hora_saida) totalSaidas++;
+                if (registro.hora_entrada !== '-' && !registro.hora_saida) totalPendentes++;
+                
+                // Cria linha da tabela
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${index + 1}</td>
@@ -499,6 +511,11 @@ function atualizarRegistros() {
                 `;
                 tbody.appendChild(tr);
             });
+            
+            // Atualiza os cards
+            document.querySelector('.card.bg-success .card-text').textContent = totalEntradas;
+            document.querySelector('.card.bg-danger .card-text').textContent = totalSaidas;
+            document.querySelector('.card.bg-warning .card-text').textContent = totalPendentes;
         })
         .catch(error => console.error('Erro ao atualizar registros:', error));
 }
