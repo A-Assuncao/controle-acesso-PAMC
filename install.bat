@@ -75,8 +75,8 @@ echo.
 echo - Criando diretorios...
 mkdir "%PROGRAMFILES%\ControleAcesso\app" 2>nul
 mkdir "%PROGRAMFILES%\ControleAcesso\logs" 2>nul
-mkdir "%PROGRAMFILES%\ControleAcesso\scripts" 2>nul
 mkdir "%PROGRAMFILES%\ControleAcesso\backups" 2>nul
+mkdir "%PROGRAMFILES%\ControleAcesso\scripts" 2>nul
 
 :: Clona o repositório
 echo - Baixando codigo fonte...
@@ -102,8 +102,8 @@ echo - Criando usuario administrador...
 python manage.py shell -c "from django.contrib.auth.models import User; User.objects.create_superuser('%ADMIN_USER%', '%ADMIN_EMAIL%', '%ADMIN_PASS%') if not User.objects.filter(username='%ADMIN_USER%').exists() else None"
 
 :: Copia os scripts de manutenção
-echo - Copiando scripts de manutencao...
-xcopy /Y "%PROGRAMFILES%\ControleAcesso\app\scripts\*.*" "%PROGRAMFILES%\ControleAcesso\scripts\"
+echo - Configurando scripts de manutencao...
+xcopy /Y "scripts\*.*" "%PROGRAMFILES%\ControleAcesso\scripts\"
 
 :: Cria serviço Windows
 echo - Instalando servico Windows...
@@ -116,17 +116,13 @@ nssm set ControleAcesso Start SERVICE_AUTO_START
 nssm set ControleAcesso AppStdout "%PROGRAMFILES%\ControleAcesso\logs\output.log"
 nssm set ControleAcesso AppStderr "%PROGRAMFILES%\ControleAcesso\logs\error.log"
 
+:: Cria atalho na área de trabalho
+echo - Criando atalho do sistema...
+powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\Controle de Acesso.url'); $SC.TargetPath = 'http://localhost:8000'; $SC.Save()"
+
 :: Configura atualização automática
 echo - Configurando atualizacao automatica...
 schtasks /create /tn "AtualizarControleAcesso" /tr "\"%PROGRAMFILES%\ControleAcesso\scripts\update.bat\"" /sc daily /st 03:00 /ru SYSTEM /f
-
-:: Cria atalhos na área de trabalho
-echo - Criando atalhos na area de trabalho...
-powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\Controle de Acesso.url'); $SC.TargetPath = 'http://localhost:8000'; $SC.Save()"
-
-:: Cria pasta de scripts na área de trabalho
-mkdir "%USERPROFILE%\Desktop\Scripts Controle de Acesso" 2>nul
-copy "%PROGRAMFILES%\ControleAcesso\scripts\*.bat" "%USERPROFILE%\Desktop\Scripts Controle de Acesso\"
 
 :: Inicia o serviço
 echo - Iniciando servico...
@@ -142,14 +138,9 @@ echo - Usuario: %ADMIN_USER%
 echo - Email: %ADMIN_EMAIL%
 echo - URL do sistema: http://localhost:8000
 echo.
-echo Atalhos criados:
-echo - Acesso ao sistema na area de trabalho
-echo - Pasta "Scripts Controle de Acesso" na area de trabalho
-echo   contendo scripts de manutencao:
-echo   * update.bat - Atualiza o sistema
-echo   * backup.bat - Cria backup do banco de dados
-echo   * restore.bat - Restaura um backup
-echo   * restart.bat - Reinicia o servico
+echo Scripts de manutencao:
+echo Os scripts de manutencao estao em:
+echo %PROGRAMFILES%\ControleAcesso\scripts
 echo.
 echo Pressione qualquer tecla para concluir...
 pause > nul 

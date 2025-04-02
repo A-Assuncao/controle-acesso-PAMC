@@ -2,16 +2,16 @@
 echo Atualizando Sistema de Controle de Acesso...
 
 :: Vai para o diretório da aplicação
-cd "%PROGRAMFILES%\ControleAcesso"
+cd "%PROGRAMFILES%\ControleAcesso\app"
 
 :: Para o serviço
 net stop ControleAcesso
 
 :: Ativa o ambiente virtual
-call venv\Scripts\activate
+call "%PROGRAMFILES%\ControleAcesso\venv\Scripts\activate"
 
 :: Backup do banco de dados
-python manage.py dumpdata > backup.json
+python manage.py dumpdata > "%PROGRAMFILES%\ControleAcesso\backups\backup_%date:~6,4%-%date:~3,2%-%date:~0,2%.json"
 
 :: Atualiza o código
 git pull
@@ -21,6 +21,9 @@ pip install -r requirements.txt
 
 :: Aplica migrações
 python manage.py migrate
+
+:: Atualiza scripts de manutenção
+xcopy /Y "scripts\*.*" "%PROGRAMFILES%\ControleAcesso\scripts\"
 
 :: Inicia o serviço
 net start ControleAcesso
