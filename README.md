@@ -6,7 +6,6 @@ Sistema para controle de acesso de servidores, desenvolvido em Django.
 
 - Python 3.9 ou superior
 - pip (gerenciador de pacotes do Python)
-- ngrok (opcional, para demonstrações)
 
 ## Instalação Local
 
@@ -44,40 +43,11 @@ python manage.py createsuperuser
 
 6. Inicie o servidor:
 ```bash
-# Servidor local
 python manage.py runserver
-
-# OU para demonstração com ngrok
-python run_with_ngrok.py
 ```
 
 7. Acesse o sistema:
 - Local: http://localhost:8000
-- Demonstração: A URL do ngrok será exibida no terminal
-
-## Configurando o ngrok para Demonstrações
-
-1. Instale o ngrok:
-```bash
-# Windows (com Chocolatey)
-choco install ngrok
-
-# Linux
-snap install ngrok
-
-# Mac
-brew install ngrok
-```
-
-2. Autentique o ngrok:
-```bash
-ngrok config add-authtoken SEU_TOKEN_AQUI
-```
-
-3. Para demonstrar o sistema, use:
-```bash
-python run_with_ngrok.py
-```
 
 ## Uso
 
@@ -94,7 +64,35 @@ python run_with_ngrok.py
 - Relatórios em Excel
 - Gerenciamento de usuários
 - Log de auditoria
+- Modo de treinamento para novos usuários
 
 ## Backup
 
-O banco de dados SQLite está localizado em `db.sqlite3`. Faça backups regulares deste arquivo para manter seus dados seguros. 
+O banco de dados SQLite está localizado em `db.sqlite3`. Faça backups regulares deste arquivo para manter seus dados seguros.
+
+## Executando em Produção Local
+
+Para executar o sistema em modo de produção local, siga estas etapas:
+
+1. **Colete os arquivos estáticos**:
+   ```
+   python manage.py collectstatic --noinput
+   ```
+
+2. **Execute o servidor em modo de produção**:
+   ```
+   python run_production.py
+   ```
+   ou
+   ```
+   python manage.py runserver 0.0.0.0:8000 --insecure
+   ```
+
+3. **Acesse o sistema**:
+   Abra seu navegador e acesse `http://localhost:8000`
+
+## Observações Importantes
+
+- O modo de produção local (`DEBUG=False`) permite visualizar as páginas de erro personalizadas
+- A opção `--insecure` permite que o Django sirva arquivos estáticos mesmo com `DEBUG=False`
+- Em um ambiente de produção real, você deve usar um servidor web como Nginx ou Apache para servir arquivos estáticos 

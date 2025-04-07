@@ -3,7 +3,21 @@ from . import views
 from django.contrib.auth.views import LogoutView
 
 urlpatterns = [
-    path('', views.home, name='home'),
+    path('', views.welcome, name='welcome'),
+    path('dashboard/', views.home, name='home'),
+    path('treinamento/', views.ambiente_treinamento, name='ambiente_treinamento'),
+    path('treinamento/registro/', views.registro_acesso_treinamento_create, name='registro_acesso_treinamento_create'),
+    path('treinamento/registro-manual/', views.registro_manual_treinamento_create, name='registro_manual_treinamento_create'),
+    path('treinamento/saida-definitiva/', views.saida_definitiva_treinamento, name='saida_definitiva_treinamento'),
+    path('treinamento/limpar-dashboard/', views.limpar_dashboard_treinamento, name='limpar_dashboard_treinamento'),
+    path('treinamento/registros/', views.registros_plantao_treinamento, name='registros_plantao_treinamento'),
+    path('treinamento/registro/<int:registro_id>/detalhe/', views.registro_detalhe_treinamento, name='registro_detalhe_treinamento'),
+    path('treinamento/registro/<int:registro_id>/editar/', views.registro_acesso_treinamento_update, name='registro_acesso_treinamento_update'),
+    path('treinamento/registro/<int:registro_id>/excluir/', views.excluir_registro_treinamento, name='excluir_registro_treinamento'),
+    path('treinamento/registro/<int:registro_id>/saida/', views.registrar_saida_treinamento, name='registrar_saida_treinamento'),
+    path('treinamento/buscar-servidor/', views.buscar_servidor_treinamento, name='buscar_servidor_treinamento'),
+    path('treinamento/exportar-excel/', views.exportar_excel_treinamento, name='exportar_excel_treinamento'),
+    path('treinamento/tutoriais/', views.tutoriais_treinamento, name='tutoriais_treinamento'),
     path('logout/', LogoutView.as_view(next_page='login'), name='logout'),
     path('servidor/', views.servidor_list, name='servidor_list'),
     path('servidor/novo/', views.servidor_create, name='servidor_create'),
@@ -22,6 +36,7 @@ urlpatterns = [
     path('usuarios/', views.user_list, name='user_list'),
     path('usuarios/novo/', views.user_create, name='user_create'),
     path('usuarios/<int:pk>/editar/', views.user_update, name='user_update'),
+    path('usuarios/<int:pk>/atualizar/', views.user_reset_password, name='user_reset_password'),
     path('usuarios/<int:pk>/excluir/', views.user_delete, name='user_delete'),
     path('historico/', views.historico, name='historico'),
     path('registro/saida-definitiva/', views.saida_definitiva, name='saida_definitiva'),
@@ -30,4 +45,5 @@ urlpatterns = [
     path('limpar-banco-servidores/', views.limpar_banco_servidores, name='limpar_banco_servidores'),
     path('verificar-entrada/<int:servidor_id>/', views.verificar_entrada, name='verificar_entrada'),
     path('limpar-dashboard/', views.limpar_dashboard, name='limpar_dashboard'),
+    path('trocar-senha/', views.trocar_senha, name='trocar_senha'),
 ] 

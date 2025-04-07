@@ -1,0 +1,141 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="mb-0">
+                    <i class="bi bi-play-circle me-2"></i>
+                    Tutoriais em Vídeo
+                </h2>
+                <a href="{% url 'ambiente_treinamento' %}" class="btn btn-primary">
+                    <i class="bi bi-arrow-left me-2"></i>
+                    Voltar ao Treinamento
+                </a>
+            </div>
+            <p class="text-muted mt-2">
+                Assista aos vídeos tutoriais para aprender a usar todas as funcionalidades do sistema.
+            </p>
+        </div>
+    </div>
+
+    {% if not tutoriais_por_categoria %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        Nenhum tutorial disponível no momento.
+    </div>
+    {% endif %}
+
+    {% for categoria, tutoriais in tutoriais_por_categoria.items %}
+    <div class="card mb-4">
+        <div class="card-header bg-primary bg-opacity-10">
+            <h3 class="h5 mb-0">
+                <i class="bi bi-collection-play me-2"></i>
+                {{ categoria }}
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                {% for tutorial in tutoriais %}
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="ratio ratio-16x9">
+                            <iframe 
+                                src="{{ tutorial.get_embed_url }}" 
+                                title="{{ tutorial.titulo }}" 
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">{{ tutorial.titulo }}</h5>
+                            <p class="card-text text-muted">{{ tutorial.descricao }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if user.is_superuser %}
+    <div class="card mb-4">
+        <div class="card-header bg-info bg-opacity-10">
+            <h3 class="h5 mb-0">
+                <i class="bi bi-lightbulb me-2"></i>
+                Sugestões de Vídeos
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <h4 class="alert-heading">
+                    <i class="bi bi-camera-video me-2"></i>
+                    Sugestões de Conteúdo para os Vídeos
+                </h4>
+                <hr>
+                <ol>
+                    <li class="mb-3">
+                        <strong>Registro de Entrada:</strong>
+                        <ul>
+                            <li>Como buscar um servidor</li>
+                            <li>Preenchimento dos campos obrigatórios</li>
+                            <li>Registro com e sem ISV</li>
+                            <li>Registro com e sem veículo</li>
+                        </ul>
+                    </li>
+                    <li class="mb-3">
+                        <strong>Registro de Saída:</strong>
+                        <ul>
+                            <li>Como registrar saída normal</li>
+                            <li>Como registrar saída definitiva</li>
+                            <li>Diferença entre os tipos de saída</li>
+                        </ul>
+                    </li>
+                    <li class="mb-3">
+                        <strong>Edição de Registros:</strong>
+                        <ul>
+                            <li>Como editar data e hora de entrada</li>
+                            <li>Como editar data e hora de saída</li>
+                            <li>Como alterar informações de ISV e veículo</li>
+                        </ul>
+                    </li>
+                    <li class="mb-3">
+                        <strong>Exclusão de Registros:</strong>
+                        <ul>
+                            <li>Como excluir um registro</li>
+                            <li>Importância da justificativa</li>
+                            <li>Confirmação de exclusão</li>
+                        </ul>
+                    </li>
+                    <li class="mb-3">
+                        <strong>Gerenciamento da Planilha:</strong>
+                        <ul>
+                            <li>Como limpar a planilha</li>
+                            <li>Como exportar para Excel</li>
+                            <li>Como filtrar registros</li>
+                        </ul>
+                    </li>
+                    <li class="mb-3">
+                        <strong>Funcionalidades Gerais:</strong>
+                        <ul>
+                            <li>Navegação pelo sistema</li>
+                            <li>Entendendo os contadores</li>
+                            <li>Uso do menu de contexto</li>
+                            <li>Dicas e boas práticas</li>
+                        </ul>
+                    </li>
+                </ol>
+                <hr>
+                <p class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Recomendamos que os vídeos sejam curtos (2-5 minutos) e objetivos, focando em uma funcionalidade específica por vez.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

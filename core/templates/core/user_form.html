@@ -23,17 +23,7 @@
                         </div>
                         <div class="form-text">
                             O nome de usuário será usado para fazer login no sistema.
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Senha*</label>
-                        <input type="password" name="password" class="form-control" required>
-                        <div class="invalid-feedback">
-                            Por favor, informe uma senha.
-                        </div>
-                        <div class="form-text">
-                            Use uma senha forte com pelo menos 8 caracteres.
+                            Após criar o usuário, uma senha temporária será gerada automaticamente.
                         </div>
                     </div>
                     {% endif %}
@@ -42,18 +32,41 @@
                     <!-- Campos específicos para edição -->
                     <div class="mb-3">
                         <label class="form-label">Nome de Usuário</label>
-                        <input type="text" name="username" class="form-control" value="{{ usuario.username }}" required>
+                        <input type="text" name="username" class="form-control" value="{{ usuario.username }}" readonly>
                         <div class="form-text">
-                            O nome de usuário será usado para fazer login no sistema.
+                            O nome de usuário não pode ser alterado.
                         </div>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">Nova Senha (opcional)</label>
-                        <input type="password" name="password" class="form-control">
-                        <div class="form-text">
-                            Deixe em branco para manter a senha atual.
+                        <div class="form-check">
+                            <input type="checkbox" name="redefinir_senha" class="form-check-input" id="redefinir_senha">
+                            <label class="form-check-label" for="redefinir_senha">
+                                Redefinir senha do usuário
+                            </label>
+                            <div class="form-text">
+                                Marque esta opção para gerar uma nova senha temporária. 
+                                O usuário será obrigado a trocar a senha no próximo login.
+                            </div>
                         </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" name="forcar_troca" class="form-check-input" id="forcar_troca">
+                            <label class="form-check-label" for="forcar_troca">
+                                Forçar troca de senha no próximo login
+                            </label>
+                            <div class="form-text">
+                                Marque esta opção para forçar o usuário a trocar sua senha atual 
+                                no próximo login, sem redefinir a senha atual.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">E-mail (opcional)</label>
+                        <input type="email" name="email" class="form-control" value="{{ usuario.email|default:'' }}">
                     </div>
                     {% endif %}
                     
@@ -71,14 +84,6 @@
                         <input type="text" name="last_name" class="form-control" value="{{ usuario.last_name|default:'' }}" required>
                         <div class="invalid-feedback">
                             Por favor, informe o sobrenome.
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">E-mail*</label>
-                        <input type="email" name="email" class="form-control" value="{{ usuario.email|default:'' }}" required>
-                        <div class="invalid-feedback">
-                            Por favor, informe um e-mail válido.
                         </div>
                     </div>
                     
@@ -119,6 +124,18 @@
             form.classList.add('was-validated')
         }, false)
     })
+    
+    // Lógica para redefinir senha e forçar troca
+    if (document.getElementById('redefinir_senha')) {
+        document.getElementById('redefinir_senha').addEventListener('change', function() {
+            if (this.checked) {
+                document.getElementById('forcar_troca').checked = true;
+                document.getElementById('forcar_troca').disabled = true;
+            } else {
+                document.getElementById('forcar_troca').disabled = false;
+            }
+        });
+    }
 })()
 </script>
 {% endblock %}

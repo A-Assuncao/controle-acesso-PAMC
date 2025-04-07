@@ -1,8 +1,10 @@
 {% extends 'core/base.html' %}
+{% load static %}
 
 {% block title %}Dashboard - Controle de Acesso{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <!-- Cards de resumo -->
 <div class="row mb-4">
     <div class="col-md-3">
@@ -38,6 +40,31 @@
         </div>
     </div>
 </div>
+
+{% if mostrar_aviso_plantao %}
+<!-- Aviso de Troca de Plantão -->
+<div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+    <div class="d-flex align-items-center">
+        <i class="bi bi-exclamation-triangle-fill me-2" style="font-size: 1.5rem;"></i>
+        <div>
+            <h4 class="alert-heading mb-1">Aviso de Troca de Plantão - {{ hora_atual }}</h4>
+            <p class="mb-0">
+                Se você está iniciando seu plantão agora, é recomendado limpar a planilha para não manter registros de movimentações de plantões anteriores.
+                Apenas os registros com saída pendente serão mantidos.
+            </p>
+            <hr>
+            <div class="d-flex gap-2">
+                <button class="btn btn-warning" onclick="confirmarLimparPlanilha()">
+                    <i class="bi bi-trash"></i> Limpar Planilha
+                </button>
+                <button type="button" class="btn btn-outline-dark" data-bs-dismiss="alert">
+                    Ignorar Aviso
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Busca e Registro -->
 <div class="row mb-4">
@@ -111,6 +138,11 @@
                     <!-- Os registros serão inseridos aqui via JavaScript -->
                 </tbody>
             </table>
+            <div class="mt-3">
+                <small class="text-muted" id="instrucao-clique-direito" style="display: none;">
+                    <i class="bi bi-info-circle me-1"></i> Clique com o botão direito em um registro para ver as opções disponíveis.
+                </small>
+            </div>
         </div>
     </div>
 </div>
@@ -244,10 +276,14 @@
                         </li>
                     </ul>
                 </div>
-                <div class="form-group">
-                    <label for="senhaLimpar" class="form-label fw-bold">Digite sua senha para confirmar:</label>
-                    <input type="password" class="form-control" id="senhaLimpar" required>
-                </div>
+                <form id="limparPlanilhaForm" onsubmit="event.preventDefault(); limparDashboard();">
+                    <div class="form-group">
+                        <label for="senhaLimpar" class="form-label fw-bold">Digite sua senha para confirmar:</label>
+                        <input type="text" class="form-control" id="senhaLimpar" required 
+                               autocomplete="off" data-form-type="other" 
+                               inputmode="password" style="-webkit-text-security: disc;">
+                    </div>
+                </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
@@ -259,6 +295,20 @@
                     Confirmar Limpeza
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast para notificações sem interrupção -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
+    <div id="notificacaoToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header bg-success text-white">
+            <i class="bi bi-check-circle me-2"></i>
+            <strong class="me-auto">Aviso</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body fw-bold" id="notificacaoMensagem">
+            Operação realizada com sucesso!
         </div>
     </div>
 </div>
@@ -292,52 +342,6 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" onclick="registrarSaidaDefinitiva()">
                     <i class="bi bi-box-arrow-right"></i> Registrar Saída
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de Edição Manual -->
-<div class="modal fade" id="editarModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Editar Registro</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="editarForm">
-                    <input type="hidden" id="registro_id">
-                    <div class="mb-3">
-                        <label class="form-label">Servidor</label>
-                        <input type="text" class="form-control" id="servidor_nome_edit" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Data*</label>
-                        <input type="date" class="form-control" id="data_edit" required>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col">
-                            <label class="form-label">Hora de Entrada</label>
-                            <input type="time" class="form-control" id="hora_entrada_edit">
-                        </div>
-                        <div class="col">
-                            <label class="form-label">Hora de Saída</label>
-                            <input type="time" class="form-control" id="hora_saida_edit">
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Justificativa*</label>
-                        <textarea class="form-control" id="justificativa_edit" rows="3" required></textarea>
-                        <div class="form-text">Por favor, explique o motivo da edição.</div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="salvarEdicao()">
-                    <i class="bi bi-save"></i> Salvar
                 </button>
             </div>
         </div>
@@ -409,7 +413,12 @@
 </style>
 {% endblock %}
 
-{% block extra_js %}
+{% block extra_scripts %}
+{{ block.super }}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'js/shared.js' %}"></script>
+
 <script>
 let registroParaExcluir = null;
 let timeoutBusca = null;
@@ -417,7 +426,6 @@ const registroModal = new bootstrap.Modal(document.getElementById('registroModal
 const excluirModal = new bootstrap.Modal(document.getElementById('excluirModal'));
 const limparPlanilhaModal = new bootstrap.Modal(document.getElementById('limparPlanilhaModal'));
 const saidaDefinitivaModal = new bootstrap.Modal(document.getElementById('saidaDefinitivaModal'));
-const editarModal = new bootstrap.Modal(document.getElementById('editarModal'));
 const contextMenu = document.getElementById('contextMenu');
 let registroSelecionado = null;
 const faltasModal = new bootstrap.Modal(document.getElementById('faltasModal'));
@@ -547,6 +555,7 @@ function atualizarRegistros() {
         .then(data => {
             // Atualiza a tabela
             const tbody = document.getElementById('registros-tbody');
+            const instrucaoCliqueDir = document.getElementById('instrucao-clique-direito');
             tbody.innerHTML = '';
             
             // Calcula totais para os cards
@@ -554,45 +563,79 @@ function atualizarRegistros() {
             let totalSaidas = 0;
             let totalPendentes = 0;
             
-            data.forEach((registro, index) => {
-                // Atualiza contadores
-                if (registro.hora_entrada !== '-') totalEntradas++;
-                if (registro.hora_saida) totalSaidas++;
-                if (registro.hora_entrada !== '-' && !registro.hora_saida) totalPendentes++;
-                
-                // Cria linha da tabela
-                const tr = document.createElement('tr');
-                tr.dataset.registroId = registro.id;
-                tr.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td>${registro.servidor_nome}</td>
-                    <td>${registro.servidor_documento}</td>
-                    <td>${registro.setor}</td>
-                    <td>${registro.veiculo}</td>
-                    <td>
-                        <span class="badge ${registro.isv ? 'bg-success' : 'bg-secondary'}">
-                            ${registro.isv ? 'Sim' : 'Não'}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="badge bg-success">${registro.hora_entrada || '-'}</span>
-                    </td>
-                    <td>
-                        ${registro.hora_saida ? 
-                            `<span class="badge bg-danger">${registro.hora_saida}</span>` : 
-                            `<span class="badge bg-warning">Pendente</span>`
-                        }
-                    </td>
+            if (data.length === 0) {
+                // Exibe mensagem quando não há registros
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center">
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Nenhum registro encontrado
+                            </div>
+                        </td>
+                    </tr>
                 `;
-                tbody.appendChild(tr);
-            });
+                // Esconde a instrução de clique direito
+                instrucaoCliqueDir.style.display = 'none';
+            } else {
+                // Mostra a instrução de clique direito quando há registros
+                instrucaoCliqueDir.style.display = 'inline-block';
+                
+                data.forEach((registro, index) => {
+                    // Atualiza contadores
+                    if (registro.hora_entrada !== '-') totalEntradas++;
+                    if (registro.hora_saida) totalSaidas++;
+                    if (registro.hora_entrada !== '-' && !registro.hora_saida) totalPendentes++;
+                    
+                    // Cria linha da tabela
+                    const tr = document.createElement('tr');
+                    tr.dataset.registroId = registro.id;
+                    tr.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${registro.servidor_nome}</td>
+                        <td>${registro.servidor_documento}</td>
+                        <td>${registro.setor}</td>
+                        <td>${registro.veiculo}</td>
+                        <td>
+                            <span class="badge ${registro.isv ? 'bg-success' : 'bg-secondary'}">
+                                ${registro.isv ? 'Sim' : 'Não'}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-success">${registro.hora_entrada || '-'}</span>
+                        </td>
+                        <td>
+                            ${registro.hora_saida ? 
+                                `<span class="badge bg-danger">${registro.hora_saida}</span>` : 
+                                `<span class="badge bg-warning">Pendente</span>`
+                            }
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
             
             // Atualiza os cards
             document.querySelector('.card.bg-success .card-text').textContent = totalEntradas;
             document.querySelector('.card.bg-danger .card-text').textContent = totalSaidas;
             document.querySelector('.card.bg-warning .card-text').textContent = totalPendentes;
         })
-        .catch(error => console.error('Erro ao atualizar registros:', error));
+        .catch(error => {
+            console.error('Erro ao atualizar registros:', error);
+            const tbody = document.getElementById('registros-tbody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        <div class="alert alert-danger mb-0">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Erro ao carregar registros: ${error.message}
+                        </div>
+                    </td>
+                </tr>
+            `;
+            // Esconde a instrução de clique direito em caso de erro
+            document.getElementById('instrucao-clique-direito').style.display = 'none';
+        });
 }
 
 function excluirRegistro(id) {
@@ -637,6 +680,10 @@ function exportarExcel() {
 function confirmarLimparPlanilha() {
     const modal = new bootstrap.Modal(document.getElementById('limparPlanilhaModal'));
     modal.show();
+    // Foca no campo de senha após o modal ser completamente aberto
+    document.getElementById('limparPlanilhaModal').addEventListener('shown.bs.modal', function () {
+        document.getElementById('senhaLimpar').focus();
+    }, { once: true });
 }
 
 function abrirModalSaidaDefinitiva() {
@@ -675,86 +722,11 @@ function registrarSaidaDefinitiva() {
     });
 }
 
-function editarRegistro(id) {
-    // Busca os dados do registro
-    fetch(`/registro/${id}/`)
-        .then(response => response.json())
-        .then(registro => {
-            document.getElementById('registro_id').value = id;
-            
-            // Preenche o servidor
-            document.getElementById('servidor_nome_edit').value = registro.servidor_nome;
-            
-            // Preenche a data
-            const data = new Date(registro.data_hora);
-            document.getElementById('data_edit').value = data.toISOString().split('T')[0];
-            
-            // Preenche hora de entrada
-            if (registro.hora_entrada !== '-') {
-                document.getElementById('hora_entrada_edit').value = registro.hora_entrada;
-            } else {
-                document.getElementById('hora_entrada_edit').value = '';
-            }
-            
-            // Preenche hora de saída e desabilita se estiver pendente
-            const horaSaidaInput = document.getElementById('hora_saida_edit');
-            if (registro.saida_pendente) {
-                horaSaidaInput.value = '';
-                horaSaidaInput.disabled = true;
-            } else {
-                horaSaidaInput.disabled = false;
-                if (registro.hora_saida && registro.hora_saida !== '-') {
-                    horaSaidaInput.value = registro.hora_saida;
-                } else {
-                    horaSaidaInput.value = '';
-                }
-            }
-            
-            editarModal.show();
-        });
-}
-
-function salvarEdicao() {
-    const id = document.getElementById('registro_id').value;
-    const data = document.getElementById('data_edit').value;
-    const horaEntrada = document.getElementById('hora_entrada_edit').value;
-    const horaSaida = document.getElementById('hora_saida_edit').value;
-    const justificativa = document.getElementById('justificativa_edit').value;
-    
-    if (!data || !justificativa) {
-        alert('Por favor, preencha todos os campos obrigatórios.');
-        return;
-    }
-    
-    const formData = new FormData();
-    formData.append('data', data);
-    formData.append('hora_entrada', horaEntrada);
-    formData.append('hora_saida', horaSaida);
-    formData.append('justificativa', justificativa);
-    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-    
-    fetch(`/registro/${id}/editar/`, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            editarModal.hide();
-            document.getElementById('editarForm').reset();
-            atualizarRegistros();
-            alert('Registro atualizado com sucesso!');
-        } else {
-            alert(data.message || 'Erro ao atualizar registro');
-        }
-    });
-}
-
 function limparDashboard() {
     const senha = document.getElementById('senhaLimpar').value;
     
     if (!senha) {
-        alert('Por favor, digite sua senha para confirmar.');
+        mostrarNotificacao('Por favor, digite sua senha para confirmar.', 'warning');
         return;
     }
     
@@ -775,14 +747,26 @@ function limparDashboard() {
     })
     .then(data => {
         if (data && data.status === 'success') {
-            limparPlanilhaModal.hide();
+            // Limpa o campo de senha e fecha o modal corretamente
             document.getElementById('senhaLimpar').value = '';
+            
+            // Obtém a instância do modal e fecha
+            const modalElement = document.getElementById('limparPlanilhaModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            modalInstance.hide();
+            
+            // Atualiza os registros
             atualizarRegistros();
+            
+            // Exibe notificação de sucesso
+            mostrarNotificacao('Planilha limpa com sucesso!', 'success');
+        } else if (data && data.status === 'error') {
+            mostrarNotificacao(data.message || 'Erro ao limpar dashboard. Verifique sua senha e tente novamente.', 'danger');
         }
     })
     .catch(error => {
         console.error('Erro:', error);
-        alert('Erro ao limpar dashboard. Verifique sua senha e tente novamente.');
+        mostrarNotificacao('Erro ao limpar dashboard. Verifique sua senha e tente novamente.', 'danger');
     });
 }
 
@@ -855,6 +839,7 @@ setInterval(function() {
         .then(data => {
             // Atualiza a tabela
             const tbody = document.getElementById('registros-tbody');
+            const instrucaoCliqueDir = document.getElementById('instrucao-clique-direito');
             tbody.innerHTML = '';
             
             // Calcula totais para os cards
@@ -862,45 +847,79 @@ setInterval(function() {
             let totalSaidas = 0;
             let totalPendentes = 0;
             
-            data.forEach((registro, index) => {
-                // Atualiza contadores
-                if (registro.hora_entrada !== '-') totalEntradas++;
-                if (registro.hora_saida) totalSaidas++;
-                if (registro.hora_entrada !== '-' && !registro.hora_saida) totalPendentes++;
-                
-                // Cria linha da tabela
-                const tr = document.createElement('tr');
-                tr.dataset.registroId = registro.id;
-                tr.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td>${registro.servidor_nome}</td>
-                    <td>${registro.servidor_documento}</td>
-                    <td>${registro.setor}</td>
-                    <td>${registro.veiculo}</td>
-                    <td>
-                        <span class="badge ${registro.isv ? 'bg-success' : 'bg-secondary'}">
-                            ${registro.isv ? 'Sim' : 'Não'}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="badge bg-success">${registro.hora_entrada || '-'}</span>
-                    </td>
-                    <td>
-                        ${registro.hora_saida ? 
-                            `<span class="badge bg-danger">${registro.hora_saida}</span>` : 
-                            `<span class="badge bg-warning">Pendente</span>`
-                        }
-                    </td>
+            if (data.length === 0) {
+                // Exibe mensagem quando não há registros
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center">
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Nenhum registro encontrado
+                            </div>
+                        </td>
+                    </tr>
                 `;
-                tbody.appendChild(tr);
-            });
+                // Esconde a instrução de clique direito
+                instrucaoCliqueDir.style.display = 'none';
+            } else {
+                // Mostra a instrução de clique direito quando há registros
+                instrucaoCliqueDir.style.display = 'inline-block';
+                
+                data.forEach((registro, index) => {
+                    // Atualiza contadores
+                    if (registro.hora_entrada !== '-') totalEntradas++;
+                    if (registro.hora_saida) totalSaidas++;
+                    if (registro.hora_entrada !== '-' && !registro.hora_saida) totalPendentes++;
+                    
+                    // Cria linha da tabela
+                    const tr = document.createElement('tr');
+                    tr.dataset.registroId = registro.id;
+                    tr.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${registro.servidor_nome}</td>
+                        <td>${registro.servidor_documento}</td>
+                        <td>${registro.setor}</td>
+                        <td>${registro.veiculo}</td>
+                        <td>
+                            <span class="badge ${registro.isv ? 'bg-success' : 'bg-secondary'}">
+                                ${registro.isv ? 'Sim' : 'Não'}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-success">${registro.hora_entrada || '-'}</span>
+                        </td>
+                        <td>
+                            ${registro.hora_saida ? 
+                                `<span class="badge bg-danger">${registro.hora_saida}</span>` : 
+                                `<span class="badge bg-warning">Pendente</span>`
+                            }
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
             
             // Atualiza os cards
             document.querySelector('.card.bg-success .card-text').textContent = totalEntradas;
             document.querySelector('.card.bg-danger .card-text').textContent = totalSaidas;
             document.querySelector('.card.bg-warning .card-text').textContent = totalPendentes;
         })
-        .catch(error => console.error('Erro ao atualizar registros:', error));
+        .catch(error => {
+            console.error('Erro ao atualizar registros:', error);
+            const tbody = document.getElementById('registros-tbody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        <div class="alert alert-danger mb-0">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Erro ao carregar registros: ${error.message}
+                        </div>
+                    </td>
+                </tr>
+            `;
+            // Esconde a instrução de clique direito em caso de erro
+            document.getElementById('instrucao-clique-direito').style.display = 'none';
+        });
 }, 30000); // 30 segundos
 
 // Função para obter o token CSRF
@@ -1010,6 +1029,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             // Atualiza a tabela
             const tbody = document.getElementById('registros-tbody');
+            const instrucaoCliqueDir = document.getElementById('instrucao-clique-direito');
             tbody.innerHTML = '';
             
             // Calcula totais para os cards
@@ -1017,45 +1037,436 @@ document.addEventListener('DOMContentLoaded', function() {
             let totalSaidas = 0;
             let totalPendentes = 0;
             
-            data.forEach((registro, index) => {
-                // Atualiza contadores
-                if (registro.hora_entrada !== '-') totalEntradas++;
-                if (registro.hora_saida) totalSaidas++;
-                if (registro.hora_entrada !== '-' && !registro.hora_saida) totalPendentes++;
-                
-                // Cria linha da tabela
-                const tr = document.createElement('tr');
-                tr.dataset.registroId = registro.id;
-                tr.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td>${registro.servidor_nome}</td>
-                    <td>${registro.servidor_documento}</td>
-                    <td>${registro.setor}</td>
-                    <td>${registro.veiculo}</td>
-                    <td>
-                        <span class="badge ${registro.isv ? 'bg-success' : 'bg-secondary'}">
-                            ${registro.isv ? 'Sim' : 'Não'}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="badge bg-success">${registro.hora_entrada || '-'}</span>
-                    </td>
-                    <td>
-                        ${registro.hora_saida ? 
-                            `<span class="badge bg-danger">${registro.hora_saida}</span>` : 
-                            `<span class="badge bg-warning">Pendente</span>`
-                        }
-                    </td>
+            if (data.length === 0) {
+                // Exibe mensagem quando não há registros
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center">
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Nenhum registro encontrado
+                            </div>
+                        </td>
+                    </tr>
                 `;
-                tbody.appendChild(tr);
-            });
+                // Esconde a instrução de clique direito
+                instrucaoCliqueDir.style.display = 'none';
+            } else {
+                // Mostra a instrução de clique direito quando há registros
+                instrucaoCliqueDir.style.display = 'inline-block';
+                
+                data.forEach((registro, index) => {
+                    // Atualiza contadores
+                    if (registro.hora_entrada !== '-') totalEntradas++;
+                    if (registro.hora_saida) totalSaidas++;
+                    if (registro.hora_entrada !== '-' && !registro.hora_saida) totalPendentes++;
+                    
+                    // Cria linha da tabela
+                    const tr = document.createElement('tr');
+                    tr.dataset.registroId = registro.id;
+                    tr.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${registro.servidor_nome}</td>
+                        <td>${registro.servidor_documento}</td>
+                        <td>${registro.setor}</td>
+                        <td>${registro.veiculo}</td>
+                        <td>
+                            <span class="badge ${registro.isv ? 'bg-success' : 'bg-secondary'}">
+                                ${registro.isv ? 'Sim' : 'Não'}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-success">${registro.hora_entrada || '-'}</span>
+                        </td>
+                        <td>
+                            ${registro.hora_saida ? 
+                                `<span class="badge bg-danger">${registro.hora_saida}</span>` : 
+                                `<span class="badge bg-warning">Pendente</span>`
+                            }
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
             
             // Atualiza os cards
             document.querySelector('.card.bg-success .card-text').textContent = totalEntradas;
             document.querySelector('.card.bg-danger .card-text').textContent = totalSaidas;
             document.querySelector('.card.bg-warning .card-text').textContent = totalPendentes;
         })
-        .catch(error => console.error('Erro ao atualizar registros:', error));
+        .catch(error => {
+            console.error('Erro ao atualizar registros:', error);
+            const tbody = document.getElementById('registros-tbody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        <div class="alert alert-danger mb-0">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Erro ao carregar registros: ${error.message}
+                        </div>
+                    </td>
+                </tr>
+            `;
+            // Esconde a instrução de clique direito em caso de erro
+            document.getElementById('instrucao-clique-direito').style.display = 'none';
+        });
 });
+
+// Função para mostrar notificações tipo toast
+function mostrarNotificacao(mensagem, tipo = 'success') {
+    // Configura a aparência de acordo com o tipo
+    const toastEl = document.getElementById('notificacaoToast');
+    const toastHeader = toastEl.querySelector('.toast-header');
+    const toastIcon = toastHeader.querySelector('i');
+    
+    // Remove todas as classes de cores antigas
+    toastHeader.classList.remove('bg-success', 'bg-danger', 'bg-warning');
+    toastIcon.classList.remove('bi-check-circle', 'bi-exclamation-triangle', 'bi-x-circle');
+    
+    // Aplica as classes de acordo com o tipo
+    if (tipo === 'success') {
+        toastHeader.classList.add('bg-success');
+        toastIcon.classList.add('bi-check-circle');
+    } else if (tipo === 'warning') {
+        toastHeader.classList.add('bg-warning');
+        toastIcon.classList.add('bi-exclamation-triangle');
+    } else if (tipo === 'danger') {
+        toastHeader.classList.add('bg-danger');
+        toastIcon.classList.add('bi-x-circle');
+    }
+    
+    // Define a mensagem
+    document.getElementById('notificacaoMensagem').textContent = mensagem;
+    
+    // Exibe o toast
+    const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+    toast.show();
+}
+
+function editarRegistro(id) {
+    console.log('Editando registro:', id);
+    
+    // Obtém o token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // Define a URL para obter detalhes do registro
+    const url = `/registro/${id}/`;
+    
+    console.log('URL para obter detalhes:', url);
+    
+    // Mostra um indicador de carregamento
+    Swal.fire({
+        title: 'Carregando...',
+        text: 'Buscando dados do registro',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    fetch(url)
+        .then(response => {
+            console.log('Status da resposta:', response.status, response.statusText);
+            
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('Resposta de erro:', text);
+                    try {
+                        // Tenta fazer o parse como JSON
+                        const data = JSON.parse(text);
+                        throw new Error(data.message || 'Erro ao carregar os dados do registro');
+                    } catch (e) {
+                        throw new Error('Erro ao carregar os dados do registro');
+                    }
+                });
+            }
+            
+            return response.json();
+        })
+        .then(data => {
+            console.log('Dados do registro recebidos do servidor:', data);
+            Swal.close(); // Fecha o indicador de carregamento
+            
+            // Extrair data e hora do campo data_hora que está no formato ISO
+            let dataEntrada = '';
+            let dataSaida = '';
+            
+            if (data.data_hora) {
+                // Converte a data ISO para um objeto Date
+                const dataObj = new Date(data.data_hora);
+                // Formata para DD/MM/AAAA
+                dataEntrada = `${String(dataObj.getDate()).padStart(2, '0')}/${String(dataObj.getMonth() + 1).padStart(2, '0')}/${dataObj.getFullYear()}`;
+                console.log('Data extraída de data_hora:', dataEntrada);
+                
+                // Se temos hora de saída mas não temos data de saída, assume o mesmo dia
+                if (data.hora_saida && !dataSaida) {
+                    dataSaida = dataEntrada;
+                    console.log('Data de saída assumida como mesma da entrada:', dataSaida);
+                }
+            }
+            
+            // Usa os campos data e data_saida se estiverem disponíveis
+            if (data.data) {
+                dataEntrada = data.data;
+            }
+            
+            if (data.data_saida) {
+                dataSaida = data.data_saida;
+            }
+            
+            // Função para converter data de DD/MM/AAAA para AAAA-MM-DD (formato aceito pelo input type=date)
+            function converterDataParaHtml(dataStr) {
+                if (!dataStr) return '';
+                
+                console.log(`Convertendo data '${dataStr}' para formato HTML`);
+                const partes = dataStr.split('/');
+                if (partes.length !== 3) {
+                    console.warn(`Formato de data inválido: ${dataStr}`);
+                    return '';
+                }
+                const resultado = `${partes[2]}-${partes[1]}-${partes[0]}`;
+                console.log(`Data convertida para HTML: ${resultado}`);
+                return resultado;
+            }
+            
+            // Converte as datas para o formato HTML
+            const dataEntradaHtml = dataEntrada ? converterDataParaHtml(dataEntrada) : '';
+            const dataSaidaHtml = dataSaida ? converterDataParaHtml(dataSaida) : '';
+            
+            // Log completo de todos os dados e conversões
+            console.log('====== DADOS PARA O MODAL DE EDIÇÃO ======');
+            console.log('Datas no formato brasileiro (dd/mm/aaaa):');
+            console.log(`- Data Entrada: ${dataEntrada || 'N/A'}`);
+            console.log(`- Data Saída: ${dataSaida || 'N/A'}`);
+            console.log('Horas (hh:mm):');
+            console.log(`- Hora Entrada: ${data.hora_entrada || 'N/A'}`);
+            console.log(`- Hora Saída: ${data.hora_saida || 'N/A'}`);
+            console.log('Justificativa:', data.justificativa || 'N/A');
+            console.log('Datas convertidas para formato HTML (yyyy-mm-dd):');
+            console.log(`- Data Entrada HTML: ${dataEntradaHtml}`);
+            console.log(`- Data Saída HTML: ${dataSaidaHtml}`);
+            console.log('======================================');
+            
+            // Constrói o HTML do formulário de edição
+            Swal.fire({
+                title: 'Editar Registro',
+                html: `
+                    <form id="editarForm" class="text-start">
+                        <input type="hidden" id="registro_id" value="${id}">
+                        <div class="mb-3">
+                            <label class="form-label">Servidor</label>
+                            <input type="text" class="form-control" value="${data.servidor_nome || ''}" readonly>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 border-end pe-3">
+                                <h6 class="mb-3 text-primary">Entrada</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">Data</label>
+                                    <input type="date" id="data_entrada_edit" name="data_entrada" class="form-control" value="${dataEntradaHtml}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Hora</label>
+                                    <input type="time" id="hora_entrada_edit" name="hora_entrada" class="form-control" value="${data.hora_entrada || ''}" required>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 ps-3">
+                                <h6 class="mb-3 text-danger">Saída</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">Data</label>
+                                    <input type="date" id="data_saida_edit" name="data_saida" class="form-control" value="${dataSaidaHtml}" ${data.saida_pendente ? 'disabled' : ''}>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Hora</label>
+                                    <input type="time" id="hora_saida_edit" name="hora_saida" class="form-control" value="${data.hora_saida || ''}" ${data.saida_pendente ? 'disabled' : ''}>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 mt-3">
+                            <label class="form-label">Justificativa*</label>
+                            <textarea id="justificativa_edit" name="justificativa" class="form-control" rows="3" required>${data.justificativa || ''}</textarea>
+                            <div class="form-text">Por favor, explique o motivo da edição.</div>
+                        </div>
+                    </form>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Salvar',
+                cancelButtonText: 'Cancelar',
+                didOpen: () => {
+                    // Configura validação quando o modal abre
+                    const form = document.getElementById('editarForm');
+                    const dataEntrada = form.querySelector('[name="data_entrada"]');
+                    const horaEntrada = form.querySelector('[name="hora_entrada"]');
+                    const dataSaida = form.querySelector('[name="data_saida"]');
+                    const horaSaida = form.querySelector('[name="hora_saida"]');
+                    
+                    console.log('Valores preenchidos no formulário:');
+                    console.log(`- Data Entrada: ${dataEntrada.value}`);
+                    console.log(`- Hora Entrada: ${horaEntrada.value}`);
+                    console.log(`- Data Saída: ${dataSaida.value}`);
+                    console.log(`- Hora Saída: ${horaSaida.value}`);
+                    
+                    // Entrada é sempre obrigatória
+                    dataEntrada.required = true;
+                    horaEntrada.required = true;
+                    
+                    // Adiciona listeners para validar os campos de saída
+                    // Se um dos campos de saída for preenchido, o outro também deve ser
+                    dataSaida.addEventListener('input', validarCamposSaida);
+                    horaSaida.addEventListener('input', validarCamposSaida);
+                    
+                    function validarCamposSaida() {
+                        if (dataSaida.value && !horaSaida.value) {
+                            horaSaida.setCustomValidity('Se você informar a data de saída, também precisa informar a hora');
+                            horaSaida.required = true;
+                        } else if (!dataSaida.value && horaSaida.value) {
+                            dataSaida.setCustomValidity('Se você informar a hora de saída, também precisa informar a data');
+                            dataSaida.required = true;
+                        } else {
+                            dataSaida.setCustomValidity('');
+                            horaSaida.setCustomValidity('');
+                            
+                            // Se ambos estão preenchidos ou ambos estão vazios, não são obrigatórios entre si
+                            const ambosPreenchidos = dataSaida.value && horaSaida.value;
+                            const ambosVazios = !dataSaida.value && !horaSaida.value;
+                            
+                            if (ambosPreenchidos || ambosVazios) {
+                                dataSaida.required = ambosPreenchidos;
+                                horaSaida.required = ambosPreenchidos;
+                            }
+                        }
+                    }
+                    
+                    // Executa a validação inicial
+                    validarCamposSaida();
+                },
+                preConfirm: () => {
+                    const form = document.getElementById('editarForm');
+                    
+                    // Obtém valores do formulário
+                    const registroId = document.getElementById('registro_id').value;
+                    const dataEntrada = document.getElementById('data_entrada_edit').value;
+                    const horaEntrada = document.getElementById('hora_entrada_edit').value;
+                    const dataSaida = document.getElementById('data_saida_edit').value;
+                    const horaSaida = document.getElementById('hora_saida_edit').value;
+                    const justificativa = document.getElementById('justificativa_edit').value;
+                    
+                    console.log('Valores para enviar:');
+                    console.log(`- Data Entrada: ${dataEntrada}`);
+                    console.log(`- Hora Entrada: ${horaEntrada}`);
+                    console.log(`- Data Saída: ${dataSaida}`);
+                    console.log(`- Hora Saída: ${horaSaida}`);
+                    console.log(`- Justificativa: ${justificativa}`);
+                    
+                    // Validações básicas
+                    if (!dataEntrada || !horaEntrada || !justificativa) {
+                        Swal.showValidationMessage('Preencha todos os campos obrigatórios');
+                        return false;
+                    }
+                    
+                    // Prepara dados para envio - enviar no formato que o backend espera (YYYY-MM-DD)
+                    const formData = new FormData();
+                    
+                    // Envia data de entrada no formato original do input type=date (YYYY-MM-DD)
+                    formData.append('data', dataEntrada); // Formato YYYY-MM-DD
+                    formData.append('hora_entrada', horaEntrada);
+                    
+                    // Envia data de saída no formato original do input type=date (YYYY-MM-DD)
+                    if (dataSaida) {
+                        formData.append('data_saida', dataSaida); // Formato YYYY-MM-DD
+                    } else {
+                        formData.append('data_saida', '');
+                    }
+                    
+                    formData.append('hora_saida', horaSaida || '');
+                    formData.append('justificativa', justificativa);
+                    formData.append('csrfmiddlewaretoken', csrfToken);
+                    
+                    // Tenta formatando a data_hora em caso de o backend estar esperando esse campo
+                    try {
+                        // Cria uma data_hora no formato ISO a partir dos componentes
+                        const dataEntradaPartes = dataEntrada.split('-');
+                        const horaEntradaPartes = horaEntrada.split(':');
+                        
+                        if (dataEntradaPartes.length === 3 && horaEntradaPartes.length >= 2) {
+                            const dataHoraObj = new Date(
+                                parseInt(dataEntradaPartes[0]), // ano
+                                parseInt(dataEntradaPartes[1]) - 1, // mês (0-11)
+                                parseInt(dataEntradaPartes[2]), // dia
+                                parseInt(horaEntradaPartes[0]), // hora
+                                parseInt(horaEntradaPartes[1])  // minuto
+                            );
+                            
+                            // Formato ISO string
+                            const dataHoraISO = dataHoraObj.toISOString();
+                            formData.append('data_hora', dataHoraISO);
+                            console.log(`- Data Hora ISO: ${dataHoraISO}`);
+                        }
+                    } catch (e) {
+                        console.warn('Erro ao criar data_hora ISO:', e);
+                    }
+                    
+                    // Log de todos os dados que serão enviados
+                    console.log('===== DADOS FINAIS QUE SERÃO ENVIADOS =====');
+                    console.log(`- Data (formato original): ${formData.get('data')}`);
+                    console.log(`- Hora Entrada: ${formData.get('hora_entrada')}`);
+                    console.log(`- Data Saída (formato original): ${formData.get('data_saida')}`);
+                    console.log(`- Hora Saída: ${formData.get('hora_saida')}`);
+                    console.log(`- Justificativa: ${formData.get('justificativa')}`);
+                    console.log('=========================================');
+                    
+                    // Envia dados para o servidor
+                    return fetch(`/registro/${registroId}/editar/`, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            // Captura o conteúdo da resposta de erro para diagnóstico
+                            return response.text().then(errorText => {
+                                console.error('Resposta de erro do servidor:', errorText);
+                                try {
+                                    // Tenta fazer parse do erro como JSON
+                                    const errorData = JSON.parse(errorText);
+                                    throw new Error(errorData.message || errorData.error || 'Erro ao salvar edição');
+                                } catch (e) {
+                                    // Se não for JSON, usa o texto bruto
+                                    throw new Error('Erro ao salvar edição: ' + errorText);
+                                }
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.status === 'success') {
+                            atualizarRegistros();
+                            return true;
+                        } else {
+                            throw new Error(data.message || 'Erro ao salvar edição');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro completo:', error);
+                        Swal.showValidationMessage(error.message);
+                        return false;
+                    });
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    mostrarNotificacao('Registro atualizado com sucesso!', 'success');
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro',
+                text: error.message || 'Erro ao carregar dados do registro'
+            });
+        });
+}
 </script>
 {% endblock %} 

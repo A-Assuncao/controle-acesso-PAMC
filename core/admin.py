@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.db.models import Count
 from django.utils import timezone
-from .models import Servidor, RegistroAcesso, RegistroDashboard, LogAuditoria
+from .models import Servidor, RegistroAcesso, RegistroDashboard, LogAuditoria, VideoTutorial
 
 @admin.register(Servidor)
 class ServidorAdmin(admin.ModelAdmin):
@@ -151,6 +151,26 @@ class LogAuditoriaAdmin(admin.ModelAdmin):
     
     def has_delete_permission(self, request, obj=None):
         return False
+
+@admin.register(VideoTutorial)
+class VideoTutorialAdmin(admin.ModelAdmin):
+    list_display = ('titulo', 'categoria', 'ordem', 'ativo', 'data_atualizacao')
+    list_filter = ('categoria', 'ativo')
+    search_fields = ('titulo', 'descricao')
+    ordering = ('ordem', 'titulo')
+    list_per_page = 20
+    
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('titulo', 'descricao', 'categoria')
+        }),
+        ('URL e Ordem', {
+            'fields': ('url_youtube', 'ordem')
+        }),
+        ('Status', {
+            'fields': ('ativo',)
+        })
+    )
 
 # Personalização do cabeçalho e título do admin
 admin.site.site_header = 'Administração do Sistema de Controle de Acesso'

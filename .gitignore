@@ -52,3 +52,6 @@ Thumbs.db
 .pytest_cache
 
 .cursor
+.coverage
+htmlcov/
+migrations/

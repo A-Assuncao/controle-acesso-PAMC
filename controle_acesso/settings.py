@@ -24,7 +24,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-local-development-only'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Em ambiente de produção, defina DEBUG = False para ativar as páginas de erro personalizadas
+DEBUG = False
+
+# Quando DEBUG for False, ative esta configuração para servir arquivos estáticos
+SERVE_STATIC_FILES = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.ngrok-free.app']
 
@@ -47,6 +51,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.middleware.TrocaSenhaMiddleware',  # Middleware para forçar troca de senha
 ]
 
 ROOT_URLCONF = 'controle_acesso.urls'
@@ -54,7 +59,7 @@ ROOT_URLCONF = 'controle_acesso.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'core/templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -108,24 +113,31 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Login/Logout URLs
-LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/login/'
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'welcome'
+LOGOUT_REDIRECT_URL = 'login'
 
-# Configurações de Sessão
-SESSION_COOKIE_AGE = 86400  # 24 horas em segundos
-SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+# Configurações de sessão
+SESSION_COOKIE_AGE = 7200  # 2 horas em segundos
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Força o logout quando o navegador é fechado
 SESSION_SAVE_EVERY_REQUEST = True
+
+# Configurações de segurança
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+# Configurações de cookie em desenvolvimento
+SESSION_COOKIE_SECURE = False  # Permite cookies em HTTP para desenvolvimento
+CSRF_COOKIE_SECURE = False    # Permite CSRF em HTTP para desenvolvimento
+
+# Em produção, descomente estas linhas:
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
 
 # Media files
 MEDIA_URL = 'media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Configurações para o ngrok
+# Configurações para proxies
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SESSION_COOKIE_SECURE = False  # Permite cookies em HTTP para desenvolvimento
-CSRF_COOKIE_SECURE = False    # Permite cookies em HTTP para desenvolvimento
-
-# Em produção, ative estas configurações:
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True

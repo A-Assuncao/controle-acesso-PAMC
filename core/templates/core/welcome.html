@@ -1,0 +1,74 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Bem-vindo ao Sistema de Controle de Acesso{% endblock %}
+
+{% block navbar %}
+<!-- Nenhum conteúdo aqui para remover a barra de navegação -->
+{% endblock %}
+
+{% block extra_heads %}
+{{ block.super }}
+<style>
+    body {
+        padding-top: 0; /* Remove o padding-top na página welcome */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <h1 class="display-4 mb-4">Bem-vindo, {{ user.get_full_name|default:user.username }}!</h1>
+            <div class="card shadow-lg border-0 mb-4">
+                <div class="card-body p-5">
+                    <div class="mb-4">
+                        <i class="bi bi-shield-check text-primary" style="font-size: 4rem;"></i>
+                    </div>
+                    <h2 class="h4 mb-4">Sistema de Controle de Acesso - PAMC</h2>
+                    <p class="lead text-muted">
+                        Você está conectado ao sistema de controle de acesso. Aqui você pode:
+                    </p>
+                    <div class="row mt-4">
+                        <div class="col-md-4">
+                            <div class="card h-100 border-0 bg-light">
+                                <div class="card-body">
+                                    <i class="bi bi-person-badge mb-3 text-primary" style="font-size: 2rem;"></i>
+                                    <h3 class="h5">Registrar Acessos</h3>
+                                    <p class="small text-muted">Controle entradas e saídas de forma eficiente</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-0 bg-light">
+                                <div class="card-body">
+                                    <i class="bi bi-clipboard-data mb-3 text-primary" style="font-size: 2rem;"></i>
+                                    <h3 class="h5">Gerar Relatórios</h3>
+                                    <p class="small text-muted">Acesse dados e estatísticas detalhadas</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-0 bg-light">
+                                <div class="card-body">
+                                    <i class="bi bi-mortarboard mb-3 text-primary" style="font-size: 2rem;"></i>
+                                    <h3 class="h5">Ambiente de Treinamento</h3>
+                                    <p class="small text-muted">Aprenda e pratique sem medo de errar</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4 d-flex justify-content-center gap-3">
+                <a href="{% url 'home' %}" class="btn btn-primary btn-lg px-4">
+                    <i class="bi bi-arrow-right-circle me-2"></i>Ir para o Dashboard
+                </a>
+                <a href="{% url 'ambiente_treinamento' %}" class="btn btn-warning text-dark btn-lg px-4 rounded-pill" style="font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <i class="bi bi-mortarboard-fill me-2"></i>Acessar Treinamento
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

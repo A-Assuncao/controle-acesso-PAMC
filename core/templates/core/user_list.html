@@ -11,41 +11,72 @@
         </a>
     </div>
     <div class="card-body">
+        {% csrf_token %}
         <div class="table-responsive">
             <table class="table table-hover">
                 <thead>
                     <tr>
                         <th>Usuário</th>
                         <th>Nome</th>
-                        <th>E-mail</th>
                         <th>Tipo</th>
+                        <th>Status da Senha</th>
+                        <th>Senha Temporária</th>
                         <th>Último Acesso</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for user in users %}
+                    {% for data in users_data %}
                     <tr>
-                        <td>{{ user.username }}</td>
-                        <td>{{ user.get_full_name }}</td>
-                        <td>{{ user.email }}</td>
+                        <td>{{ data.user.username }}</td>
+                        <td>{{ data.user.get_full_name }}</td>
                         <td>
-                            {% if user.is_superuser %}
+                            {% if data.user.is_superuser %}
                             <span class="badge bg-danger">Administrador</span>
-                            {% elif user.is_staff %}
+                            {% elif data.user.is_staff %}
                             <span class="badge bg-warning">Staff</span>
                             {% else %}
                             <span class="badge bg-info">Operador</span>
                             {% endif %}
                         </td>
-                        <td>{{ user.last_login|date:"d/m/Y H:i"|default:"-" }}</td>
+                        <td>
+                            {% if data.perfil.precisa_trocar_senha %}
+                            <span class="badge bg-warning text-dark">Temporária</span>
+                            {% else %}
+                            <span class="badge bg-success">Definitiva</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if data.perfil.precisa_trocar_senha %}
+                            <code>{{ data.senha_temporaria }}</code>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ data.user.last_login|date:"d/m/Y H:i"|default:"-" }}</td>
                         <td>
                             <div class="btn-group">
-                                <a href="{% url 'user_update' user.id %}" class="btn btn-sm btn-primary">
+                                <a href="{% url 'user_update' data.user.id %}" class="btn btn-sm btn-primary">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                {% if not user.is_superuser %}
-                                <button type="button" class="btn btn-sm btn-danger" onclick="excluirUsuario({{ user.id }}, '{{ user.username }}')">
+                                
+                                {% if is_superuser and not data.user.is_superuser %}
+                                <button type="button" class="btn btn-sm btn-warning" 
+                                        title="Redefinir senha" 
+                                        onclick="redefinirSenha({{ data.user.id }}, '{{ data.user.username }}', '{{ data.senha_temporaria }}')">
+                                    <i class="bi bi-key"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-info" 
+                                        title="Forçar troca de senha" 
+                                        onclick="forcarTrocaSenha({{ data.user.id }}, '{{ data.user.username }}')">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                                {% endif %}
+                                
+                                {% if not data.user.is_superuser %}
+                                <button type="button" class="btn btn-sm btn-danger" 
+                                        title="Excluir usuário"
+                                        onclick="excluirUsuario({{ data.user.id }}, '{{ data.user.username }}')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                                 {% endif %}
@@ -54,7 +85,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center">Nenhum usuário cadastrado.</td>
+                        <td colspan="7" class="text-center">Nenhum usuário cadastrado.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -62,8 +93,10 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
-{% block extra_js %}
+{% block extra_scripts %}
+{{ block.super }}
 <script>
 function excluirUsuario(userId, username) {
     if (confirm(`Tem certeza que deseja excluir o usuário "${username}"?`)) {
@@ -81,6 +114,136 @@ function excluirUsuario(userId, username) {
         form.submit();
     }
 }
+
+function redefinirSenha(userId, username, senhaSugerida) {
+    Swal.fire({
+        title: `Redefinir senha de "${username}"`,
+        html: `
+            <p>Você deseja redefinir a senha deste usuário?</p>
+            <p>A senha temporária será: <strong>${senhaSugerida}</strong></p>
+            <p class="text-warning">O usuário precisará trocar esta senha no próximo login.</p>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Redefinir',
+        cancelButtonText: 'Cancelar',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `{% url 'user_reset_password' 0 %}`.replace('0', userId);
+            
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            form.appendChild(csrfInput);
+            
+            // Adiciona campos necessários para redefinir a senha
+            const tempPwd = document.createElement('input');
+            tempPwd.type = 'hidden';
+            tempPwd.name = 'redefinir_senha';
+            tempPwd.value = 'on';
+            form.appendChild(tempPwd);
+            
+            // Adiciona os campos do usuário atual (sem alterar)
+            {% for data in users_data %}
+            if (userId === {{ data.user.id }}) {
+                const firstName = document.createElement('input');
+                firstName.type = 'hidden';
+                firstName.name = 'first_name';
+                firstName.value = '{{ data.user.first_name }}';
+                form.appendChild(firstName);
+                
+                const lastName = document.createElement('input');
+                lastName.type = 'hidden';
+                lastName.name = 'last_name';
+                lastName.value = '{{ data.user.last_name }}';
+                form.appendChild(lastName);
+                
+                const email = document.createElement('input');
+                email.type = 'hidden';
+                email.name = 'email';
+                email.value = '{{ data.user.email }}';
+                form.appendChild(email);
+                
+                const isStaff = document.createElement('input');
+                isStaff.type = 'hidden';
+                isStaff.name = 'is_staff';
+                isStaff.value = {% if data.user.is_staff %}'on'{% else %}''{% endif %};
+                form.appendChild(isStaff);
+            }
+            {% endfor %}
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+}
+
+function forcarTrocaSenha(userId, username) {
+    Swal.fire({
+        title: `Forçar troca de senha de "${username}"`,
+        html: `
+            <p>Você deseja forçar este usuário a trocar sua senha atual no próximo login?</p>
+            <p>A senha atual continuará funcionando até que o usuário efetue a troca.</p>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Forçar Troca',
+        cancelButtonText: 'Cancelar',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `{% url 'user_reset_password' 0 %}`.replace('0', userId);
+            
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            form.appendChild(csrfInput);
+            
+            // Adiciona campos necessários para forçar troca de senha
+            const forceTroca = document.createElement('input');
+            forceTroca.type = 'hidden';
+            forceTroca.name = 'forcar_troca';
+            forceTroca.value = 'on';
+            form.appendChild(forceTroca);
+            
+            // Adiciona os campos do usuário atual (sem alterar)
+            {% for data in users_data %}
+            if (userId === {{ data.user.id }}) {
+                const firstName = document.createElement('input');
+                firstName.type = 'hidden';
+                firstName.name = 'first_name';
+                firstName.value = '{{ data.user.first_name }}';
+                form.appendChild(firstName);
+                
+                const lastName = document.createElement('input');
+                lastName.type = 'hidden';
+                lastName.name = 'last_name';
+                lastName.value = '{{ data.user.last_name }}';
+                form.appendChild(lastName);
+                
+                const email = document.createElement('input');
+                email.type = 'hidden';
+                email.name = 'email';
+                email.value = '{{ data.user.email }}';
+                form.appendChild(email);
+                
+                const isStaff = document.createElement('input');
+                isStaff.type = 'hidden';
+                isStaff.name = 'is_staff';
+                isStaff.value = {% if data.user.is_staff %}'on'{% else %}''{% endif %};
+                form.appendChild(isStaff);
+            }
+            {% endfor %}
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+}
 </script>
-{% endblock %}
 {% endblock %} 

@@ -5,7 +5,6 @@ echo Atualizando Sistema de Controle de Acesso...
 cd "%PROGRAMFILES%\ControleAcesso\app"
 
 :: Para os serviços
-net stop ControleAcessoNgrok
 net stop ControleAcesso
 
 :: Ativa o ambiente virtual
@@ -28,8 +27,6 @@ xcopy /Y "scripts\*.*" "%PROGRAMFILES%\ControleAcesso\scripts\"
 
 :: Inicia os serviços
 net start ControleAcesso
-timeout /t 5
-net start ControleAcessoNgrok
 
 echo Atualizacao concluida!
 timeout /t 5 
