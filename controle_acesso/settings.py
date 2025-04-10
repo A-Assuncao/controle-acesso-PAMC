@@ -30,7 +30,7 @@ DEBUG = False
 # Quando DEBUG for False, ative esta configuração para servir arquivos estáticos
 SERVE_STATIC_FILES = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.ngrok-free.app']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.ngrok-free.app', '.serveo.net']
 
 # Application definition
 INSTALLED_APPS = [

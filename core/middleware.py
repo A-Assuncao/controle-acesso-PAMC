@@ -17,11 +17,11 @@ class TrocaSenhaMiddleware:
                 perfil = request.user.perfil
                 
                 # Se o usuário precisa trocar a senha e não está na página de troca de senha
-                if perfil.precisa_trocar_senha and not request.path == reverse('trocar_senha'):
+                if perfil.precisa_trocar_senha:
                     # Lista de páginas permitidas mesmo quando precisa trocar senha
                     paginas_permitidas = [
                         reverse('logout'),      # Permite sair do sistema
-                        reverse('home'),        # Permite acessar o dashboard
+                        reverse('trocar_senha'),  # Permite acessar a página de troca de senha
                         reverse('static', kwargs={'path': ''}).rstrip('/'), # Permite arquivos estáticos
                     ]
                     
@@ -37,8 +37,7 @@ class TrocaSenhaMiddleware:
                     # Redireciona para a página de troca de senha
                     return redirect('trocar_senha')
             except Exception as e:
-                # Se o usuário não tem perfil ou ocorreu um erro, ignora
-                # Registra o erro em ambiente de desenvolvimento para debug
+                # Se o usuário não tem perfil ou ocorreu um erro, registra o erro
                 import logging
                 logging.getLogger('django').error(f"Erro no TrocaSenhaMiddleware: {str(e)}")
                 pass

@@ -41,22 +41,50 @@
                         </td>
                         <td>
                             {% if data.perfil.precisa_trocar_senha %}
-                            <span class="badge bg-warning text-dark">Temporária</span>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-warning text-dark me-2">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>
+                                    Temporária
+                                </span>
+                                <small class="text-muted">Troca pendente</small>
+                            </div>
                             {% else %}
-                            <span class="badge bg-success">Definitiva</span>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-success me-2">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Definitiva
+                                </span>
+                                <small class="text-muted">{{ data.perfil.data_atualizacao|date:"d/m/Y H:i"|default:"Sem data" }}</small>
+                            </div>
                             {% endif %}
                         </td>
                         <td>
-                            {% if data.perfil.precisa_trocar_senha %}
-                            <code>{{ data.senha_temporaria }}</code>
+                            {% if data.perfil.precisa_trocar_senha and data.senha_temporaria %}
+                            <div class="d-flex align-items-center">
+                                <code class="me-2">{{ data.senha_temporaria }}</code>
+                                <button class="btn btn-sm btn-outline-secondary" 
+                                        onclick="copiarSenha('{{ data.senha_temporaria }}')"
+                                        title="Copiar senha">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
                             {% else %}
-                            -
+                            <span class="text-muted">-</span>
                             {% endif %}
                         </td>
-                        <td>{{ data.user.last_login|date:"d/m/Y H:i"|default:"-" }}</td>
+                        <td>
+                            {% if data.user.last_login %}
+                            <div class="d-flex flex-column">
+                                <span>{{ data.user.last_login|date:"d/m/Y" }}</span>
+                                <small class="text-muted">{{ data.user.last_login|date:"H:i" }}</small>
+                            </div>
+                            {% else %}
+                            <span class="text-muted">Nunca acessou</span>
+                            {% endif %}
+                        </td>
                         <td>
                             <div class="btn-group">
-                                <a href="{% url 'user_update' data.user.id %}" class="btn btn-sm btn-primary">
+                                <a href="{% url 'user_update' data.user.id %}" class="btn btn-sm btn-primary" title="Editar usuário">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 
@@ -98,6 +126,18 @@
 {% block extra_scripts %}
 {{ block.super }}
 <script>
+function copiarSenha(senha) {
+    navigator.clipboard.writeText(senha).then(() => {
+        Swal.fire({
+            title: 'Senha copiada!',
+            text: 'A senha temporária foi copiada para a área de transferência.',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+        });
+    });
+}
+
 function excluirUsuario(userId, username) {
     if (confirm(`Tem certeza que deseja excluir o usuário "${username}"?`)) {
         const form = document.createElement('form');
@@ -146,35 +186,6 @@ function redefinirSenha(userId, username, senhaSugerida) {
             tempPwd.value = 'on';
             form.appendChild(tempPwd);
             
-            // Adiciona os campos do usuário atual (sem alterar)
-            {% for data in users_data %}
-            if (userId === {{ data.user.id }}) {
-                const firstName = document.createElement('input');
-                firstName.type = 'hidden';
-                firstName.name = 'first_name';
-                firstName.value = '{{ data.user.first_name }}';
-                form.appendChild(firstName);
-                
-                const lastName = document.createElement('input');
-                lastName.type = 'hidden';
-                lastName.name = 'last_name';
-                lastName.value = '{{ data.user.last_name }}';
-                form.appendChild(lastName);
-                
-                const email = document.createElement('input');
-                email.type = 'hidden';
-                email.name = 'email';
-                email.value = '{{ data.user.email }}';
-                form.appendChild(email);
-                
-                const isStaff = document.createElement('input');
-                isStaff.type = 'hidden';
-                isStaff.name = 'is_staff';
-                isStaff.value = {% if data.user.is_staff %}'on'{% else %}''{% endif %};
-                form.appendChild(isStaff);
-            }
-            {% endfor %}
-            
             document.body.appendChild(form);
             form.submit();
         }
@@ -210,35 +221,6 @@ function forcarTrocaSenha(userId, username) {
             forceTroca.name = 'forcar_troca';
             forceTroca.value = 'on';
             form.appendChild(forceTroca);
-            
-            // Adiciona os campos do usuário atual (sem alterar)
-            {% for data in users_data %}
-            if (userId === {{ data.user.id }}) {
-                const firstName = document.createElement('input');
-                firstName.type = 'hidden';
-                firstName.name = 'first_name';
-                firstName.value = '{{ data.user.first_name }}';
-                form.appendChild(firstName);
-                
-                const lastName = document.createElement('input');
-                lastName.type = 'hidden';
-                lastName.name = 'last_name';
-                lastName.value = '{{ data.user.last_name }}';
-                form.appendChild(lastName);
-                
-                const email = document.createElement('input');
-                email.type = 'hidden';
-                email.name = 'email';
-                email.value = '{{ data.user.email }}';
-                form.appendChild(email);
-                
-                const isStaff = document.createElement('input');
-                isStaff.type = 'hidden';
-                isStaff.name = 'is_staff';
-                isStaff.value = {% if data.user.is_staff %}'on'{% else %}''{% endif %};
-                form.appendChild(isStaff);
-            }
-            {% endfor %}
             
             document.body.appendChild(form);
             form.submit();

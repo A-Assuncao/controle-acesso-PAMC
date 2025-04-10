@@ -23,12 +23,20 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from openpyxl.utils import get_column_letter
 import random
+import logging
 
 def is_staff(user):
     return user.is_staff
 
 @login_required
 def welcome(request):
+    # Se o usuário precisa trocar a senha, redireciona direto para a página de troca
+    try:
+        if request.user.perfil.precisa_trocar_senha:
+            return redirect('trocar_senha')
+    except:
+        pass
+    
     # Verifica se o usuário já viu a página de boas-vindas nesta sessão
     if request.session.get('welcome_shown'):
         return redirect('home')
@@ -577,52 +585,50 @@ def user_list(request):
     return render(request, 'core/user_list.html', {'users_data': users_data, 'is_superuser': request.user.is_superuser})
 
 @login_required
+@user_passes_test(is_staff)
 def user_create(request):
-    # Verifica se o usuário tem permissão de staff
-    if not request.user.is_staff:
-        messages.error(request, 'Você não tem permissão para criar usuários.')
-        return redirect('home')
-        
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
-        email = request.POST.get('email')
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
         is_staff = request.POST.get('is_staff') == 'on'
         
-        if User.objects.filter(username=username).exists():
-            messages.error(request, 'Nome de usuário já existe!')
+        if not username or not password:
+            messages.error(request, 'Usuário e senha são obrigatórios.')
             return redirect('user_create')
         
-        # Gera uma senha temporária mais intuitiva usando o nome de usuário
-        # e alguns números aleatórios para garantir segurança
-        import random
-        random_digits = ''.join([str(random.randint(0, 9)) for _ in range(4)])
-        temp_password = f"{username}@{random_digits}"
+        # Verifica se o usuário já existe
+        if User.objects.filter(username=username).exists():
+            messages.error(request, 'Este nome de usuário já está em uso.')
+            return redirect('user_create')
         
-        # Cria o usuário sem email
+        # Cria o usuário
         user = User.objects.create_user(
             username=username,
-            password=temp_password,
-            email='',  # Email em branco
-            first_name=first_name,
-            last_name=last_name,
+            password=password,
             is_staff=is_staff
         )
         
-        # Cria o perfil do usuário com a flag para trocar senha
+        # Cria o perfil do usuário com senha temporária
         from core.models import PerfilUsuario
         PerfilUsuario.objects.create(
             usuario=user,
-            precisa_trocar_senha=True,
-            senha_temporaria=temp_password
+            precisa_trocar_senha=True,  # Força a troca de senha no primeiro login
+            senha_temporaria=password  # Salva a senha temporária
         )
         
-        messages.success(request, 'Usuário criado com sucesso!')
+        # Registra a criação no log de auditoria
+        LogAuditoria.objects.create(
+            usuario=request.user,
+            tipo_acao='CRIACAO',
+            modelo='User',
+            objeto_id=user.id,
+            detalhes=f'Criação do usuário {username}'
+        )
+        
+        messages.success(request, f'Usuário {username} criado com sucesso! A senha temporária é: {password}')
         return redirect('user_list')
     
-    return render(request, 'core/user_form.html', {'usuario': None})
+    return render(request, 'core/user_create.html')
 
 @login_required
 def user_update(request, pk):
@@ -2277,139 +2283,88 @@ def tutoriais_treinamento(request):
     return render(request, 'core/tutoriais.html', context)
 
 @login_required
+@user_passes_test(is_staff)
 def user_reset_password(request, pk):
-    """View para redefinir a senha de um usuário sem ir para a página de edição."""
-    # Verifica se o usuário tem permissão de superuser
-    if not request.user.is_superuser:
-        messages.error(request, 'Apenas superusuários podem redefinir senhas de outros usuários.')
-        return redirect('home')
-        
-    if request.method == 'POST':
-        usuario = get_object_or_404(User, pk=pk)
-        
-        # Verifica se foi solicitado redefinir a senha ou forçar troca
-        redefinir_senha = request.POST.get('redefinir_senha') == 'on'
-        forcar_troca = request.POST.get('forcar_troca') == 'on'
-        
-        # Atualiza outros campos
-        usuario.email = request.POST.get('email', '')
-        usuario.first_name = request.POST.get('first_name', '')
-        usuario.last_name = request.POST.get('last_name', '')
-        usuario.is_staff = request.POST.get('is_staff') == 'on'
-        
-        # Verifica se o perfil do usuário existe, se não, cria
-        try:
-            perfil = usuario.perfil
-        except:
-            from core.models import PerfilUsuario
-            perfil = PerfilUsuario.objects.create(
-                usuario=usuario,
-                precisa_trocar_senha=False
-            )
-        
-        # Se solicitado, redefine a senha
-        if redefinir_senha:
-            # Gera uma senha temporária intuitiva usando o nome de usuário
-            random_digits = ''.join([str(random.randint(0, 9)) for _ in range(4)])
-            temp_password = f"{usuario.username}@{random_digits}"
-            
-            # Define a nova senha
-            usuario.set_password(temp_password)
-            
-            # Define que o usuário precisa trocar a senha
-            perfil.precisa_trocar_senha = True
-            perfil.senha_temporaria = temp_password
-            perfil.save()
-            
-            # Salva o usuário
-            usuario.save()
-            
-            # Registra a redefinição de senha no log
-            from core.models import LogAuditoria
-            LogAuditoria.objects.create(
-                usuario=request.user,
-                tipo_acao='EDICAO',
-                modelo='User',
-                objeto_id=usuario.id,
-                detalhes=f'Redefinição de senha para o usuário: {usuario.username}'
-            )
-            
-            messages.success(request, f'Senha do usuário {usuario.username} redefinida com sucesso! Nova senha temporária: {temp_password}')
-        
-        # Se solicitado, força a troca de senha
-        elif forcar_troca:
-            perfil.precisa_trocar_senha = True
-            perfil.save()
-            
-            # Salva o usuário
-            usuario.save()
-            
-            # Registra a ação no log
-            from core.models import LogAuditoria
-            LogAuditoria.objects.create(
-                usuario=request.user,
-                tipo_acao='EDICAO',
-                modelo='User',
-                objeto_id=usuario.id,
-                detalhes=f'Forçada troca de senha para o usuário: {usuario.username}'
-            )
-            
-            messages.success(request, f'O usuário {usuario.username} deverá trocar sua senha no próximo login.')
-        
+    user = get_object_or_404(User, pk=pk)
+    
+    # Apenas superusuários podem resetar senhas de outros superusuários
+    if user.is_superuser and not request.user.is_superuser:
+        messages.error(request, 'Apenas superusuários podem resetar senhas de outros superusuários.')
         return redirect('user_list')
     
+    # Gera uma senha temporária mais intuitiva usando o nome de usuário
+    # e alguns números aleatórios para garantir segurança
+    random_digits = ''.join([str(random.randint(0, 9)) for _ in range(4)])
+    temp_password = f"{user.username}@{random_digits}"
+    
+    # Define a nova senha
+    user.set_password(temp_password)
+    user.save()
+    
+    # Atualiza ou cria o perfil do usuário
+    try:
+        perfil = user.perfil
+    except:
+        from core.models import PerfilUsuario
+        perfil = PerfilUsuario(usuario=user)
+    
+    perfil.precisa_trocar_senha = True
+    perfil.senha_temporaria = temp_password
+    perfil.save()
+    
+    # Registra a ação no log de auditoria
+    LogAuditoria.objects.create(
+        usuario=request.user,
+        tipo_acao='EDICAO',
+        modelo='User',
+        objeto_id=user.id,
+        detalhes=f'Reset de senha do usuário {user.username}'
+    )
+    
+    messages.success(request, f'Senha resetada com sucesso! A nova senha temporária é: {temp_password}')
     return redirect('user_list')
 
 @login_required
 def trocar_senha(request):
-    """
-    View para permitir ao usuário trocar sua senha, especialmente no primeiro login.
-    """
-    try:
-        perfil = request.user.perfil
-    except:
-        # Se o usuário não tem perfil, cria um
-        from core.models import PerfilUsuario
-        perfil = PerfilUsuario.objects.create(
-            usuario=request.user,
-            precisa_trocar_senha=False  # Assume que não precisa trocar se foi criado agora
-        )
-    
     if request.method == 'POST':
         senha_atual = request.POST.get('senha_atual')
         nova_senha = request.POST.get('nova_senha')
         confirmar_senha = request.POST.get('confirmar_senha')
         
-        # Valida senha atual
+        # Validações básicas
+        if not senha_atual or not nova_senha or not confirmar_senha:
+            messages.error(request, 'Todos os campos são obrigatórios.')
+            return redirect('trocar_senha')
+        
+        if nova_senha != confirmar_senha:
+            messages.error(request, 'A nova senha e a confirmação não coincidem.')
+            return redirect('trocar_senha')
+        
+        if len(nova_senha) < 8:
+            messages.error(request, 'A nova senha deve ter pelo menos 8 caracteres.')
+            return redirect('trocar_senha')
+        
+        # Verifica se a senha atual está correta
         if not request.user.check_password(senha_atual):
             messages.error(request, 'Senha atual incorreta.')
-            return render(request, 'core/trocar_senha.html')
+            return redirect('trocar_senha')
         
-        # Valida nova senha
-        if nova_senha != confirmar_senha:
-            messages.error(request, 'As senhas não coincidem.')
-            return render(request, 'core/trocar_senha.html')
-        
-        if len(nova_senha) < 6:
-            messages.error(request, 'A senha deve ter pelo menos 6 caracteres.')
-            return render(request, 'core/trocar_senha.html')
-        
-        # Atualiza a senha
+        # Altera a senha
         request.user.set_password(nova_senha)
         request.user.save()
         
-        # Atualiza o perfil
-        perfil.precisa_trocar_senha = False
-        perfil.senha_temporaria = None
-        perfil.save()
+        # Atualiza o perfil do usuário
+        try:
+            perfil = request.user.perfil
+            perfil.precisa_trocar_senha = False
+            perfil.senha_temporaria = None  # Limpa a senha temporária
+            perfil.save()
+        except Exception as e:
+            # Se houver erro ao atualizar o perfil, registra o erro mas permite continuar
+            logging.getLogger('django').error(f"Erro ao atualizar perfil após troca de senha: {str(e)}")
         
-        messages.success(request, 'Senha atualizada com sucesso!')
-        
-        # Atualiza a sessão para evitar logout
-        from django.contrib.auth import update_session_auth_hash
-        update_session_auth_hash(request, request.user)
-        
-        return redirect('home')
+        messages.success(request, 'Senha alterada com sucesso! Por favor, faça login novamente.')
+        return redirect('login')
     
-    return render(request, 'core/trocar_senha.html', {'perfil': perfil})
+    return render(request, 'core/trocar_senha.html')
 
