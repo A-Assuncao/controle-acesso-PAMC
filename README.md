@@ -95,9 +95,7 @@ O sistema possui um instalador PowerShell moderno e robusto para ambientes Windo
 2. Execute o comando:
 
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; 
-[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; 
-iex "&{ $(Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/A-Assuncao/controle-acesso-PAMC/main/install.ps1').Content }"
+Set-ExecutionPolicy Bypass -Scope Process -Force; ` [Net.ServicePointManager]::SecurityProtocol = ` [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; ` iex (iwr -UseBasicParsing ` https://raw.githubusercontent.com/A-Assuncao/controle-acesso-PAMC/main/install.ps1).Content
 ```
 
 #### Vantagens do novo instalador PowerShell:
