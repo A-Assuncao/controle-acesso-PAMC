@@ -3,11 +3,11 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, FileResponse
 from django.core.paginator import Paginator
-from django.db.models import Q, Case, When, DateTimeField, Subquery, OuterRef
+from django.db.models import Q, Case, When, DateTimeField, Subquery, OuterRef, Count
 from django.utils import timezone
 from datetime import datetime, timedelta, date
 import pandas as pd
-from .models import RegistroAcesso, LogAuditoria, Servidor, RegistroDashboard, RegistroAcessoTreinamento, VideoTutorial, ServidorTreinamento
+from .models import RegistroAcesso, LogAuditoria, Servidor, RegistroDashboard, RegistroAcessoTreinamento, VideoTutorial, ServidorTreinamento, PerfilUsuario
 from .forms import RegistroAcessoForm, ServidorForm
 from .utils import calcular_plantao_atual, determinar_tipo_acesso, verificar_plantao_servidor, verificar_saida_pendente
 from .decorators import admin_required
@@ -24,6 +24,12 @@ from reportlab.lib.units import inch
 from openpyxl.utils import get_column_letter
 import random
 import logging
+import re
+import io
+import string
+
+# Configuração do logger
+logger = logging.getLogger(__name__)
 
 def is_staff(user):
     return user.is_staff
@@ -349,70 +355,225 @@ def registro_detalhe(request, registro_id):
     data_hora = timezone.localtime(registro.data_hora, tz)
     data_hora_saida = timezone.localtime(registro.data_hora_saida, tz) if registro.data_hora_saida else None
     
+    # Formata as datas para o formato ISO e BR
+    data_iso = data_hora.strftime('%Y-%m-%d') if data_hora else ''
+    data_saida_iso = data_hora_saida.strftime('%Y-%m-%d') if data_hora_saida else ''
+    
     return JsonResponse({
         'data_hora': data_hora.isoformat(),
+        'data': data_iso,  # Data no formato YYYY-MM-DD
+        'data_saida': data_saida_iso,  # Data de saída no formato YYYY-MM-DD
         'hora_entrada': data_hora.strftime('%H:%M') if registro.tipo_acesso == 'ENTRADA' else '-',
         'hora_saida': data_hora_saida.strftime('%H:%M') if data_hora_saida else '-',
         'tipo_acesso': registro.tipo_acesso,
-        'servidor_nome': registro.servidor.nome
+        'servidor_nome': registro.servidor.nome,
+        'saida_pendente': registro.saida_pendente
     })
 
 @login_required
 def registro_acesso_update(request, registro_id):
-    if request.method == 'POST':
-        try:
-            # Obtém o registro do dashboard
-            registro_dashboard = get_object_or_404(RegistroDashboard, id=registro_id)
-            registro_historico = registro_dashboard.registro_historico
+    """
+    Atualiza um registro de acesso existente.
+    Permite a edição de data e hora de entrada e saída por qualquer usuário.
+    """
+    logger.info(f"Iniciando atualização do registro ID={registro_id}")
+    
+    try:
+        # Tenta localizar o registro no banco de dados
+        registro = RegistroAcesso.objects.get(id=registro_id)
+        logger.info(f"Registro encontrado: {registro}")
+        
+        # Para GET, retorna os detalhes do registro em JSON para AJAX
+        if request.method == 'GET':
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Prepara as datas em formato legível
+                data_hora = None
+                data_hora_saida = None
+                
+                if registro.entrada:
+                    data_hora = registro.entrada.strftime('%Y-%m-%dT%H:%M')
+                    
+                if registro.saida:
+                    data_hora_saida = registro.saida.strftime('%Y-%m-%dT%H:%M')
+                    
+                data = {
+                    'id': registro.id,
+                    'servidor_id': registro.servidor.id,
+                    'servidor_nome': registro.servidor.nome,
+                    'servidor_documento': registro.servidor.numero_documento,
+                    'data_hora': data_hora,
+                    'data': registro.entrada.strftime('%Y-%m-%d') if registro.entrada else None,
+                    'hora_entrada': registro.entrada.strftime('%H:%M') if registro.entrada else None,
+                    'data_hora_saida': data_hora_saida,
+                    'data_saida': registro.saida.strftime('%Y-%m-%d') if registro.saida else None,
+                    'hora_saida': registro.saida.strftime('%H:%M') if registro.saida else None,
+                    'isv': registro.isv,
+                    'saida_pendente': registro.saida_pendente,
+                    'observacao': registro.observacao,
+                    'setor': registro.setor
+                }
+                logger.info(f"Enviando dados do registro: {data}")
+                return JsonResponse(data)
+            else:
+                # Para acesso direto, redireciona para a home
+                return redirect('home')
+        
+        elif request.method == 'POST':
+            logger.info(f"Recebido POST para atualizar registro {registro_id}. Dados: {request.POST}")
             
-            # Obtém os dados do formulário
-            data = request.POST.get('data')
+            # Extrai os dados do formulário
+            data_entrada = request.POST.get('data_entrada')
             hora_entrada = request.POST.get('hora_entrada')
+            data_saida = request.POST.get('data_saida')
             hora_saida = request.POST.get('hora_saida')
             justificativa = request.POST.get('justificativa')
+            isv = request.POST.get('isv') == 'on'
             
+            # Log para depuração
+            logger.info(f"Dados extraídos: data_entrada={data_entrada}, hora_entrada={hora_entrada}")
+            logger.info(f"data_saida={data_saida}, hora_saida={hora_saida}, isv={isv}")
+            logger.info(f"justificativa={justificativa}")
+            
+            # Compatibilidade com código anterior que usava 'data' em vez de 'data_entrada'
+            if not data_entrada and request.POST.get('data'):
+                data_entrada = request.POST.get('data')
+                logger.info(f"Usando campo 'data' alternativo: {data_entrada}")
+            
+            # Validação básica
             if not justificativa:
-                return JsonResponse({
-                    'status': 'error',
-                    'message': 'É necessário informar uma justificativa para editar o registro.'
-                }, status=400)
+                logger.warning("Justificativa não fornecida")
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': 'A justificativa é obrigatória'
+                    }, status=400)
+                messages.error(request, 'A justificativa é obrigatória')
+                return redirect('home')
             
-            # Define o timezone UTC-4
-            tz = pytz.timezone('America/Manaus')
-            
-            # Converte a data e hora para datetime
-            data_base = datetime.strptime(data, '%Y-%m-%d').date()
-            
-            if hora_entrada and registro_historico.tipo_acesso == 'ENTRADA':
-                hora_entrada = datetime.strptime(hora_entrada, '%H:%M').time()
-                registro_historico.data_hora = tz.localize(datetime.combine(data_base, hora_entrada))
-            
-            if hora_saida:
-                hora_saida = datetime.strptime(hora_saida, '%H:%M').time()
-                registro_historico.data_hora_saida = tz.localize(datetime.combine(data_base, hora_saida))
-                registro_historico.saida_pendente = False
-            else:
-                registro_historico.data_hora_saida = None
-                registro_historico.saida_pendente = True
-            
-            registro_historico.save()
-            
-            # Atualiza o registro no dashboard
-            registro_dashboard.data_hora = registro_historico.data_hora
-            registro_dashboard.data_hora_saida = registro_historico.data_hora_saida
-            registro_dashboard.saida_pendente = registro_historico.saida_pendente
-            registro_dashboard.registro_historico = registro_historico
-            registro_dashboard.save()
-            
-            return JsonResponse({'status': 'success'})
-            
-        except Exception as e:
+            try:
+                # Processa a data e hora de entrada
+                entrada_datetime = None
+                if data_entrada and hora_entrada:
+                    try:
+                        logger.info(f"Processando entrada: {data_entrada} {hora_entrada}")
+                        entrada_datetime = datetime.strptime(f"{data_entrada} {hora_entrada}", "%Y-%m-%d %H:%M")
+                        entrada_datetime = pytz.timezone('America/Sao_Paulo').localize(entrada_datetime)
+                        registro.entrada = entrada_datetime
+                        logger.info(f"Entrada processada: {entrada_datetime}")
+                    except ValueError as e:
+                        logger.error(f"Erro ao processar data/hora de entrada: {e}")
+                        return JsonResponse({
+                            'status': 'error',
+                            'message': f'Formato de data/hora de entrada inválido: {e}'
+                        }, status=400)
+                
+                # Processa a data e hora de saída, se fornecidas
+                saida_datetime = None
+                if data_saida and hora_saida:
+                    try:
+                        logger.info(f"Processando saída: {data_saida} {hora_saida}")
+                        saida_datetime = datetime.strptime(f"{data_saida} {hora_saida}", "%Y-%m-%d %H:%M")
+                        saida_datetime = pytz.timezone('America/Sao_Paulo').localize(saida_datetime)
+                        registro.saida = saida_datetime
+                        registro.saida_pendente = False
+                        logger.info(f"Saída processada: {saida_datetime}")
+                    except ValueError as e:
+                        logger.error(f"Erro ao processar data/hora de saída: {e}")
+                        return JsonResponse({
+                            'status': 'error',
+                            'message': f'Formato de data/hora de saída inválido: {e}'
+                        }, status=400)
+                
+                # Se não tiver saída, marca como pendente
+                if not saida_datetime:
+                    registro.saida_pendente = True
+                    logger.info("Marcando registro como saída pendente")
+                
+                # Atualiza o campo de ISV
+                registro.isv = isv
+                logger.info(f"ISV atualizado: {isv}")
+                
+                # Registra a justificativa para a edição
+                registro.justificativa_edicao = justificativa
+                registro.editado_por = request.user
+                registro.data_edicao = timezone.now()
+                registro.status_alteracao = 'EDITADO'
+                
+                # Salva o registro atualizado
+                registro.save()
+                logger.info(f"Registro {registro_id} atualizado com sucesso")
+                
+                # Log para debug
+                log_data = {
+                    'registro_id': registro_id,
+                    'data_entrada': data_entrada,
+                    'hora_entrada': hora_entrada,
+                    'data_saida': data_saida,
+                    'hora_saida': hora_saida,
+                    'entrada_datetime': str(entrada_datetime) if entrada_datetime else None,
+                    'saida_datetime': str(saida_datetime) if saida_datetime else None,
+                    'saida_pendente': registro.saida_pendente,
+                    'isv': isv
+                }
+                logger.info(f"Detalhes da atualização: {log_data}")
+                
+                # Atualiza também o registro no dashboard, se existir
+                try:
+                    dashboard_registro = RegistroDashboard.objects.get(registro_historico=registro)
+                    logger.info(f"Atualizando registro no dashboard: {dashboard_registro.id}")
+                    
+                    dashboard_registro.data_hora = registro.entrada
+                    dashboard_registro.data_hora_saida = registro.saida
+                    dashboard_registro.saida_pendente = registro.saida_pendente
+                    dashboard_registro.isv = registro.isv
+                    
+                    if registro.saida and not dashboard_registro.operador_saida:
+                        dashboard_registro.operador_saida = request.user
+                        
+                    dashboard_registro.save()
+                    logger.info("Registro do dashboard atualizado com sucesso")
+                except RegistroDashboard.DoesNotExist:
+                    logger.info("Não foi encontrado registro correspondente no dashboard")
+                except Exception as e:
+                    logger.error(f"Erro ao atualizar registro do dashboard: {e}")
+                
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'status': 'success'})
+                else:
+                    messages.success(request, 'Registro atualizado com sucesso')
+                    return redirect('home')
+                
+            except Exception as e:
+                logger.error(f"Erro ao atualizar registro: {str(e)}", exc_info=True)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': f'Erro ao processar datas: {str(e)}'
+                    }, status=500)
+                else:
+                    messages.error(request, f'Erro ao processar datas: {str(e)}')
+                    return redirect('home')
+    
+    except RegistroAcesso.DoesNotExist:
+        logger.error(f"Registro {registro_id} não encontrado")
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
                 'status': 'error',
-                'message': str(e)
-            }, status=400)
-    
-    return JsonResponse({'status': 'error', 'message': 'Método não permitido'}, status=405)
+                'message': 'Registro não encontrado'
+            }, status=404)
+        else:
+            messages.error(request, 'Registro não encontrado')
+            return redirect('home')
+    except Exception as e:
+        logger.error(f"Erro geral ao acessar/editar registro {registro_id}: {str(e)}", exc_info=True)
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Erro ao processar a requisição: {str(e)}'
+            }, status=500)
+        else:
+            messages.error(request, f'Erro ao processar a requisição: {str(e)}')
+            return redirect('home')
 
 @login_required
 def excluir_registro(request, registro_id):
@@ -1226,158 +1387,258 @@ def registrar_saida(request, registro_id):
 def retirar_faltas(request):
     """
     View para listar e exportar as faltas do plantão atual.
-    Aceita o método GET para listar as faltas e também para exportar em PDF.
+
+    Esta view permite:
+    1. Listar os servidores faltosos do plantão atual
+    2. Listar os ISVs presentes
+    3. Exportar ambas as listas em formato PDF
+
+    Args:
+        request: HttpRequest contendo os parâmetros da requisição
+            - nome (opcional): Filtro por nome ou documento do servidor
+            - format (opcional): Se 'pdf', gera relatório em PDF
+
+    Returns:
+        HttpResponse: Renderiza template com listas ou retorna arquivo PDF/JSON
     """
+    # Constantes para configuração do PDF
+    PDF_TITLE_FONT_SIZE = 16
+    PDF_SUBTITLE_FONT_SIZE = 14
+    PDF_NORMAL_FONT_SIZE = 12
+    PDF_TABLE_FONT_SIZE = 10
+    TABLE_PADDING = 6
+    
     # Obtém o plantão atual
     plantao_atual = calcular_plantao_atual()
     nome_plantao = plantao_atual['nome']
     
-    # Obtém o filtro de nome da query string
+    # Obtém o filtro de nome da query string e sanitiza
     filtro_nome = request.GET.get('nome', '').strip()
     
-    # Busca todos os servidores do plantão atual verificando se o nome do plantão
-    # está contido no campo setor (case insensitive)
-    servidores_plantao = Servidor.objects.filter(
-        setor__icontains=nome_plantao,
-        ativo=True
-    ).order_by('nome')
-    
-    # Para fins de debug, vamos registrar quantos servidores foram encontrados
-    print(f"[DEBUG] Plantão atual: {nome_plantao}, Servidores encontrados: {servidores_plantao.count()}")
-    
-    # Aplica filtro por nome se fornecido
-    if filtro_nome:
-        servidores_plantao = servidores_plantao.filter(
-            Q(nome__icontains=filtro_nome) |
-            Q(numero_documento__icontains=filtro_nome)
-        )
-    
-    # Busca os servidores que já entraram hoje
-    hoje = timezone.now().date()
-    servidores_presentes = RegistroDashboard.objects.filter(
-        data_hora__date=hoje,
-        tipo_acesso='ENTRADA'
-    ).values_list('servidor_id', flat=True)
-    
-    # Lista de faltosos (servidores do plantão que não entraram)
-    faltosos = []
-    for servidor in servidores_plantao:
-        if servidor.id not in servidores_presentes:
-            faltosos.append({
-                'ord': len(faltosos) + 1,  # Adiciona número de ordem
-                'nome': servidor.nome,
-                'documento': servidor.numero_documento,
-                'setor': servidor.setor
-            })
-    
-    # Ordena a lista de faltosos por nome
-    faltosos.sort(key=lambda x: x['nome'])
-    
-    # Atualiza os números de ordem após a ordenação
-    for i, faltoso in enumerate(faltosos, 1):
-        faltoso['ord'] = i
-    
-    # Se for solicitado PDF
-    if request.GET.get('format') == 'pdf':
-        # Cria um buffer para o PDF
-        buffer = BytesIO()
+    try:
+        # Busca servidores do plantão atual
+        servidores_plantao = Servidor.objects.filter(
+            setor__icontains=nome_plantao,
+            ativo=True
+        ).order_by('nome')
         
-        # Cria o documento PDF
-        doc = SimpleDocTemplate(buffer, pagesize=letter)
-        elements = []
-        
-        # Define estilos
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=16,
-            spaceAfter=30,
-            alignment=1  # Centralizado
-        )
-        
-        # Adiciona título
-        title = Paragraph(f"Faltas do Plantão {plantao_atual['nome']}", title_style)
-        elements.append(title)
-        
-        # Adiciona data e hora
-        date_style = ParagraphStyle(
-            'DateStyle',
-            parent=styles['Normal'],
-            fontSize=12,
-            spaceAfter=20,
-            alignment=1  # Centralizado
-        )
-        current_datetime = timezone.localtime().strftime("%d/%m/%Y %H:%M:%S")
-        date_paragraph = Paragraph(f"Gerado em: {current_datetime}", date_style)
-        elements.append(date_paragraph)
-        
-        if faltosos:
-            # Prepara dados da tabela
-            table_data = [['ORD', 'Nome', 'Documento']]  # Cabeçalho
-            for faltoso in faltosos:
-                table_data.append([
-                    str(faltoso['ord']),
-                    faltoso['nome'],
-                    faltoso['documento']
-                ])
-            
-            # Cria a tabela
-            table = Table(table_data, colWidths=[50, 350, 150])
-            
-            # Estilo da tabela
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 10),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Centraliza coluna ORD
-                ('ALIGN', (1, 0), (-1, -1), 'LEFT'),  # Alinha à esquerda as outras colunas
-                ('TOPPADDING', (0, 0), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                ('LEFTPADDING', (0, 0), (-1, -1), 6),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-            ]))
-            elements.append(table)
-        else:
-            # Mensagem quando não há faltosos
-            no_data_style = ParagraphStyle(
-                'NoData',
-                parent=styles['Normal'],
-                fontSize=12,
-                spaceAfter=20,
-                alignment=1
+        # Aplica filtro por nome se fornecido
+        if filtro_nome:
+            servidores_plantao = servidores_plantao.filter(
+                Q(nome__icontains=filtro_nome) |
+                Q(numero_documento__icontains=filtro_nome)
             )
-            no_data = Paragraph("Não há faltas registradas para o plantão atual!", no_data_style)
-            elements.append(no_data)
         
-        # Gera o PDF
-        doc.build(elements)
+        # Busca registros de entrada do dia
+        hoje = timezone.now().date()
+        registros_hoje = RegistroDashboard.objects.filter(
+            data_hora__date=hoje,
+            tipo_acesso='ENTRADA'
+        ).select_related('servidor')
         
-        # Prepara a resposta
-        buffer.seek(0)
-        filename = f"faltas_plantao_{plantao_atual['nome'].replace(' ', '_')}_{hoje.strftime('%Y%m%d')}.pdf"
+        servidores_presentes = set(registro.servidor_id for registro in registros_hoje)
         
-        return FileResponse(
-            buffer,
-            as_attachment=True,
-            filename=filename,
-            content_type='application/pdf'
-        )
-    
-    # Retorna JSON para requisição normal
-    return JsonResponse({
-        'plantao_atual': plantao_atual['nome'],
-        'faltosos': faltosos,
-        'total': len(faltosos)
-    })
+        # Processa ISVs presentes
+        isvs_presentes = []
+        for registro in registros_hoje:
+            if registro.isv:
+                hora_entrada = timezone.localtime(registro.data_hora).strftime('%H:%M')
+                isvs_presentes.append({
+                    'ord': len(isvs_presentes) + 1,
+                    'nome': registro.servidor.nome,
+                    'documento': registro.servidor.numero_documento,
+                    'setor': registro.servidor.setor,
+                    'hora_entrada': hora_entrada
+                })
+        
+        # Processa faltosos
+        faltosos = []
+        for servidor in servidores_plantao:
+            if servidor.id not in servidores_presentes:
+                faltosos.append({
+                    'ord': len(faltosos) + 1,
+                    'nome': servidor.nome,
+                    'documento': servidor.numero_documento,
+                    'setor': servidor.setor
+                })
+        
+        # Ordena as listas por nome
+        faltosos.sort(key=lambda x: x['nome'])
+        isvs_presentes.sort(key=lambda x: x['nome'])
+        
+        # Atualiza números de ordem após ordenação
+        for i, faltoso in enumerate(faltosos, 1):
+            faltoso['ord'] = i
+        for i, isv in enumerate(isvs_presentes, 1):
+            isv['ord'] = i
+        
+        # Gera PDF se solicitado
+        if request.GET.get('format') == 'pdf':
+            try:
+                # Cria buffer e documento
+                buffer = BytesIO()
+                doc = SimpleDocTemplate(buffer, pagesize=letter)
+                elements = []
+                
+                # Define estilos
+                styles = getSampleStyleSheet()
+                title_style = ParagraphStyle(
+                    'CustomTitle',
+                    parent=styles['Heading1'],
+                    fontSize=PDF_TITLE_FONT_SIZE,
+                    spaceAfter=30,
+                    alignment=1
+                )
+                subtitle_style = ParagraphStyle(
+                    'CustomSubtitle',
+                    parent=styles['Heading2'],
+                    fontSize=PDF_SUBTITLE_FONT_SIZE,
+                    spaceAfter=20,
+                    spaceBefore=30,
+                    alignment=1
+                )
+                date_style = ParagraphStyle(
+                    'DateStyle',
+                    parent=styles['Normal'],
+                    fontSize=PDF_NORMAL_FONT_SIZE,
+                    spaceAfter=20,
+                    alignment=1
+                )
+                
+                # Adiciona título
+                title = Paragraph(f"Relatório do Plantão {nome_plantao}", title_style)
+                elements.append(title)
+                
+                # Adiciona data/hora
+                current_datetime = timezone.localtime().strftime("%d/%m/%Y %H:%M:%S")
+                date_paragraph = Paragraph(f"Gerado em: {current_datetime}", date_style)
+                elements.append(date_paragraph)
+                
+                # Seção de Faltas
+                if faltosos:
+                    elements.append(Paragraph("Lista de Faltas", subtitle_style))
+                    
+                    # Dados da tabela
+                    table_data = [['ORD', 'Nome', 'Documento']]
+                    for faltoso in faltosos:
+                        table_data.append([
+                            str(faltoso['ord']),
+                            faltoso['nome'],
+                            faltoso['documento']
+                        ])
+                    
+                    # Cria e estiliza tabela
+                    table = Table(table_data, colWidths=[50, 350, 150])
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), PDF_NORMAL_FONT_SIZE),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), TABLE_PADDING * 2),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                        ('FONTSIZE', (0, 1), (-1, -1), PDF_TABLE_FONT_SIZE),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                        ('ALIGN', (1, 0), (-1, -1), 'LEFT'),
+                        ('TOPPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                        ('LEFTPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                    ]))
+                    elements.append(table)
+                else:
+                    # Mensagem quando não há faltosos
+                    no_data_style = ParagraphStyle(
+                        'NoData',
+                        parent=styles['Normal'],
+                        fontSize=PDF_NORMAL_FONT_SIZE,
+                        spaceAfter=20,
+                        alignment=1
+                    )
+                    no_data = Paragraph("Não há faltas registradas para o plantão atual!", no_data_style)
+                    elements.append(no_data)
+                
+                # Seção de ISVs
+                if isvs_presentes:
+                    elements.append(Paragraph("Lista de ISVs Presentes", subtitle_style))
+                    
+                    # Dados da tabela
+                    table_data = [['ORD', 'Nome', 'Documento', 'Hora']]
+                    for isv in isvs_presentes:
+                        table_data.append([
+                            str(isv['ord']),
+                            isv['nome'],
+                            isv['documento'],
+                            isv['hora_entrada']
+                        ])
+                    
+                    # Cria e estiliza tabela
+                    table = Table(table_data, colWidths=[50, 300, 150, 50])
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#006400')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), PDF_NORMAL_FONT_SIZE),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), TABLE_PADDING * 2),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                        ('FONTSIZE', (0, 1), (-1, -1), PDF_TABLE_FONT_SIZE),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                        ('ALIGN', (1, 0), (-1, -1), 'LEFT'),
+                        ('ALIGN', (-1, 0), (-1, -1), 'CENTER'),
+                        ('TOPPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                        ('LEFTPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                    ]))
+                    elements.append(table)
+                
+                # Gera PDF
+                doc.build(elements)
+                
+                # Prepara resposta
+                buffer.seek(0)
+                response = HttpResponse(buffer.read(), content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="relatorio_faltas_{hoje}.pdf"'
+                
+                return response
+                
+            except Exception as e:
+                messages.error(request, f'Erro ao gerar PDF: {str(e)}')
+                return redirect('retirar_faltas')
+        
+        # Verifica se é uma requisição AJAX
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Retorna JSON para requisições AJAX
+            return JsonResponse({
+                'plantao_atual': nome_plantao,
+                'faltosos': faltosos,
+                'isvs_presentes': isvs_presentes,
+                'total_faltas': len(faltosos),
+                'total_isvs': len(isvs_presentes)
+            })
+        
+        # Renderiza template para requisições normais
+        context = {
+            'faltosos': faltosos,
+            'isvs_presentes': isvs_presentes,
+            'filtro_nome': filtro_nome,
+            'plantao_atual': nome_plantao
+        }
+        
+        return render(request, 'core/retirar_faltas.html', context)
+        
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': str(e)}, status=500)
+        messages.error(request, f'Erro ao processar dados: {str(e)}')
+        return redirect('home')
 
 @login_required
 def ambiente_treinamento(request):
@@ -2060,109 +2321,58 @@ def registro_acesso_treinamento_update(request, registro_id):
             # Define o timezone UTC-4
             tz = pytz.timezone('America/Manaus')
             
-            # PROCESSAMENTO DE ENTRADA - Somente se ambos os campos estão preenchidos
+            # Processa data e hora de entrada
             if data_entrada and hora_entrada:
                 try:
-                    # Combina data e hora de entrada (formato esperado: YYYY-MM-DD HH:MM)
-                    data_hora_str = f"{data_entrada} {hora_entrada}"
-                    print(f"[DEBUG] String de data/hora entrada para parsing: '{data_hora_str}'")
+                    # Formata a entrada como datetime
+                    data_hora_entrada_str = f"{data_entrada} {hora_entrada}"
+                    data_hora_entrada = timezone.make_aware(
+                        datetime.strptime(data_hora_entrada_str, "%Y-%m-%d %H:%M"),
+                        timezone=tz
+                    )
                     
-                    # Parse da data e hora
-                    data_hora_dt = datetime.strptime(data_hora_str, '%Y-%m-%d %H:%M')
-                    print(f"[DEBUG] Data/hora entrada após parsing: {data_hora_dt}")
+                    # Atualiza a data e hora
+                    registro.data_hora = data_hora_entrada
                     
-                    # Adiciona timezone
-                    data_hora_tz = tz.localize(data_hora_dt)
-                    print(f"[DEBUG] Data/hora entrada com timezone: {data_hora_tz}")
-                    
-                    # Atualiza APENAS a data/hora de entrada do registro
-                    registro.data_hora = data_hora_tz
-                    print(f"[DEBUG] Registro com nova data/hora de entrada: {registro.data_hora}")
-                    
-                    # Verifica se a data foi realmente alterada
-                    if data_hora_original != registro.data_hora:
-                        print(f"[DEBUG] Data/hora de entrada foi alterada: {data_hora_original} -> {registro.data_hora}")
-                    else:
-                        print(f"[DEBUG] Data/hora de entrada permanece a mesma")
-                    
-                except Exception as e:
-                    import traceback
-                    print(f"[ERRO] Falha ao processar data/hora de entrada: {str(e)}")
-                    traceback.print_exc()
+                    print(f"[DEBUG] Nova Data/Hora de Entrada: {data_hora_entrada}")
+                except ValueError as e:
+                    print(f"[ERRO] Formato inválido para data/hora de entrada: {e}")
                     return JsonResponse({
                         'status': 'error',
-                        'message': f"Erro ao processar a data/hora de entrada: {str(e)}"
+                        'message': f'Formato de data/hora de entrada inválido: {e}'
                     }, status=400)
-            else:
-                print("[ERRO] Data ou hora de entrada não informada. Ambas são obrigatórias.")
-                return JsonResponse({
-                    'status': 'error',
-                    'message': "Data e hora de entrada são obrigatórias."
-                }, status=400)
             
-            # PROCESSAMENTO DE SAÍDA - Lógica completamente separada da entrada
-            # Se ambos os campos de saída estão preenchidos, atualiza a saída
+            # Processa data e hora de saída, se fornecidos
             if data_saida and hora_saida:
                 try:
-                    # Combina data e hora de saída (formato esperado: YYYY-MM-DD HH:MM)
+                    # Formata a saída como datetime
                     data_hora_saida_str = f"{data_saida} {hora_saida}"
-                    print(f"[DEBUG] String de data/hora saída para parsing: '{data_hora_saida_str}'")
+                    data_hora_saida = timezone.make_aware(
+                        datetime.strptime(data_hora_saida_str, "%Y-%m-%d %H:%M"),
+                        timezone=tz
+                    )
                     
-                    # Parse da data e hora
-                    data_hora_saida_dt = datetime.strptime(data_hora_saida_str, '%Y-%m-%d %H:%M')
-                    print(f"[DEBUG] Data/hora saída após parsing: {data_hora_saida_dt}")
-                    
-                    # Adiciona timezone
-                    data_hora_saida_tz = tz.localize(data_hora_saida_dt)
-                    print(f"[DEBUG] Data/hora saída com timezone: {data_hora_saida_tz}")
-                    
-                    # Atualiza APENAS os campos relacionados à saída
-                    registro.data_hora_saida = data_hora_saida_tz
-                    registro.operador_saida = request.user
+                    # Atualiza a data e hora de saída
+                    registro.data_hora_saida = data_hora_saida
                     registro.saida_pendente = False
-                    print(f"[DEBUG] Registro com nova data/hora de saída: {registro.data_hora_saida}")
                     
-                    # Verifica se a data de saída foi realmente alterada
-                    if data_hora_saida_original != registro.data_hora_saida:
-                        print(f"[DEBUG] Data/hora de saída foi alterada: {data_hora_saida_original} -> {registro.data_hora_saida}")
-                    else:
-                        print(f"[DEBUG] Data/hora de saída permanece a mesma")
-                    
-                # Se ocorrer erro no processamento da saída, continua sem saída
-                except Exception as e:
-                    import traceback
-                    print(f"[ERRO] Falha ao processar data/hora de saída: {str(e)}")
-                    traceback.print_exc()
+                    print(f"[DEBUG] Nova Data/Hora de Saída: {data_hora_saida}")
+                except ValueError as e:
+                    print(f"[ERRO] Formato inválido para data/hora de saída: {e}")
                     return JsonResponse({
                         'status': 'error',
-                        'message': f"Erro ao processar a data/hora de saída: {str(e)}"
+                        'message': f'Formato de data/hora de saída inválido: {e}'
                     }, status=400)
-            
-            # Se ambos os campos de saída estão vazios, limpa a saída
-            elif not data_saida and not hora_saida:
-                print("[DEBUG] Ambos os campos de saída estão vazios, limpando dados de saída")
+            else:
+                # Se não tiver data e hora de saída, mantém como pendente
+                registro.data_hora_saida = None
+                registro.saida_pendente = True
                 
-                # Só registra alteração se havia uma saída antes
-                if registro.data_hora_saida is not None:
-                    print(f"[DEBUG] Removendo data/hora de saída: {registro.data_hora_saida} -> None")
-                    registro.data_hora_saida = None
-                    registro.operador_saida = None
-                    registro.saida_pendente = True
-                else:
-                    print(f"[DEBUG] Data/hora de saída já era None, mantendo")
+                print("[DEBUG] Saída pendente: Sim (nenhuma data/hora fornecida)")
             
-            # Se apenas um dos campos está preenchido, retorna erro
-            elif (data_saida and not hora_saida) or (not data_saida and hora_saida):
-                missing = "hora" if not hora_saida else "data"
-                print(f"[ERRO] Campo de saída incompleto. Faltando: {missing}")
-                return JsonResponse({
-                    'status': 'error',
-                    'message': f"Para registrar uma saída, preencha tanto a data quanto a hora. Campo faltando: {missing}"
-                }, status=400)
-            
-            # Atualiza os outros campos
+            # Atualiza o status de ISV
             registro.isv = isv
-            registro.observacao = justificativa
+            print(f"[DEBUG] Novo status ISV: {isv}")
             
             # Salva as alterações
             registro.save()
@@ -2184,6 +2394,48 @@ def registro_acesso_treinamento_update(request, registro_id):
             import traceback
             print(f"[ERRO] Exceção não tratada ao atualizar registro: {str(e)}")
             traceback.print_exc()
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            }, status=400)
+    
+    # Para GET, retorna os detalhes do registro
+    elif request.method == 'GET':
+        try:
+            registro = get_object_or_404(RegistroAcessoTreinamento, id=registro_id)
+            
+            # Define o timezone UTC-4
+            tz = pytz.timezone('America/Manaus')
+            
+            # Prepara as datas em formato legível
+            data_hora = None
+            data_hora_saida = None
+            
+            if registro.data_hora:
+                data_hora_local = timezone.localtime(registro.data_hora, tz)
+                data_hora = data_hora_local.strftime('%Y-%m-%dT%H:%M')
+                
+            if registro.data_hora_saida:
+                data_hora_saida_local = timezone.localtime(registro.data_hora_saida, tz)
+                data_hora_saida = data_hora_saida_local.strftime('%Y-%m-%dT%H:%M')
+                
+            data = {
+                'id': registro.id,
+                'servidor_id': registro.servidor.id,
+                'servidor_nome': registro.servidor.nome,
+                'servidor_documento': registro.servidor.numero_documento,
+                'data_hora': data_hora,
+                'data': data_hora_local.strftime('%Y-%m-%d') if registro.data_hora else None,
+                'hora_entrada': data_hora_local.strftime('%H:%M') if registro.data_hora else None,
+                'data_hora_saida': data_hora_saida,
+                'data_saida': data_hora_saida_local.strftime('%Y-%m-%d') if registro.data_hora_saida else None,
+                'hora_saida': data_hora_saida_local.strftime('%H:%M') if registro.data_hora_saida else None,
+                'isv': registro.isv,
+                'saida_pendente': registro.saida_pendente
+            }
+            
+            return JsonResponse(data)
+        except Exception as e:
             return JsonResponse({
                 'status': 'error',
                 'message': str(e)
@@ -2306,7 +2558,7 @@ def user_reset_password(request, pk):
         perfil = user.perfil
     except:
         from core.models import PerfilUsuario
-        perfil = PerfilUsuario(usuario=user)
+        perfil = PerfilUsuario.objects.create(usuario=user)
     
     perfil.precisa_trocar_senha = True
     perfil.senha_temporaria = temp_password

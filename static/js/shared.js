@@ -778,7 +778,7 @@ function editarRegistro(registroId) {
     // Define a URL baseada no ambiente (treinamento ou produção)
     const url = window.location.pathname.includes('treinamento') 
         ? `/treinamento/registro/${registroId}/detalhe/` 
-        : `/registro/${registroId}/detalhe/`;
+        : `/registro/${registroId}/`;  // URL corrigida para '/registro/{id}/'
     
     console.log('URL para obter detalhes:', url);
     

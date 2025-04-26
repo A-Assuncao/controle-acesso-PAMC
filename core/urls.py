@@ -25,6 +25,7 @@ urlpatterns = [
     path('servidor/<int:pk>/excluir/', views.servidor_delete, name='servidor_delete'),
     path('buscar-servidor/', views.buscar_servidor, name='buscar_servidor'),
     path('registro-acesso/criar/', views.registro_acesso_create, name='registro_acesso_create'),
+    path('registro-acesso/atualizar/<int:registro_id>/', views.registro_acesso_update, name='registro_acesso_update_alt'),
     path('registro-manual/criar/', views.registro_manual_create, name='registro_manual_create'),
     path('registros-plantao/', views.registros_plantao, name='registros_plantao'),
     path('registro/<int:registro_id>/', views.registro_detalhe, name='registro_detalhe'),

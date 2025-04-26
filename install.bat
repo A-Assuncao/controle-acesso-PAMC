@@ -24,7 +24,7 @@ if "%ADMIN_EMAIL%"=="" set ADMIN_EMAIL=admin@example.com
 :password
 set /p ADMIN_PASS=Digite a senha do administrador (minimo 8 caracteres): 
 if "%ADMIN_PASS%"=="" goto password
-if not "%ADMIN_PASS:~7%"=="" goto passok
+if not "%ADMIN_PASS%:~7%"=="" goto passok
 echo A senha deve ter pelo menos 8 caracteres!
 goto password
 :passok
@@ -67,12 +67,14 @@ if errorlevel 1 (
     echo - NSSM ja instalado. OK!
 )
 
-:: Instala ngrok
-echo - Baixando e instalando ngrok...
-mkdir "%PROGRAMFILES%\ControleAcesso\ngrok" 2>nul
-curl -L -o "%TEMP%\ControleAcesso_Install_Logs\ngrok.zip" "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip"
-powershell -Command "Expand-Archive -Path '%TEMP%\ControleAcesso_Install_Logs\ngrok.zip' -DestinationPath '%PROGRAMFILES%\ControleAcesso\ngrok'"
-del "%TEMP%\ControleAcesso_Install_Logs\ngrok.zip"
+:: Verifica se o OpenSSH está instalado
+ssh -V >nul 2>&1
+if errorlevel 1 (
+    echo - OpenSSH nao encontrado. Instalando OpenSSH...
+    powershell -Command "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+) else (
+    echo - OpenSSH ja instalado. OK!
+)
 
 echo.
 echo Instalando Sistema de Controle de Acesso...
@@ -145,7 +147,7 @@ echo.
 echo # Diretório de templates
 echo template_dir = os.path.join(os.environ.get('PROGRAMFILES'), 'ControleAcesso', 'app', 'core', 'templates')
 echo.
-echo # Lista de substituições (URL online -^> caminho offline)
+echo # Lista de substituições (URL online -> caminho offline)
 echo replacements = [
 echo     (r'href="https://cdn.jsdelivr.net/npm/bootstrap@5[^"]*"', r'href="/static/offline/css/bootstrap.min.css"'),
 echo     (r'src="https://cdn.jsdelivr.net/npm/bootstrap@5[^"]*"', r'src="/static/offline/js/bootstrap.bundle.min.js"'),
@@ -195,54 +197,9 @@ python manage.py collectstatic --noinput > "%TEMP%\ControleAcesso_Install_Logs\c
 echo - Criando usuario administrador...
 python manage.py shell -c "from django.contrib.auth.models import User; User.objects.create_superuser('%ADMIN_USER%', '%ADMIN_EMAIL%', '%ADMIN_PASS%') if not User.objects.filter(username='%ADMIN_USER%').exists() else None"
 
-:: Cria script para iniciar o ngrok e enviar webhook
-echo - Configurando script do ngrok com webhook...
-(
-echo @echo off
-echo cd /d "%%~dp0"
-echo.
-echo :: Inicializa o ngrok e captura a URL
-echo echo Iniciando ngrok...
-echo.
-echo :: Garante que apenas uma instância do ngrok esteja rodando
-echo taskkill /F /IM ngrok.exe >nul 2^>^&1
-echo.
-echo :: Inicia o ngrok em segundo plano
-echo start "" /B "%%PROGRAMFILES%%\ControleAcesso\ngrok\ngrok.exe" http 8000 --log=stdout ^> "%%PROGRAMFILES%%\ControleAcesso\logs\ngrok.log"
-echo.
-echo :: Aguarda alguns segundos para o ngrok iniciar
-echo timeout /t 5 /nobreak ^>nul
-echo.
-echo :: Obtém o URL público do ngrok
-echo for /f "tokens=*" %%%%a in ^('curl -s http://localhost:4040/api/tunnels ^| findstr /r "public_url.*https"'^) do ^(
-echo   set ngrok_url=%%%%a
-echo   set ngrok_url=^!ngrok_url:*https=https^!
-echo   set ngrok_url=^!ngrok_url:"^^,*=^!
-echo   set ngrok_url=^!ngrok_url:}"=^!
-echo ^)
-echo.
-echo :: Envia o webhook para o Discord em formato Markdown
-echo echo Enviando webhook para o Discord...
-echo.
-echo :: Verifica se temos conexão com a internet
-echo ping -n 1 discord.com ^>nul 2^>^&1
-echo if errorlevel 1 ^(
-echo   echo Sem conexão com a internet. Não foi possível enviar o webhook.
-echo   exit /b 0
-echo ^)
-echo.
-echo :: Prepara o payload em formato JSON com markdown
-echo set "payload={\"content\":\"## Sistema de Controle de Acesso - Nova URL\n\nO sistema está disponível em: **^!ngrok_url^!**\n\n> Acesse com as credenciais fornecidas durante a instalação.\"}"
-echo.
-echo :: Envia para o webhook do Discord
-echo curl -H "Content-Type: application/json" -d "^!payload^!" https://discord.com/api/webhooks/1357105951878152435/uE4Uw7-ay4iHtsZvXvi75j0stthrNiE0SU4M_6ntgMbFO5a_2di95C51YIGoJuztkmWb
-echo.
-echo echo URL do sistema: ^!ngrok_url^!
-echo echo Webhook enviado com sucesso.
-echo.
-echo :: Cria arquivo local com a URL para acesso offline
-echo echo ^!ngrok_url^! ^> "%%PROGRAMFILES%%\ControleAcesso\logs\current_url.txt"
-) > "%PROGRAMFILES%\ControleAcesso\scripts\start_ngrok.bat"
+:: Cria script para iniciar o serveo e enviar webhook
+echo - Configurando script do serveo com webhook...
+copy "%~dp0scripts\start_serveo.bat" "%PROGRAMFILES%\ControleAcesso\scripts\start_serveo.bat"
 
 :: Cria script para iniciar o servidor Django em modo offline-ready
 echo - Configurando script para iniciar o servidor...
@@ -276,7 +233,7 @@ echo copy "%%~dp0..\app\db.sqlite3" "%%~dp0..\backups\db_backup_%%date:~6,4%%_%%
 echo.
 echo :: Para os serviços
 echo net stop ControleAcesso
-echo net stop NgrokService
+echo net stop ServeoService
 echo.
 echo :: Atualiza do repositório
 echo call "%%PROGRAMFILES%%\ControleAcesso\venv\Scripts\activate"
@@ -292,10 +249,10 @@ echo python manage.py collectstatic --noinput
 echo.
 echo :: Reinicia os serviços
 echo net start ControleAcesso
-echo net start NgrokService
+echo net start ServeoService
 echo.
-echo :: Reinicia o ngrok para obter nova URL
-echo call "%%~dp0start_ngrok.bat"
+echo :: Reinicia o serveo para obter nova URL
+echo call "%%~dp0start_serveo.bat"
 ) > "%PROGRAMFILES%\ControleAcesso\scripts\update.bat"
 
 :: Cria serviço Windows para o Django
@@ -307,15 +264,15 @@ nssm set ControleAcesso Start SERVICE_AUTO_START
 nssm set ControleAcesso AppStdout "%PROGRAMFILES%\ControleAcesso\logs\django_output.log"
 nssm set ControleAcesso AppStderr "%PROGRAMFILES%\ControleAcesso\logs\django_error.log"
 
-:: Cria serviço Windows para o ngrok
-echo - Instalando servico ngrok...
-nssm install NgrokService "%PROGRAMFILES%\ControleAcesso\scripts\start_ngrok.bat"
-nssm set NgrokService DisplayName "Ngrok Tunnel"
-nssm set NgrokService Description "Serviço de túnel para exposição da aplicação"
-nssm set NgrokService Start SERVICE_AUTO_START
-nssm set NgrokService AppStdout "%PROGRAMFILES%\ControleAcesso\logs\ngrok_output.log"
-nssm set NgrokService AppStderr "%PROGRAMFILES%\ControleAcesso\logs\ngrok_error.log"
-nssm set NgrokService DependOnService ControleAcesso
+:: Cria serviço Windows para o serveo
+echo - Instalando servico serveo...
+nssm install ServeoService "%PROGRAMFILES%\ControleAcesso\scripts\start_serveo.bat"
+nssm set ServeoService DisplayName "Serveo Tunnel"
+nssm set ServeoService Description "Serviço de túnel para exposição da aplicação"
+nssm set ServeoService Start SERVICE_AUTO_START
+nssm set ServeoService AppStdout "%PROGRAMFILES%\ControleAcesso\logs\serveo_output.log"
+nssm set ServeoService AppStderr "%PROGRAMFILES%\ControleAcesso\logs\serveo_error.log"
+nssm set ServeoService DependOnService ControleAcesso
 
 :: Cria atalho na área de trabalho
 echo - Criando atalhos do sistema...
@@ -337,7 +294,7 @@ schtasks /create /tn "AtualizarControleAcesso_Tarde" /tr "\"%PROGRAMFILES%\Contr
 :: Inicia os serviços
 echo - Iniciando servicos...
 net start ControleAcesso
-net start NgrokService
+net start ServeoService
 
 echo.
 echo ============================================
@@ -353,7 +310,7 @@ echo   %PROGRAMFILES%\ControleAcesso\logs\current_url.txt
 echo.
 echo Logs do sistema:
 echo - Django: %PROGRAMFILES%\ControleAcesso\logs\django_*.log
-echo - Ngrok: %PROGRAMFILES%\ControleAcesso\logs\ngrok*.log
+echo - Serveo: %PROGRAMFILES%\ControleAcesso\logs\serveo*.log
 echo.
 echo Scripts de manutencao:
 echo Os scripts de manutencao estao em:
