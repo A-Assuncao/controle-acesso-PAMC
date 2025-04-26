@@ -73,9 +73,10 @@ O Sistema de Controle de Acesso PAMC é uma aplicação web desenvolvida em Djan
   - jQuery
   
 - **Ferramentas**
-  - Ngrok (para acesso remoto)
+  - Serveo (para acesso remoto)
   - NSSM (para serviço Windows)
   - Django ORM
+  - PowerShell (instalação e manutenção)
 
 ## 📦 Requisitos
 
@@ -88,17 +89,31 @@ O Sistema de Controle de Acesso PAMC é uma aplicação web desenvolvida em Djan
 
 ### Instalação Automática (Windows)
 
-O sistema possui um instalador automatizado para ambientes Windows:
+O sistema possui um instalador PowerShell moderno e robusto para ambientes Windows:
 
-1. Baixe o arquivo `install.bat` do repositório
-2. Clique com o botão direito e selecione "Executar como administrador"
-3. Siga as instruções na tela para configurar o sistema
-4. O instalador irá:
-   - Instalar todas as dependências necessárias
+1. Abra o PowerShell como Administrador
+2. Execute o comando:
+
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force; 
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; 
+iex "&{ $(Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/A-Assuncao/controle-acesso-PAMC/main/install.ps1').Content }"
+```
+
+#### Vantagens do novo instalador PowerShell:
+- **Segurança aprimorada**: A senha do administrador é ocultada durante a digitação
+- **Logging detalhado**: Logs completos são salvos na pasta `install_logs` no mesmo diretório da instalação
+- **Tratamento de erros robusto**: Sistema de `try/catch` para cada etapa da instalação
+- **Diagnóstico simplificado**: Os arquivos de log contêm timestamps e níveis de severidade (INFO/WARN/ERROR)
+- **Recuperação automática**: Tenta resolver falhas comuns de instalação
+
+O instalador irá:
+   - Instalar todas as dependências necessárias (Git, Python, NSSM, OpenSSH)
    - Configurar o banco de dados
    - Criar um usuário administrador
    - Configurar o sistema como serviço do Windows
    - Instalar recursos para funcionamento offline
+   - Criar atalhos e tarefas agendadas
 
 ### Instalação Manual
 
@@ -194,10 +209,10 @@ O sistema realiza backups automáticos diários:
 
 Para restaurar um backup:
 
-```bash
-cd "%PROGRAMFILES%\ControleAcesso\app"
-call "%PROGRAMFILES%\ControleAcesso\venv\Scripts\activate"
-python manage.py loaddata "%PROGRAMFILES%\ControleAcesso\backups\backup_YYYY-MM-DD.json"
+```powershell
+cd "$env:ProgramFiles\ControleAcesso\app"
+& "$env:ProgramFiles\ControleAcesso\venv\Scripts\activate.ps1"
+python manage.py loaddata "$env:ProgramFiles\ControleAcesso\backups\backup_YYYY-MM-DD.json"
 ```
 
 ## 🌐 Ambiente de Produção
@@ -233,10 +248,10 @@ O sistema foi projetado para funcionar sem conexão à internet:
 
 ## 🔄 Atualização
 
-O sistema pode ser atualizado através do script de atualização:
+O sistema pode ser atualizado através do script de atualização PowerShell:
 
-```bash
-"%PROGRAMFILES%\ControleAcesso\scripts\update.bat"
+```powershell
+& "$env:ProgramFiles\ControleAcesso\scripts\update.ps1"
 ```
 
 Este script:
@@ -244,7 +259,7 @@ Este script:
 - Atualiza o código do repositório
 - Atualiza dependências
 - Aplica migrações
-- Reinicia o serviço
+- Reinicia os serviços
 
 ## ⚠️ Informações Importantes
 
@@ -252,6 +267,7 @@ Este script:
 - **Backups**: Realize backups regulares para evitar perda de dados
 - **Atualizações**: Verifique regularmente por atualizações de segurança
 - **Logs**: Os logs do sistema são armazenados em `%PROGRAMFILES%\ControleAcesso\logs\`
+- **Diagnóstico**: Logs de instalação são armazenados em `install_logs\` no diretório onde o instalador foi executado
 
 ## 📄 Licença
 

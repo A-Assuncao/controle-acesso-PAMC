@@ -266,11 +266,11 @@ try {
 try {
     Write-Log INFO 'Processando templates para apontar para recursos offline...'
     $patterns = @{
-        'href="https://cdn.jsdelivr.net/npm/bootstrap@5[^"]*"' = 'href="/static/offline/css/bootstrap.min.css"'
-        'src="https://cdn.jsdelivr.net/npm/bootstrap@5[^"]*"'  = 'src="/static/offline/js/bootstrap.bundle.min.js"'
-        'src="https://code.jquery.com/jquery[^"]*"'           = 'src="/static/offline/js/jquery.min.js"'
-        'href="https://cdn.jsdelivr.net/npm/bootstrap-icons[^"]*"' = 'href="/static/offline/css/bootstrap-icons.css"'
-        'src="https://cdn.jsdelivr.net/npm/sweetalert2[^"]*"'  = 'src="/static/offline/js/sweetalert2.all.min.js"'
+        'href="https://cdn.jsdelivr.net/npm/bootstrap@5[^"']*"' = 'href="/static/offline/css/bootstrap.min.css"'
+        'src="https://cdn.jsdelivr.net/npm/bootstrap@5[^"']*"'  = 'src="/static/offline/js/bootstrap.bundle.min.js"'
+        'src="https://code.jquery.com/jquery[^"']*"'           = 'src="/static/offline/js/jquery.min.js"'
+        'href="https://cdn.jsdelivr.net/npm/bootstrap-icons[^"']*"' = 'href="/static/offline/css/bootstrap-icons.css"'
+        'src="https://cdn.jsdelivr.net/npm/sweetalert2[^"']*"'  = 'src=\"/static/offline/js/sweetalert2.all.min.js\"'
     }
     Get-ChildItem -Path (Join-Path $AppDir 'core\templates') -Filter *.html -Recurse | ForEach-Object {
         $content = Get-Content $_.FullName -Raw
@@ -303,11 +303,7 @@ try {
 #region Cria superusuário Django
 try {
     Write-Log INFO 'Criando superusuário Django personalizado...'
-    & $VenvPython - <<PYCODE
-from django.contrib.auth.models import User
-if not User.objects.filter(username='$AdminUser').exists():
-    User.objects.create_superuser('$AdminUser', '$AdminEmail', '$plainPwd')
-PYCODE
+    & $VenvPython "$AppDir\manage.py" shell -c "from django.contrib.auth.models import User; if not User.objects.filter(username='$AdminUser').exists(): User.objects.create_superuser('$AdminUser','$AdminEmail','$plainPwd')"
     Write-Log INFO 'Superusuário criado/ou já existente.'
 } catch {
     Write-Log ERROR "Falha ao criar superusuário: $_"
