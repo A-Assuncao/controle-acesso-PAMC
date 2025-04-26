@@ -78,8 +78,7 @@ try {
 
     do {
         $securePwd = Read-Host 'Senha admin (mínimo 8 caracteres)' -AsSecureString
-        $plainPwd  = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-                        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePwd))
+        $plainPwd  = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePwd))
         if ($plainPwd.Length -lt 8) {
             Write-Log WARN 'Senha deve ter >= 8 caracteres.'
         }
@@ -91,7 +90,7 @@ try {
 }
 #endregion
 
-#region Download genérico
+#region Função de download genérico
 function Download-File {
     param([string]$Url, [string]$OutFile)
     try {
@@ -103,7 +102,7 @@ function Download-File {
 }
 #endregion
 
-#region Git
+#region Verifica/Instala Git
 try {
     if (Get-Command git -ErrorAction SilentlyContinue) {
         Write-Log INFO 'Git instalado.'
@@ -155,10 +154,10 @@ try {
 }
 #endregion
 
-#region OpenSSH
+#region OpenSSH Client
 try {
     if (Get-Command ssh -ErrorAction SilentlyContinue) {
-        Write-Log INFO 'OpenSSH ok.'
+        Write-Log INFO 'OpenSSH Client instalado.'
     } else {
         Write-Log INFO 'Instalando OpenSSH Client...'
         Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0 -ErrorAction Stop
@@ -169,21 +168,21 @@ try {
 }
 #endregion
 
-#region Clonar app
+#region Clonar aplicação
 try {
     New-Item $AppDir -ItemType Directory -Force | Out-Null
     Set-Location $AppDir
-    Write-Log INFO 'Clonando repo...'
+    Write-Log INFO 'Clonando repositório...'
     git clone https://github.com/A-Assuncao/controle-acesso-PAMC . --depth 1
-    Write-Log INFO 'Clone concluído.'
+    Write-Log INFO 'Repositório clonado.'
 } catch {
     Write-Log ERROR $_; exit 1
 }
 #endregion
 
-#region Dependências Django
+#region Instalar dependências Django
 try {
-    Write-Log INFO 'pip upgrade...'
+    Write-Log INFO 'Atualizando pip...'
     & $VenvPython -m pip install --upgrade pip
     Write-Log INFO 'Instalando requirements...'
     & $VenvPip install -r "$AppDir\requirements.txt"
@@ -194,21 +193,21 @@ try {
 }
 #endregion
 
-#region Migrar & static
+#region Migrar banco e coletar estáticos
 try {
-    Write-Log INFO 'Migrando DB...'
+    Write-Log INFO 'Executando migrate...'
     & $VenvPython "$AppDir\manage.py" migrate
     Write-Log INFO 'Collectstatic...'
     & $VenvPython "$AppDir\manage.py" collectstatic --noinput
 } catch {
-    Write-Log.ERROR $_; exit 1
+    Write-Log ERROR $_; exit 1
 }
 #endregion
 
-#region Recursos offline
+#region Baixar recursos offline
 $offline = Join-Path $AppDir 'static\offline'
 try {
-    Write-Log.INFO 'Criando pastas offline...'
+    Write-Log INFO 'Preparando recursos offline...'
     New-Item -Path "$offline\css","$offline\js","$offline\fonts" -ItemType Directory -Force | Out-Null
     Download-File 'https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css' "$offline\css\bootstrap.min.css"
     Download-File 'https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js' "$offline\js\bootstrap.bundle.min.js"
@@ -220,13 +219,13 @@ try {
     Remove-Item $zip -Force
     Download-File 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js' "$offline\js\sweetalert2.all.min.js"
 } catch {
-    Write-Log.ERROR $_; exit 1
+    Write-Log ERROR $_; exit 1
 }
 #endregion
 
-#region Processar templates
+#region Processar templates para offline
 try {
-    Write-Log.INFO 'Substituindo URLs nos templates...'
+    Write-Log INFO 'Substituindo URLs nos templates...'
     $patterns = @{
         "href=\"https://cdn.jsdelivr.net/npm/bootstrap@5[^"]*\"" = 'href="/static/offline/css/bootstrap.min.css"'
         "src=\"https://cdn.jsdelivr.net/npm/bootstrap@5[^"]*\""  = 'src="/static/offline/js/bootstrap.bundle.min.js"'
@@ -235,17 +234,22 @@ try {
         "src=\"https://cdn.jsdelivr.net/npm/sweetalert2[^"]*\""  = 'src="/static/offline/js/sweetalert2.all.min.js"'
     }
     Get-ChildItem "$AppDir\core\templates" -Filter *.html -Recurse | ForEach-Object {
-        $c = Get-Content $_.FullName -Raw
-        $n = $c
-        foreach ($p in $patterns.Keys) { $n = [regex]::Replace($n, $p, $patterns[$p]) }
-        if ($n -ne $c) { Set-Content $_.FullName $n; Write-Log INFO "Template modificado: $_" }
+        $content  = Get-Content $_.FullName -Raw
+        $modified = $content
+        foreach ($pattern in $patterns.Keys) {
+            $modified = [regex]::Replace($modified, $pattern, $patterns[$pattern])
+        }
+        if ($modified -ne $content) {
+            Set-Content -Path $_.FullName -Value $modified
+            Write-Log INFO "Template modificado: $($_.FullName)"
+        }
     }
 } catch {
     Write-Log ERROR $_; exit 1
 }
 #endregion
 
-#region Re-collect static
+#region Re-collectstatic offline
 try {
     Write-Log INFO 'Re-collectstatic offline...'
     & $VenvPython "$AppDir\manage.py" collectstatic --noinput
@@ -254,77 +258,6 @@ try {
 }
 #endregion
 
-#region Superusuário
+#region Criar superusuário Django
 try {
     Write-Log INFO 'Criando superusuário...'
-    & $VenvPython "$AppDir\manage.py" shell -c "from django.contrib.auth.models import User; if not User.objects.filter(username='$AdminUser').exists(): User.objects.create_superuser('$AdminUser','$AdminEmail','$plainPwd')"
-} catch {
-    Write-Log ERROR $_; exit 1
-}
-#endregion
-
-#region Scripts e serviços
-try {
-    New-Item -ItemType Directory -Path $ScriptsDir -Force | Out-Null
-    Copy-Item "$PSScriptRoot\scripts\*" $ScriptsDir -Recurse -Force
-
-    @"
-@echo off
-cd /d "%~dp0..\app"
-call "%ProgramFiles%\ControleAcesso\venv\Scripts\activate"
-set DJANGO_OFFLINE_MODE=True
-python run_production.py --insecure
-"@ | Out-File "$ScriptsDir\start_server.bat" -Encoding ASCII
-
-    @"
-@echo off
-cd /d "%~dp0..\app"
-ping -n 1 github.com >nul 2>&1 || exit /b 0
-copy "%~dp0..\app\db.sqlite3" "%~dp0..\backups\db_%date:~6,4%_%date:~3,2%_%date:~0,2%.sqlite3" /Y
-net stop ControleAcesso & net stop ServeoService
-call "%ProgramFiles%\ControleAcesso\venv\Scripts\activate"
-git pull
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py collectstatic --noinput
-net start ControleAcesso & net start ServeoService
-call "%~dp0start_serveo.bat"
-"@ | Out-File "$ScriptsDir\update.bat" -Encoding ASCII
-
-    Write-Log INFO 'Scripts gerados.'
-
-    & nssm install ControleAcesso "$ScriptsDir\start_server.bat"
-    & nssm set ControleAcesso AppStartup SERVICE_AUTO_START
-    & nssm set ControleAcesso AppStdout "$InstallRoot\logs\django_output.log"
-    & nssm set ControleAcesso AppStderr "$InstallRoot\logs\django_error.log"
-
-    & nssm install ServeoService "$ScriptsDir\start_serveo.bat"
-    & nssm set ServeoService AppStartup SERVICE_AUTO_START
-    & nssm set ServeoService AppStdout "$InstallRoot\logs\serveo_output.log"
-    & nssm set ServeoService AppStderr "$InstallRoot\logs\serveo_error.log"
-} catch {
-    Write-Log ERROR $_; exit 1
-}
-#endregion
-
-#region Agendamento
-try {
-    schtasks /create /tn "AtualizarControleAcesso_Manha" /tr "`"$ScriptsDir\update.bat`"" /sc daily /st 06:00 /ru SYSTEM /f
-    schtasks /create /tn "AtualizarControleAcesso_Tarde" /tr "`"$ScriptsDir\update.bat`"" /sc daily /st 18:00 /ru SYSTEM /f
-    Write-Log INFO 'Tarefas agendadas.'
-} catch {
-    Write-Log ERROR $_; exit 1
-}
-#endregion
-
-#region Início serviços
-try {
-    Start-Service ControleAcesso; Start-Service ServeoService
-    Write-Log INFO 'Serviços iniciados.'
-} catch {
-    Write-Log ERROR $_; exit 1
-}
-#endregion
-
-Write-Log INFO '=== Instalação concluída ==='
-Write-Host "Instalação completa. Usuário: $AdminUser | Logs: $LogDir"
