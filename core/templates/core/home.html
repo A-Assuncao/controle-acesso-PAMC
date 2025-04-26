@@ -1192,11 +1192,11 @@ function editarRegistro(registroId) {
     })
     .then(response => {
         // Verifica se a resposta foi bem sucedida
-        if (!response.ok) {
+            if (!response.ok) {
             throw new Error(`Falha ao buscar detalhes: ${response.status} ${response.statusText}`);
         }
-        return response.json();
-    })
+            return response.json();
+        })
     .then(dados => {
         console.log('Detalhes do registro recebidos:', dados);
         
@@ -1412,7 +1412,7 @@ function editarRegistro(registroId) {
                 
                 if (responseData && responseData.status === 'success') {
                     // Atualização bem-sucedida
-                    Swal.fire({
+            Swal.fire({
                         icon: 'success',
                         title: 'Registro Atualizado',
                         text: 'O registro foi atualizado com sucesso!',
@@ -1484,11 +1484,11 @@ function abrirModalRegistroManual(dados, isEdicao = false) {
     let servidorHtml = '';
     if (servidorId) {
         servidorHtml = `
-            <div class="mb-3">
-                <label class="form-label">Servidor</label>
+                        <div class="mb-3">
+                            <label class="form-label">Servidor</label>
                 <input type="text" class="form-control" value="${servidorNome}" readonly>
                 <input type="hidden" name="servidor" id="servidor_id_manual" value="${servidorId}">
-            </div>
+                        </div>
         `;
     } else {
         // Se temos nome ou documento, mas não o ID, precisamos buscar o servidor
@@ -1516,34 +1516,34 @@ function abrirModalRegistroManual(dados, isEdicao = false) {
             <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
             
             ${servidorHtml}
-            
-            <div class="row">
-                <div class="col-md-6 border-end pe-3">
-                    <h6 class="mb-3 text-primary">Entrada</h6>
-                    <div class="mb-3">
-                        <label class="form-label">Data</label>
+                        
+                        <div class="row">
+                            <div class="col-md-6 border-end pe-3">
+                                <h6 class="mb-3 text-primary">Entrada</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">Data</label>
                         <input type="date" id="data_entrada" name="data_entrada" class="form-control" value="${dataEntrada}" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Hora</label>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Hora</label>
                         <input type="time" id="hora_entrada" name="hora_entrada" class="form-control" value="${horaEntrada}" required>
-                    </div>
-                </div>
-                
-                <div class="col-md-6 ps-3">
-                    <h6 class="mb-3 text-danger">Saída</h6>
-                    <div class="mb-3">
-                        <label class="form-label">Data</label>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 ps-3">
+                                <h6 class="mb-3 text-danger">Saída</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">Data</label>
                         <input type="date" id="data_saida" name="data_saida" class="form-control" value="${dataSaida}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Hora</label>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Hora</label>
                         <input type="time" id="hora_saida" name="hora_saida" class="form-control" value="${horaSaida}">
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mb-3 mt-3">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 mt-3">
                 <div class="form-check">
                     <input type="checkbox" class="form-check-input" id="isv_manual" name="isv" ${isv ? 'checked' : ''}>
                     <label class="form-check-label" for="isv_manual">É Serviço Voluntário?</label>
@@ -1553,18 +1553,18 @@ function abrirModalRegistroManual(dados, isEdicao = false) {
             <div class="mb-3">
                 <label for="justificativa_manual" class="form-label">Justificativa</label>
                 <textarea class="form-control" id="justificativa_manual" name="justificativa" rows="3" required>${justificativa}</textarea>
-            </div>
-        </form>
+                        </div>
+                    </form>
     `;
     
     // Abre o modal com o formulário
     Swal.fire({
         title: isEdicao ? 'Editar Registro (Criar Novo)' : 'Registro Manual',
         html: formHtml,
-        showCancelButton: true,
-        confirmButtonText: 'Salvar',
-        cancelButtonText: 'Cancelar',
-        didOpen: () => {
+                showCancelButton: true,
+                confirmButtonText: 'Salvar',
+                cancelButtonText: 'Cancelar',
+                didOpen: () => {
             // Se temos um nome ou documento mas não o ID, procura automaticamente
             const buscaInput = document.getElementById('busca-servidor-manual');
             if (buscaInput && (servidorNome || servidorDocumento) && !servidorId) {
@@ -1575,45 +1575,45 @@ function abrirModalRegistroManual(dados, isEdicao = false) {
                 }, 500);
             }
             
-            // Configura validação quando o modal abre
+                    // Configura validação quando o modal abre
             const form = document.getElementById('registroManualForm');
-            const dataEntrada = form.querySelector('[name="data_entrada"]');
-            const horaEntrada = form.querySelector('[name="hora_entrada"]');
-            const dataSaida = form.querySelector('[name="data_saida"]');
-            const horaSaida = form.querySelector('[name="hora_saida"]');
-            
-            // Entrada é sempre obrigatória
-            dataEntrada.required = true;
-            horaEntrada.required = true;
-            
-            // Adiciona listeners para validar os campos de saída
-            dataSaida.addEventListener('input', validarCamposSaida);
-            horaSaida.addEventListener('input', validarCamposSaida);
-            
-            function validarCamposSaida() {
-                if (dataSaida.value && !horaSaida.value) {
-                    horaSaida.setCustomValidity('Se você informar a data de saída, também precisa informar a hora');
-                    horaSaida.required = true;
-                } else if (!dataSaida.value && horaSaida.value) {
-                    dataSaida.setCustomValidity('Se você informar a hora de saída, também precisa informar a data');
-                    dataSaida.required = true;
-                } else {
-                    dataSaida.setCustomValidity('');
-                    horaSaida.setCustomValidity('');
+                    const dataEntrada = form.querySelector('[name="data_entrada"]');
+                    const horaEntrada = form.querySelector('[name="hora_entrada"]');
+                    const dataSaida = form.querySelector('[name="data_saida"]');
+                    const horaSaida = form.querySelector('[name="hora_saida"]');
                     
-                    // Se ambos estão preenchidos ou ambos estão vazios, não são obrigatórios entre si
-                    const ambosPreenchidos = dataSaida.value && horaSaida.value;
-                    const ambosVazios = !dataSaida.value && !horaSaida.value;
+                    // Entrada é sempre obrigatória
+                    dataEntrada.required = true;
+                    horaEntrada.required = true;
                     
-                    if (ambosPreenchidos || ambosVazios) {
-                        dataSaida.required = ambosPreenchidos;
-                        horaSaida.required = ambosPreenchidos;
+                    // Adiciona listeners para validar os campos de saída
+                    dataSaida.addEventListener('input', validarCamposSaida);
+                    horaSaida.addEventListener('input', validarCamposSaida);
+                    
+                    function validarCamposSaida() {
+                        if (dataSaida.value && !horaSaida.value) {
+                            horaSaida.setCustomValidity('Se você informar a data de saída, também precisa informar a hora');
+                            horaSaida.required = true;
+                        } else if (!dataSaida.value && horaSaida.value) {
+                            dataSaida.setCustomValidity('Se você informar a hora de saída, também precisa informar a data');
+                            dataSaida.required = true;
+                        } else {
+                            dataSaida.setCustomValidity('');
+                            horaSaida.setCustomValidity('');
+                            
+                            // Se ambos estão preenchidos ou ambos estão vazios, não são obrigatórios entre si
+                            const ambosPreenchidos = dataSaida.value && horaSaida.value;
+                            const ambosVazios = !dataSaida.value && !horaSaida.value;
+                            
+                            if (ambosPreenchidos || ambosVazios) {
+                                dataSaida.required = ambosPreenchidos;
+                                horaSaida.required = ambosPreenchidos;
+                            }
+                        }
                     }
-                }
-            }
-            
-            // Executa a validação inicial
-            validarCamposSaida();
+                    
+                    // Executa a validação inicial
+                    validarCamposSaida();
             
             // Se for edição, adiciona um indicador visual
             if (isEdicao) {
@@ -1631,8 +1631,8 @@ function abrirModalRegistroManual(dados, isEdicao = false) {
                     form.querySelector('[name="justificativa"]').value = 'Correção de registro anterior.';
                 }
             }
-        },
-        preConfirm: () => {
+                },
+                preConfirm: () => {
             const form = document.getElementById('registroManualForm');
             const servidorId = form.querySelector('[name="servidor"]').value;
             
@@ -1651,9 +1651,9 @@ function abrirModalRegistroManual(dados, isEdicao = false) {
             
             if (!dataEntrada || !horaEntrada) {
                 Swal.showValidationMessage('Data e hora de entrada são obrigatórios');
-                return false;
-            }
-            
+                        return false;
+                    }
+                    
             if (!justificativa) {
                 Swal.showValidationMessage('A justificativa é obrigatória');
                 return false;
@@ -1693,21 +1693,21 @@ function abrirModalRegistroManual(dados, isEdicao = false) {
             });
             
             return fetch(urls.registroManual, {
-                method: 'POST',
+                        method: 'POST',
                 headers: {
                     'X-CSRFToken': csrfToken,
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: formData
-            })
-            .then(response => {
+                        body: formData
+                    })
+                    .then(response => {
                 console.log('Status da resposta:', response.status);
                 return response.text().then(text => {
                     console.log('Resposta bruta:', text);
                     try {
                         // Tenta fazer o parse como JSON
                         return text ? JSON.parse(text) : {};
-                    } catch (e) {
+                                } catch (e) {
                         console.error('Erro ao processar resposta:', e);
                         // Se não conseguiu fazer parse como JSON, verifica se a resposta foi bem-sucedida
                         if (!response.ok) {
@@ -1726,7 +1726,7 @@ function abrirModalRegistroManual(dados, isEdicao = false) {
                     title: 'Erro!',
                     text: result.value.message || 'Ocorreu um erro ao criar o registro.',
                 });
-            } else {
+                        } else {
                 Swal.fire({
                     icon: 'success',
                     title: 'Sucesso!',
@@ -1871,8 +1871,8 @@ function buscarServidorParaRegistroManual(autoSelecionar = false) {
         });
         
         resultadosDiv.innerHTML = html;
-    })
-    .catch(error => {
+        })
+        .catch(error => {
         console.error('Erro ao buscar servidores:', error);
         resultadosDiv.innerHTML = `
             <div class="alert alert-danger m-2">
