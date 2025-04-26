@@ -147,7 +147,7 @@ try {
         $zip = Join-Path $env:TEMP 'nssm.zip'
         Download-File 'https://nssm.cc/release/nssm-2.24.zip' $zip
         Expand-Archive $zip -DestinationPath (Join-Path $env:TEMP 'nssm') -Force
-        Copy-Item "$env:TEMP\nssm\nssm-2.24\win64\nssm.exe" "$Env:SystemRoot\System32" -Force
+        Copy-Item "$env:TEMP\nssm\nssm-2.24\win64\nssm.exe" "$Env:SystemRoot\System32\nssm.exe" -Force
         Write-Log INFO 'NSSM instalado.'
     }
 } catch {
@@ -201,14 +201,14 @@ try {
     Write-Log INFO 'Collectstatic...'
     & $VenvPython "$AppDir\manage.py" collectstatic --noinput
 } catch {
-    Write-Log ERROR $_; exit 1
+    Write-Log.ERROR $_; exit 1
 }
 #endregion
 
 #region Recursos offline
 $offline = Join-Path $AppDir 'static\offline'
 try {
-    Write-Log INFO 'Criando pastas offline...'
+    Write-Log.INFO 'Criando pastas offline...'
     New-Item -Path "$offline\css","$offline\js","$offline\fonts" -ItemType Directory -Force | Out-Null
     Download-File 'https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css' "$offline\css\bootstrap.min.css"
     Download-File 'https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js' "$offline\js\bootstrap.bundle.min.js"
@@ -220,19 +220,19 @@ try {
     Remove-Item $zip -Force
     Download-File 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js' "$offline\js\sweetalert2.all.min.js"
 } catch {
-    Write-Log ERROR $_; exit 1
+    Write-Log.ERROR $_; exit 1
 }
 #endregion
 
 #region Processar templates
 try {
-    Write-Log INFO 'Substituindo URLs nos templates...'
+    Write-Log.INFO 'Substituindo URLs nos templates...'
     $patterns = @{
-        'href="https://cdn.jsdelivr.net/npm/bootstrap@5[^"']*"' = 'href="/static/offline/css/bootstrap.min.css"'
-        'src="https://cdn.jsdelivr.net/npm/bootstrap@5[^"']*"'  = 'src="/static/offline/js/bootstrap.bundle.min.js"'
-        'src="https://code.jquery.com/jquery[^"']*"'           = 'src="/static/offline/js/jquery.min.js"'
-        'href="https://cdn.jsdelivr.net/npm/bootstrap-icons[^"']*"' = 'href="/static/offline/css/bootstrap-icons.css"'
-        'src="https://cdn.jsdelivr.net/npm/sweetalert2[^"']*"'  = 'src="/static/offline/js/sweetalert2.all.min.js"'
+        "href=\"https://cdn.jsdelivr.net/npm/bootstrap@5[^"]*\"" = 'href="/static/offline/css/bootstrap.min.css"'
+        "src=\"https://cdn.jsdelivr.net/npm/bootstrap@5[^"]*\""  = 'src="/static/offline/js/bootstrap.bundle.min.js"'
+        "src=\"https://code.jquery.com/jquery[^"]*\""           = 'src="/static/offline/js/jquery.min.js"'
+        "href=\"https://cdn.jsdelivr.net/npm/bootstrap-icons[^"]*\"" = 'href="/static/offline/css/bootstrap-icons.css"'
+        "src=\"https://cdn.jsdelivr.net/npm/sweetalert2[^"]*\""  = 'src="/static/offline/js/sweetalert2.all.min.js"'
     }
     Get-ChildItem "$AppDir\core\templates" -Filter *.html -Recurse | ForEach-Object {
         $c = Get-Content $_.FullName -Raw
@@ -268,7 +268,6 @@ try {
     New-Item -ItemType Directory -Path $ScriptsDir -Force | Out-Null
     Copy-Item "$PSScriptRoot\scripts\*" $ScriptsDir -Recurse -Force
 
-    # start_server.bat
     @"
 @echo off
 cd /d "%~dp0..\app"
@@ -277,7 +276,6 @@ set DJANGO_OFFLINE_MODE=True
 python run_production.py --insecure
 "@ | Out-File "$ScriptsDir\start_server.bat" -Encoding ASCII
 
-    # update.bat
     @"
 @echo off
 cd /d "%~dp0..\app"
@@ -295,7 +293,6 @@ call "%~dp0start_serveo.bat"
 
     Write-Log INFO 'Scripts gerados.'
 
-    # NSSM services
     & nssm install ControleAcesso "$ScriptsDir\start_server.bat"
     & nssm set ControleAcesso AppStartup SERVICE_AUTO_START
     & nssm set ControleAcesso AppStdout "$InstallRoot\logs\django_output.log"
@@ -312,8 +309,8 @@ call "%~dp0start_serveo.bat"
 
 #region Agendamento
 try {
-    schtasks /create /tn "AtualizarControleAcesso_Manha" /tr "\"$ScriptsDir\update.bat\"" /sc daily /st 06:00 /ru SYSTEM /f
-    schtasks /create /tn "AtualizarControleAcesso_Tarde" /tr "\"$ScriptsDir\update.bat\"" /sc daily /st 18:00 /ru SYSTEM /f
+    schtasks /create /tn "AtualizarControleAcesso_Manha" /tr "`"$ScriptsDir\update.bat`"" /sc daily /st 06:00 /ru SYSTEM /f
+    schtasks /create /tn "AtualizarControleAcesso_Tarde" /tr "`"$ScriptsDir\update.bat`"" /sc daily /st 18:00 /ru SYSTEM /f
     Write-Log INFO 'Tarefas agendadas.'
 } catch {
     Write-Log ERROR $_; exit 1
