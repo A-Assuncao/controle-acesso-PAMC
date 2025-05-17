@@ -34,7 +34,21 @@
     <div class="card-body">
         <!-- Campo de busca -->
         <div class="mb-3">
-            <input type="text" id="busca" class="form-control" placeholder="Buscar por nome, documento ou setor...">
+            <form method="GET" action="{% url 'servidor_list' %}" id="form-busca">
+                <div class="input-group">
+                    <input type="text" id="busca" name="q" class="form-control" 
+                           placeholder="Buscar por nome, documento ou setor..." 
+                           value="{{ request.GET.q|default:'' }}">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Buscar
+                    </button>
+                    {% if request.GET.q %}
+                    <a href="{% url 'servidor_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Limpar
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
         </div>
         
         <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
@@ -134,9 +148,11 @@
                 </div>
                 <form id="limparBancoForm" method="post" action="{% url 'limpar_banco_servidores' %}">
                     {% csrf_token %}
+                    <!-- Campo oculto de usuário para acessibilidade -->
+                    <input type="hidden" id="username" name="username" autocomplete="username" value="{{ request.user.username }}">
                     <div class="mb-3">
                         <label for="senha" class="form-label">Digite sua senha para confirmar:</label>
-                        <input type="password" class="form-control" id="senha" name="senha" required>
+                        <input type="password" class="form-control" id="senha" name="senha" required autocomplete="current-password">
                     </div>
                 </form>
             </div>
@@ -158,8 +174,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const busca = document.getElementById('busca');
     const linhas = document.querySelectorAll('tbody tr');
     const contador = document.getElementById('contador');
+    const formBusca = document.getElementById('form-busca');
     let ordem = 1;
+    let timeoutId;
     
+    // Filtragem local em tempo real (sem recarregar a página)
     busca.addEventListener('input', function() {
         const termo = this.value.toLowerCase();
         let contadorVisivel = 0;
@@ -180,6 +199,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         contador.textContent = contadorVisivel;
+        
+        // Auto-submit do formulário após 500ms de inatividade para busca no servidor
+        // (útil para grandes volumes de dados que não estão na página atual)
+        clearTimeout(timeoutId);
+        if (termo.length >= 3) {
+            timeoutId = setTimeout(function() {
+                formBusca.submit();
+            }, 800);
+        }
+    });
+    
+    // Impede a submissão automática se o usuário pressionar Enter
+    // (isso permitirá que o usuário controle quando deseja submeter ao servidor)
+    formBusca.addEventListener('submit', function() {
+        clearTimeout(timeoutId);
     });
 });
 </script>

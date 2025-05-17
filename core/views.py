@@ -106,10 +106,13 @@ def servidor_list(request):
     servidores = Servidor.objects.all().order_by('nome')
     
     if query:
+        print(f"Busca realizada com o termo: '{query}'")
         servidores = servidores.filter(
             Q(nome__icontains=query) |
-            Q(numero_documento__icontains=query)
+            Q(numero_documento__icontains=query) |
+            Q(setor__icontains=query)
         )
+        print(f"Resultados encontrados: {servidores.count()}")
     
     return render(request, 'core/servidor_list.html', {'servidores': servidores})
 
@@ -900,36 +903,100 @@ def importar_servidores(request):
     if request.method == 'POST':
         try:
             arquivo = request.FILES['arquivo']
-            # Decodifica o arquivo CSV
-            decoded_file = arquivo.read().decode('utf-8').splitlines()
-            reader = csv.DictReader(decoded_file)
+            
+            # Tentativa de leitura com diferentes codificações
+            encodings = ['utf-8', 'latin1', 'iso-8859-1', 'windows-1252']
+            decoded_file = None
+            successful_encoding = None
+            
+            for encoding in encodings:
+                try:
+                    # Tenta decodificar com a codificação atual
+                    arquivo.seek(0)  # Reseta o ponteiro do arquivo
+                    decoded_file = arquivo.read().decode(encoding).splitlines()
+                    successful_encoding = encoding
+                    break
+                except UnicodeDecodeError:
+                    # Se falhar, continua para a próxima codificação
+                    continue
+            
+            if decoded_file is None:
+                raise Exception(f"Não foi possível ler o arquivo com nenhuma das codificações suportadas ({', '.join(encodings)}). Certifique-se de salvar o arquivo como CSV com codificação UTF-8.")
+                
+            print(f"Arquivo CSV lido com sucesso usando codificação: {successful_encoding}")
+            
+            # Tenta identificar o delimitador (vírgula ou ponto-e-vírgula)
+            primeira_linha = decoded_file[0] if decoded_file else ""
+            delimiter = ';' if ';' in primeira_linha else ','
+            print(f"Delimitador identificado: {delimiter}")
+            
+            # Usa o delimitador detectado
+            reader = csv.DictReader(decoded_file, delimiter=delimiter)
+            
+            # Verificação e normalização dos nomes das colunas
+            colunas_esperadas = ['Nome', 'Número do Documento', 'Setor', 'Veículo']
+            colunas_reader = reader.fieldnames
+            
+            # Verificar se há colunas necessárias no CSV
+            if not colunas_reader:
+                raise Exception("Arquivo CSV não contém cabeçalhos de colunas")
+                
+            # Criar mapeamento para normalizar nomes de colunas
+            mapeamento_colunas = {}
+            for coluna_esperada in colunas_esperadas:
+                # Verifica coluna exata
+                if coluna_esperada in colunas_reader:
+                    mapeamento_colunas[coluna_esperada] = coluna_esperada
+                    continue
+                
+                # Verifica variação sem acentos e case insensitive
+                coluna_normalizada = coluna_esperada.lower().replace('ú', 'u').replace('í', 'i')
+                for coluna in colunas_reader:
+                    if coluna and coluna.lower().replace('ú', 'u').replace('í', 'i') == coluna_normalizada:
+                        mapeamento_colunas[coluna_esperada] = coluna
+                        break
+            
+            # Verifica se todas as colunas necessárias foram encontradas
+            colunas_faltantes = [col for col in colunas_esperadas if col not in mapeamento_colunas]
+            if colunas_faltantes:
+                colunas_encontradas = ", ".join([f"'{c}'" for c in colunas_reader if c])
+                colunas_necessarias = ", ".join([f"'{c}'" for c in colunas_faltantes])
+                raise Exception(f"Colunas não encontradas: {colunas_necessarias}. Colunas disponíveis: {colunas_encontradas}")
             
             servidores_criados = 0
             servidores_atualizados = 0
             
             for row in reader:
-                servidor, created = Servidor.objects.update_or_create(
-                    numero_documento=row['Número do Documento'],
-                    defaults={
-                        'nome': row['Nome'],
-                        'setor': row['Setor'],
-                        'veiculo': row['Veículo'],
-                        'ativo': True
-                    }
-                )
-                
-                if created:
-                    servidores_criados += 1
-                else:
-                    servidores_atualizados += 1
-                
-                LogAuditoria.objects.create(
-                    usuario=request.user,
-                    tipo_acao='CRIACAO' if created else 'EDICAO',
-                    modelo='Servidor',
-                    objeto_id=servidor.id,
-                    detalhes=f"{'Criação' if created else 'Atualização'} de servidor via importação: {servidor.nome}"
-                )
+                try:
+                    # Verifica se a linha tem dados válidos
+                    if not row[mapeamento_colunas['Nome']] or not row[mapeamento_colunas['Número do Documento']]:
+                        continue  # Pula linhas vazias ou sem dados essenciais
+                        
+                    servidor, created = Servidor.objects.update_or_create(
+                        numero_documento=row[mapeamento_colunas['Número do Documento']],
+                        defaults={
+                            'nome': row[mapeamento_colunas['Nome']],
+                            'setor': row[mapeamento_colunas['Setor']],
+                            'veiculo': row[mapeamento_colunas['Veículo']],
+                            'ativo': True
+                        }
+                    )
+                    
+                    if created:
+                        servidores_criados += 1
+                    else:
+                        servidores_atualizados += 1
+                    
+                    LogAuditoria.objects.create(
+                        usuario=request.user,
+                        tipo_acao='CRIACAO' if created else 'EDICAO',
+                        modelo='Servidor',
+                        objeto_id=servidor.id,
+                        detalhes=f"{'Criação' if created else 'Atualização'} de servidor via importação: {servidor.nome}"
+                    )
+                except Exception as row_error:
+                    # Adiciona informações sobre a linha que falhou
+                    raise Exception(f"Erro na linha {reader.line_num}: {str(row_error)}. Dados: {row}")
             
             messages.success(request, f'{servidores_criados} servidores criados e {servidores_atualizados} atualizados com sucesso!')
             return redirect('servidor_list')
@@ -946,9 +1013,17 @@ def download_modelo_importacao(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename=modelo_importacao.csv'
     
-    writer = csv.writer(response)
-    writer.writerow(['Nome', 'Número do Documento', 'Setor', 'Veículo'])
-    writer.writerow(['João da Silva', '12.345.678-9', 'Administrativo', 'ABC-1234'])
+    # Configura encoding UTF-8 com BOM para compatibilidade com Excel
+    response.write('\ufeff')
+    
+    # Estas colunas DEVEM corresponder exatamente às esperadas na função importar_servidores
+    colunas = ['Nome', 'Número do Documento', 'Setor', 'Veículo']
+    
+    # Configura o CSV para usar ponto-e-vírgula como delimitador (melhor compatibilidade com Excel brasileiro)
+    writer = csv.writer(response, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(colunas)
+    writer.writerow(['João da Silva', '12.345.678-9', 'Administrativo', 'ABC1234'])
+    writer.writerow(['Maria Oliveira', '98.765.432-1', 'RH', ''])
     
     return response
 
@@ -958,6 +1033,8 @@ def limpar_banco_servidores(request):
     if request.method == 'POST':
         try:
             senha = request.POST.get('senha')
+            # O campo username é ignorado, pois é apenas para acessibilidade
+            # username = request.POST.get('username')
             
             # Verifica se a senha está correta
             if not request.user.check_password(senha):
