@@ -1,12 +1,19 @@
 @echo off
-echo Iniciando Servidor de Controle de Acesso...
+echo Iniciando o servidor Django...
+
+:: Define o diretório da aplicação
+set APP_DIR=%ProgramFiles%\ControleAcesso\app
+set VENV_DIR=%ProgramFiles%\ControleAcesso\venv
+
+:: Vai para o diretório da aplicação
+cd /d "%APP_DIR%"
 
 :: Ativa o ambiente virtual
-cd /d "%ProgramFiles%\ControleAcesso\app"
-call "%ProgramFiles%\ControleAcesso\venv\Scripts\activate.bat"
+call "%VENV_DIR%\Scripts\activate.bat"
 
-:: Inicia o servidor Django
+:: Inicia o servidor
+echo Iniciando o servidor Django na porta 8000...
 python manage.py runserver 0.0.0.0:8000
 
-:: Mantém o terminal aberto em caso de erro
+:: Em caso de erro, mantém a janela aberta
 pause 

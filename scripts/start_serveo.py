@@ -35,24 +35,30 @@ logging.basicConfig(
 
 def send_to_discord(url):
     """Envia o link do serveo para o Discord via webhook"""
+    # Usar o webhook hardcoded caso não encontre no ambiente
+    webhook_url = os.getenv('DISCORD_WEBHOOK_URL', 'https://discord.com/api/webhooks/1357105951878152435/uE4Uw7-ay4iHtsZvXvi75j0stthrNiE0SU4M_6ntgMbFO5a_2di95C51YIGoJuztkmWb')
+    
     if not REQUESTS_AVAILABLE:
-        logging.warning("Módulo requests não instalado. Não é possível enviar para o Discord.")
-        return
-
-    webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
-    if not webhook_url:
-        logging.warning("URL do webhook do Discord não configurada. Pulando envio.")
-        return
-
+        logging.warning("Módulo requests não instalado. Instalando...")
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
+            import requests
+            REQUESTS_AVAILABLE = True
+        except:
+            logging.error("Falha ao instalar requests. Não é possível enviar para o Discord.")
+            return
+    
     try:
         payload = {
             "content": f"🌐 Nova URL do Sistema de Controle de Acesso: {url}"
         }
         response = requests.post(webhook_url, json=payload)
         response.raise_for_status()
-        logging.info("Link enviado com sucesso para o Discord")
+        logging.info(f"Link enviado com sucesso para o Discord: {url}")
+        print(f"Link enviado para o Discord: {url}")
     except Exception as e:
         logging.error(f"Erro ao enviar para o Discord: {str(e)}")
+        print(f"ERRO ao enviar para o Discord: {str(e)}")
 
 def start_serveo():
     """Inicia o túnel do serveo para a porta 8000"""
@@ -97,8 +103,7 @@ def start_serveo():
                         print(f"URL salva em: {url_file}")
                         
                         # Envia para o Discord
-                        if REQUESTS_AVAILABLE:
-                            send_to_discord(serveo_url)
+                        send_to_discord(serveo_url)
             
             error = process.stderr.readline()
             if error:
@@ -118,7 +123,7 @@ def start_serveo():
                     stderr=subprocess.PIPE,
                     universal_newlines=True
                 )
-    
+                
     except Exception as e:
         logging.error(f"Erro ao iniciar o serveo: {str(e)}")
         print(f"ERRO: Falha ao iniciar o serveo: {str(e)}")
