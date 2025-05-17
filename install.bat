@@ -476,37 +476,100 @@ if "%INSTALL_SERVICE%"=="" (
 echo Opção selecionada: %INSTALL_SERVICE%
 
 if /i "%INSTALL_SERVICE%"=="S" (
-    call :log "INFO" "Instalando o sistema como servico do Windows"
-    echo Instalando o sistema como servico do Windows...
+    call :log "INFO" "Iniciando processo de instalação como serviço Windows"
+    echo Iniciando processo de instalação como serviço Windows...
     
-    :: Verificar se o NSSM está disponível
+    :: Verificar se o NSSM está disponível com tratamento de erro aprimorado
     echo Verificando NSSM...
-    where nssm >nul 2>&1
-    if !errorLevel! neq 0 (
-        call :log "ERRO" "NSSM nao encontrado. O sistema nao sera instalado como servico."
-        echo ERRO: NSSM nao encontrado. O sistema nao sera instalado como servico.
-        echo Por favor, instale o NSSM manualmente e tente novamente.
-        echo Download: https://nssm.cc/download
-        echo.
-        echo Pressione qualquer tecla para continuar sem instalar o servico...
-        pause >nul
+    call :log "INFO" "Verificando disponibilidade do NSSM"
+    
+    :: Criar um arquivo de log específico para o NSSM
+    echo %date% %time% - Iniciando verificação do NSSM > "%LOG_DIR%\nssm_debug.log"
+    
+    where nssm >> "%LOG_DIR%\nssm_debug.log" 2>&1
+    if %errorLevel% neq 0 (
+        call :log "ERRO" "NSSM nao encontrado. Tentando usar versão local..."
+        echo %date% %time% - NSSM não encontrado. Erro: %errorLevel% >> "%LOG_DIR%\nssm_debug.log"
+        echo NSSM nao encontrado no sistema. Tentando usar versão local...
+        
+        :: Verificar se temos uma cópia do NSSM na pasta tools
+        if exist "tools\nssm.exe" (
+            echo Cópia local do NSSM encontrada. Instalando...
+            call :log "INFO" "Cópia local do NSSM encontrada. Instalando..."
+            
+            :: Criar diretório temporário para o NSSM
+            if not exist "%TEMP%\nssm" mkdir "%TEMP%\nssm"
+            copy /y "tools\nssm.exe" "%TEMP%\nssm\nssm.exe" >> "%LOG_DIR%\nssm_debug.log" 2>&1
+            
+            :: Definir variável para usar a versão local
+            set "NSSM_CMD=%TEMP%\nssm\nssm.exe"
+            call :log "INFO" "NSSM local configurado em: %NSSM_CMD%"
+            echo NSSM configurado. Continuando instalação...
+            echo %date% %time% - Usando NSSM local: %NSSM_CMD% >> "%LOG_DIR%\nssm_debug.log"
+        ) else (
+            call :log "ERRO" "NSSM não encontrado e versão local não disponível"
+            echo ERRO: NSSM nao encontrado. O sistema nao sera instalado como servico.
+            echo Por favor, instale o NSSM manualmente e tente novamente.
+            echo.
+            echo O NSSM é necessário para instalar serviços no Windows.
+            echo Você pode baixar o NSSM em: https://nssm.cc/download
+            echo.
+            echo Instruções de instalação do NSSM:
+            echo 1. Baixe o arquivo nssm-2.24.zip
+            echo 2. Extraia o arquivo
+            echo 3. Copie nssm.exe (da pasta win64 se seu Windows for 64-bit) para C:\Windows\System32
+            echo.
+            call :log "INFO" "Fornecidas instruções detalhadas para instalação do NSSM"
+            echo Pressione qualquer tecla para continuar sem instalar o servico...
+            pause >nul
+            
+            :: Definir variável vazia para indicar que NSSM não está disponível
+            set "NSSM_CMD="
+        )
     ) else (
         call :log "INFO" "NSSM encontrado. Continuando instalação como serviço."
+        echo %date% %time% - NSSM encontrado com sucesso >> "%LOG_DIR%\nssm_debug.log"
         echo NSSM encontrado. Continuando instalação como serviço.
+        
+        :: Definir variável para usar o NSSM do sistema
+        set "NSSM_CMD=nssm"
         echo.
+    )
+    
+    :: Só continua se o NSSM estiver disponível
+    if not "%NSSM_CMD%"=="" (
+        :: Verificar se os serviços já existem e removê-los se necessário
+        call :log "INFO" "Verificando se serviços já existem"
+        sc query ControleAcesso >nul 2>&1
+        if %errorLevel% equ 0 (
+            call :log "INFO" "Serviço ControleAcesso já existe, removendo-o antes de reinstalar"
+            echo Serviço ControleAcesso já existe, removendo-o antes de reinstalar...
+            
+            net stop ControleAcesso >nul 2>&1
+            %NSSM_CMD% remove ControleAcesso confirm >nul 2>&1
+            
+            :: Aguardar um momento para garantir que o serviço foi removido
+            timeout /t 2 >nul
+        )
+        
         echo Configurando servico ControleAcesso usando NSSM...
         call :log "INFO" "Configurando servico ControleAcesso usando NSSM"
         
         :: Salvar os comandos em um arquivo de log para diagnóstico
-        echo Tentando executar: nssm install ControleAcesso "%SCRIPTS_DIR%\start_server.bat" > "%LOG_DIR%\nssm_commands.log"
+        echo Tentando executar: %NSSM_CMD% install ControleAcesso "%SCRIPTS_DIR%\start_server.bat" > "%LOG_DIR%\nssm_commands.log"
         
-        :: Instala o serviço principal com tratamento de erros
-        nssm install ControleAcesso "%SCRIPTS_DIR%\start_server.bat" >nul 2>"%LOG_DIR%\nssm_install_error.log"
-        if !errorLevel! neq 0 (
-            call :log "ERRO" "Falha ao instalar servico ControleAcesso com NSSM (Erro: !errorLevel!)"
+        :: Instala o serviço principal com tratamento de erros robusto
+        %NSSM_CMD% install ControleAcesso "%SCRIPTS_DIR%\start_server.bat" >nul 2>"%LOG_DIR%\nssm_install_error.log"
+        if %errorLevel% neq 0 (
+            call :log "ERRO" "Falha ao instalar servico ControleAcesso com NSSM (Erro: %errorLevel%)"
             echo ERRO: Falha ao instalar servico ControleAcesso com NSSM.
-            echo Codigo de erro: !errorLevel!
+            echo Codigo de erro: %errorLevel%
             echo Verifique o arquivo de log: "%LOG_DIR%\nssm_install_error.log"
+            
+            :: Tenta obter mais informações sobre o erro
+            type "%LOG_DIR%\nssm_install_error.log" >> "%LOG_FILE%"
+            call :log "INFO" "Log de erro completo adicionado ao arquivo de log principal"
+            
             echo.
             echo Pressione qualquer tecla para continuar sem instalar o servico...
             pause >nul
@@ -514,26 +577,50 @@ if /i "%INSTALL_SERVICE%"=="S" (
             echo Servico criado. Configurando parametros...
             call :log "INFO" "Serviço ControleAcesso criado. Configurando parâmetros."
             
-            nssm set ControleAcesso DisplayName "Sistema de Controle de Acesso" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-            nssm set ControleAcesso Description "Servidor web do Sistema de Controle de Acesso" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-            nssm set ControleAcesso Start SERVICE_AUTO_START >>"%LOG_DIR%\nssm_commands.log" 2>&1
-            nssm set ControleAcesso AppStdout "%LOG_DIR%\service_stdout.log" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-            nssm set ControleAcesso AppStderr "%LOG_DIR%\service_stderr.log" >>"%LOG_DIR%\nssm_commands.log" 2>&1
+            :: Configurar parâmetros com verificação de erros
+            set "ERROR_OCCURRED=0"
+            
+            %NSSM_CMD% set ControleAcesso DisplayName "Sistema de Controle de Acesso" >>"%LOG_DIR%\nssm_commands.log" 2>&1
+            if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+            
+            %NSSM_CMD% set ControleAcesso Description "Servidor web do Sistema de Controle de Acesso" >>"%LOG_DIR%\nssm_commands.log" 2>&1
+            if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+            
+            %NSSM_CMD% set ControleAcesso Start SERVICE_AUTO_START >>"%LOG_DIR%\nssm_commands.log" 2>&1
+            if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+            
+            %NSSM_CMD% set ControleAcesso AppStdout "%LOG_DIR%\service_stdout.log" >>"%LOG_DIR%\nssm_commands.log" 2>&1
+            if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+            
+            %NSSM_CMD% set ControleAcesso AppStderr "%LOG_DIR%\service_stderr.log" >>"%LOG_DIR%\nssm_commands.log" 2>&1
+            if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+            
+            if "%ERROR_OCCURRED%"=="1" (
+                call :log "AVISO" "Alguns parâmetros do serviço podem não ter sido configurados corretamente"
+                echo AVISO: Alguns parâmetros do serviço podem não ter sido configurados corretamente.
+                echo Verifique o arquivo de log: "%LOG_DIR%\nssm_commands.log"
+            )
             
             echo Configuração do serviço concluída.
+            call :log "INFO" "Configuração do serviço ControleAcesso concluída"
             echo.
+            
             echo Iniciando servico ControleAcesso...
             call :log "INFO" "Tentando iniciar o serviço ControleAcesso"
             
             net start ControleAcesso >"%LOG_DIR%\service_start.log" 2>&1
-            if !errorLevel! neq 0 (
-                call :log "ERRO" "Falha ao iniciar o servico ControleAcesso (Erro: !errorLevel!)"
+            if %errorLevel% neq 0 (
+                call :log "ERRO" "Falha ao iniciar o servico ControleAcesso (Erro: %errorLevel%)"
                 echo ERRO: Falha ao iniciar o servico ControleAcesso.
-                echo Codigo de erro: !errorLevel!
+                echo Codigo de erro: %errorLevel%
                 echo Verifique o arquivo de log: "%LOG_DIR%\service_start.log"
                 echo O servico foi criado mas nao foi iniciado.
                 echo Tente iniciar manualmente ou reinicie o computador.
                 
+                type "%LOG_DIR%\service_start.log" >> "%LOG_FILE%"
+                call :log "INFO" "Log de início do serviço adicionado ao arquivo de log principal"
+                
+                echo.
                 echo Pressione qualquer tecla para continuar...
                 pause >nul
             ) else (
@@ -545,49 +632,94 @@ if /i "%INSTALL_SERVICE%"=="S" (
             echo.
             echo Deseja instalar o servico de acesso remoto (Serveo)? (S/N)
             set /p INSTALL_SERVEO=
-            echo Resposta: !INSTALL_SERVEO!
-            call :log "INFO" "Resposta para instalar Serveo: !INSTALL_SERVEO!"
+            call :log "INFO" "Resposta para instalar Serveo: %INSTALL_SERVEO%"
             
-            if "!INSTALL_SERVEO!"=="" (
+            :: Tratamento para resposta vazia
+            if "%INSTALL_SERVEO%"=="" (
                 set INSTALL_SERVEO=N
                 echo Nenhuma resposta fornecida, assumindo 'N'.
                 call :log "INFO" "Nenhuma resposta fornecida para Serveo, assumindo N"
             )
             
-            if /i "!INSTALL_SERVEO!"=="S" (
+            if /i "%INSTALL_SERVEO%"=="S" (
                 call :log "INFO" "Instalando o servico Serveo"
                 echo Instalando o servico Serveo...
+                
+                :: Verificar se o serviço Serveo já existe e removê-lo se necessário
+                sc query ServeoService >nul 2>&1
+                if %errorLevel% equ 0 (
+                    call :log "INFO" "Serviço ServeoService já existe, removendo-o antes de reinstalar"
+                    echo Serviço ServeoService já existe, removendo-o antes de reinstalar...
+                    
+                    net stop ServeoService >nul 2>&1
+                    %NSSM_CMD% remove ServeoService confirm >nul 2>&1
+                    
+                    :: Aguardar um momento para garantir que o serviço foi removido
+                    timeout /t 2 >nul
+                )
+                
                 echo Tentando instalar Serveo... >> "%LOG_DIR%\nssm_commands.log"
                 
-                nssm install ServeoService "%SCRIPTS_DIR%\start_serveo.bat" >nul 2>>"%LOG_DIR%\nssm_install_error.log"
-                if !errorLevel! neq 0 (
-                    call :log "ERRO" "Falha ao instalar servico ServeoService (Erro: !errorLevel!)"
+                %NSSM_CMD% install ServeoService "%SCRIPTS_DIR%\start_serveo.bat" >nul 2>>"%LOG_DIR%\nssm_install_error.log"
+                if %errorLevel% neq 0 (
+                    call :log "ERRO" "Falha ao instalar servico ServeoService (Erro: %errorLevel%)"
                     echo ERRO: Falha ao instalar servico ServeoService.
-                    echo Codigo de erro: !errorLevel!
+                    echo Codigo de erro: %errorLevel%
                     echo Verifique o arquivo de log: "%LOG_DIR%\nssm_install_error.log"
                     
+                    :: Tenta obter mais informações sobre o erro
+                    type "%LOG_DIR%\nssm_install_error.log" >> "%LOG_FILE%"
+                    call :log "INFO" "Log de erro completo adicionado ao arquivo de log principal"
+                    
+                    echo.
                     echo Pressione qualquer tecla para continuar...
                     pause >nul
                 ) else (
                     echo Servico Serveo criado. Configurando parametros...
                     call :log "INFO" "Serviço ServeoService criado. Configurando parâmetros."
                     
-                    nssm set ServeoService DisplayName "Serveo - Acesso Remoto" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-                    nssm set ServeoService Description "Servico de acesso remoto via Serveo para o Sistema de Controle de Acesso" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-                    nssm set ServeoService Start SERVICE_AUTO_START >>"%LOG_DIR%\nssm_commands.log" 2>&1
-                    nssm set ServeoService AppStdout "%LOG_DIR%\serveo_stdout.log" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-                    nssm set ServeoService AppStderr "%LOG_DIR%\serveo_stderr.log" >>"%LOG_DIR%\nssm_commands.log" 2>&1
+                    :: Configurar parâmetros com verificação de erros
+                    set "ERROR_OCCURRED=0"
+                    
+                    %NSSM_CMD% set ServeoService DisplayName "Serveo - Acesso Remoto" >>"%LOG_DIR%\nssm_commands.log" 2>&1
+                    if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+                    
+                    %NSSM_CMD% set ServeoService Description "Servico de acesso remoto via Serveo para o Sistema de Controle de Acesso" >>"%LOG_DIR%\nssm_commands.log" 2>&1
+                    if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+                    
+                    %NSSM_CMD% set ServeoService Start SERVICE_AUTO_START >>"%LOG_DIR%\nssm_commands.log" 2>&1
+                    if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+                    
+                    %NSSM_CMD% set ServeoService AppStdout "%LOG_DIR%\serveo_stdout.log" >>"%LOG_DIR%\nssm_commands.log" 2>&1
+                    if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+                    
+                    %NSSM_CMD% set ServeoService AppStderr "%LOG_DIR%\serveo_stderr.log" >>"%LOG_DIR%\nssm_commands.log" 2>&1
+                    if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+                    
+                    if "%ERROR_OCCURRED%"=="1" (
+                        call :log "AVISO" "Alguns parâmetros do serviço ServeoService podem não ter sido configurados corretamente"
+                        echo AVISO: Alguns parâmetros do serviço ServeoService podem não ter sido configurados corretamente.
+                        echo Verifique o arquivo de log: "%LOG_DIR%\nssm_commands.log"
+                    )
+                    
+                    echo Configuração do serviço ServeoService concluída.
+                    call :log "INFO" "Configuração do serviço ServeoService concluída"
+                    echo.
                     
                     echo Iniciando servico ServeoService...
                     call :log "INFO" "Tentando iniciar o serviço ServeoService"
                     
                     net start ServeoService >"%LOG_DIR%\serveo_start.log" 2>&1
-                    if !errorLevel! neq 0 (
-                        call :log "ERRO" "Falha ao iniciar o servico ServeoService (Erro: !errorLevel!)"
+                    if %errorLevel% neq 0 (
+                        call :log "ERRO" "Falha ao iniciar o servico ServeoService (Erro: %errorLevel%)"
                         echo ERRO: Falha ao iniciar o servico ServeoService.
                         echo Verifique o arquivo de log: "%LOG_DIR%\serveo_start.log"
                         echo O servico foi criado mas nao foi iniciado.
                         
+                        type "%LOG_DIR%\serveo_start.log" >> "%LOG_FILE%"
+                        call :log "INFO" "Log de início do serviço Serveo adicionado ao arquivo de log principal"
+                        
+                        echo.
                         echo Pressione qualquer tecla para continuar...
                         pause >nul
                     ) else (
@@ -600,6 +732,9 @@ if /i "%INSTALL_SERVICE%"=="S" (
                 echo Instalação do serviço Serveo ignorada.
             )
         )
+    ) else (
+        call :log "INFO" "Instalação como serviço Windows ignorada devido à falta do NSSM"
+        echo Instalação como serviço Windows ignorada.
     )
 ) else (
     call :log "INFO" "Usuário optou por não instalar como serviço Windows"
