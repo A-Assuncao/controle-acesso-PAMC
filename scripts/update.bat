@@ -2,31 +2,49 @@
 echo Atualizando Sistema de Controle de Acesso...
 
 :: Vai para o diretório da aplicação
-cd "%PROGRAMFILES%\ControleAcesso\app"
+cd "%ProgramFiles%\ControleAcesso\app"
 
-:: Para os serviços
-net stop ControleAcesso
+:: Verifica se o serviço está instalado antes de tentar parar
+sc query ControleAcesso >nul 2>&1
+if not %errorlevel% == 1060 (
+    echo Parando servico ControleAcesso...
+    net stop ControleAcesso
+)
 
 :: Ativa o ambiente virtual
-call "%PROGRAMFILES%\ControleAcesso\venv\Scripts\activate"
+call "%ProgramFiles%\ControleAcesso\venv\Scripts\activate.bat"
 
 :: Backup do banco de dados
-python manage.py dumpdata > "%PROGRAMFILES%\ControleAcesso\backups\backup_%date:~6,4%-%date:~3,2%-%date:~0,2%.json"
+echo Criando backup do banco de dados...
+if not exist "%ProgramFiles%\ControleAcesso\backups" mkdir "%ProgramFiles%\ControleAcesso\backups"
+python manage.py dumpdata > "%ProgramFiles%\ControleAcesso\backups\backup_%date:~6,4%-%date:~3,2%-%date:~0,2%.json"
 
 :: Atualiza o código
 git pull
 
 :: Atualiza dependências
+echo Atualizando dependencias...
 pip install -r requirements.txt
 
 :: Aplica migrações
+echo Aplicando migracoes do banco de dados...
 python manage.py migrate
+
+:: Coleta arquivos estáticos
+echo Coletando arquivos estaticos...
+python manage.py collectstatic --noinput
 
 :: Atualiza scripts de manutenção
 xcopy /Y "scripts\*.*" "%PROGRAMFILES%\ControleAcesso\scripts\"
 
-:: Inicia os serviços
-net start ControleAcesso
+:: Inicia os serviços se estiverem instalados
+sc query ControleAcesso >nul 2>&1
+if not %errorlevel% == 1060 (
+    echo Iniciando servico ControleAcesso...
+    net start ControleAcesso
+)
 
 echo Atualizacao concluida!
-timeout /t 5 
+echo.
+echo Pressione qualquer tecla para sair...
+pause>nul 

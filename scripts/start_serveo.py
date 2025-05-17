@@ -4,15 +4,24 @@ import os
 import time
 import logging
 import re
-import requests
 from pathlib import Path
-from dotenv import load_dotenv
 
-# Carrega variáveis de ambiente
-load_dotenv()
+# Tenta importar módulos opcionais
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Carrega variáveis de ambiente
+    DOTENV_AVAILABLE = True
+except ImportError:
+    DOTENV_AVAILABLE = False
+
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
 
 # Configuração de logging
-log_dir = Path("logs")
+log_dir = Path(os.path.join(os.environ.get('PROGRAMFILES', 'C:\\Program Files'), 'ControleAcesso', 'logs'))
 log_dir.mkdir(exist_ok=True)
 
 logging.basicConfig(
@@ -26,6 +35,10 @@ logging.basicConfig(
 
 def send_to_discord(url):
     """Envia o link do serveo para o Discord via webhook"""
+    if not REQUESTS_AVAILABLE:
+        logging.warning("Módulo requests não instalado. Não é possível enviar para o Discord.")
+        return
+
     webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
     if not webhook_url:
         logging.warning("URL do webhook do Discord não configurada. Pulando envio.")
@@ -48,6 +61,7 @@ def start_serveo():
         cmd = "ssh -R 80:localhost:8000 serveo.net"
         
         logging.info("Iniciando túnel do serveo...")
+        print("Iniciando túnel do serveo... Aguarde a conexão ser estabelecida.")
         
         # Executa o comando
         process = subprocess.Popen(
@@ -67,25 +81,35 @@ def start_serveo():
             if output:
                 output = output.strip()
                 logging.info(output)
+                print(output)
                 
                 # Procura por URLs na saída
                 if 'Forwarding HTTP traffic from' in output:
                     urls = re.findall(url_pattern, output)
                     if urls:
                         serveo_url = urls[0]
+                        print(f"\nURL de acesso externo: {serveo_url}\n")
+                        
                         # Salva a URL atual em um arquivo
-                        with open(log_dir / "current_url.txt", "w") as f:
+                        url_file = log_dir / "current_url.txt"
+                        with open(url_file, "w") as f:
                             f.write(serveo_url)
+                        print(f"URL salva em: {url_file}")
+                        
                         # Envia para o Discord
-                        send_to_discord(serveo_url)
+                        if REQUESTS_AVAILABLE:
+                            send_to_discord(serveo_url)
             
             error = process.stderr.readline()
             if error:
-                logging.error(error.strip())
+                error = error.strip()
+                logging.error(error)
+                print(f"ERRO: {error}")
             
             # Verifica se o processo ainda está rodando
             if process.poll() is not None:
                 logging.error("O processo do serveo foi encerrado. Tentando reconectar...")
+                print("\nO processo do serveo foi encerrado. Tentando reconectar...\n")
                 time.sleep(5)  # Espera 5 segundos antes de tentar reconectar
                 process = subprocess.Popen(
                     cmd,
@@ -94,9 +118,12 @@ def start_serveo():
                     stderr=subprocess.PIPE,
                     universal_newlines=True
                 )
-                
+    
     except Exception as e:
         logging.error(f"Erro ao iniciar o serveo: {str(e)}")
+        print(f"ERRO: Falha ao iniciar o serveo: {str(e)}")
+        print("Pressione Enter para sair...")
+        input()
         sys.exit(1)
 
 if __name__ == "__main__":
