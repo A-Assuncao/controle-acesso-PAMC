@@ -4,6 +4,7 @@ import os
 import time
 import logging
 import re
+import webbrowser
 from pathlib import Path
 
 # Tenta importar módulos opcionais
@@ -33,6 +34,16 @@ logging.basicConfig(
     ]
 )
 
+# Caminhos importantes
+INSTALL_ROOT = os.path.join(os.environ.get('PROGRAMFILES', 'C:\\Program Files'), 'ControleAcesso')
+APP_DIR = os.path.join(INSTALL_ROOT, 'app')
+VENV_DIR = os.path.join(INSTALL_ROOT, 'venv')
+
+# Ajusta o PATH para incluir o ambiente virtual
+python_exe = os.path.join(VENV_DIR, 'Scripts', 'python.exe')
+if not os.path.exists(python_exe):
+    python_exe = sys.executable
+
 def send_to_discord(url):
     """Envia o link do serveo para o Discord via webhook"""
     # Usar o webhook hardcoded caso não encontre no ambiente
@@ -60,7 +71,48 @@ def send_to_discord(url):
         logging.error(f"Erro ao enviar para o Discord: {str(e)}")
         print(f"ERRO ao enviar para o Discord: {str(e)}")
 
-def start_serveo():
+def start_django_server():
+    """Inicia o servidor Django em um processo separado"""
+    logging.info("Iniciando servidor Django...")
+    print("Iniciando servidor Django em localhost:8000...")
+    
+    # Inicia o processo do servidor Django
+    try:
+        django_process = subprocess.Popen(
+            [python_exe, "manage.py", "runserver", "0.0.0.0:8000"],
+            cwd=APP_DIR,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=True,
+            universal_newlines=True
+        )
+        
+        # Espera um pouco para o servidor iniciar
+        time.sleep(3)
+        
+        if django_process.poll() is None:
+            logging.info("Servidor Django iniciado com sucesso")
+            print("Servidor Django rodando em http://localhost:8000")
+            
+            # Abre o navegador local
+            try:
+                webbrowser.open('http://localhost:8000')
+                logging.info("Navegador aberto em http://localhost:8000")
+            except Exception as e:
+                logging.error(f"Erro ao abrir navegador: {str(e)}")
+                
+            return django_process
+        else:
+            out, err = django_process.communicate()
+            logging.error(f"Falha ao iniciar servidor Django: {err}")
+            print(f"ERRO: Falha ao iniciar servidor Django: {err}")
+            return None
+    except Exception as e:
+        logging.error(f"Erro ao iniciar Django: {str(e)}")
+        print(f"ERRO: Falha ao iniciar Django: {str(e)}")
+        return None
+
+def start_serveo(django_process):
     """Inicia o túnel do serveo para a porta 8000"""
     try:
         # Comando para iniciar o serveo
@@ -83,6 +135,12 @@ def start_serveo():
         
         # Monitora a saída do processo
         while True:
+            # Verifica se o servidor Django ainda está rodando
+            if django_process and django_process.poll() is not None:
+                logging.error("O servidor Django foi encerrado. Tentando reiniciar...")
+                print("\nO servidor Django foi encerrado. Tentando reiniciar...\n")
+                django_process = start_django_server()
+                
             output = process.stdout.readline()
             if output:
                 output = output.strip()
@@ -132,4 +190,18 @@ def start_serveo():
         sys.exit(1)
 
 if __name__ == "__main__":
-    start_serveo() 
+    print("Sistema de Controle de Acesso - Iniciando...")
+    print("=" * 50)
+    
+    # Inicia o servidor Django
+    django_process = start_django_server()
+    
+    # Inicia o túnel Serveo (que monitora e mantém o servidor Django)
+    if django_process:
+        start_serveo(django_process)
+    else:
+        logging.error("Não foi possível iniciar o servidor Django. O Serveo não será iniciado.")
+        print("ERRO: Não foi possível iniciar o servidor Django. O Serveo não será iniciado.")
+        print("Pressione Enter para sair...")
+        input()
+        sys.exit(1) 

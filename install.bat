@@ -106,34 +106,18 @@ echo Configurando Discord Webhook...
 echo DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/1357105951878152435/uE4Uw7-ay4iHtsZvXvi75j0stthrNiE0SU4M_6ntgMbFO5a_2di95C51YIGoJuztkmWb >> "%APP_DIR%\.env"
 echo Webhook do Discord configurado com sucesso!
 
-:: Criar script para iniciar o sistema em segundo plano
+:: Criar script para iniciar o sistema
 echo Criando script de inicializacao...
 set START_SCRIPT=%SCRIPTS_DIR%\iniciar.bat
 echo @echo off > "%START_SCRIPT%"
 echo title Sistema de Controle de Acesso >> "%START_SCRIPT%"
-echo echo Iniciando Sistema de Controle de Acesso em segundo plano... >> "%START_SCRIPT%"
+echo echo Iniciando Sistema de Controle de Acesso... >> "%START_SCRIPT%"
 echo echo. >> "%START_SCRIPT%"
 echo cd /d "%APP_DIR%" >> "%START_SCRIPT%"
 echo call "%VENV_DIR%\Scripts\activate.bat" >> "%START_SCRIPT%"
-
-:: Inicia o servidor Django em background (janela oculta)
-echo echo Iniciando servidor Django em segundo plano... >> "%START_SCRIPT%"
-echo start /min "Servidor Django" cmd /c "cd /d %APP_DIR% ^& call %VENV_DIR%\Scripts\activate.bat ^& python manage.py runserver 0.0.0.0:8000" >> "%START_SCRIPT%"
-echo timeout /t 5 /nobreak ^> nul >> "%START_SCRIPT%"
-
-:: Inicia o túnel Serveo em background (janela oculta)
-echo echo Iniciando tunel Serveo em segundo plano... >> "%START_SCRIPT%"
-echo start /min "Serveo Tunnel" cmd /c "cd /d %APP_DIR% ^& call %VENV_DIR%\Scripts\activate.bat ^& python %SCRIPTS_DIR%\start_serveo.py" >> "%START_SCRIPT%"
-echo timeout /t 2 /nobreak ^> nul >> "%START_SCRIPT%"
-
-:: Abre o navegador local
-echo echo Abrindo navegador no endereco local... >> "%START_SCRIPT%"
-echo start http://localhost:8000 >> "%START_SCRIPT%"
+echo echo Iniciando o sistema completo... >> "%START_SCRIPT%"
 echo echo. >> "%START_SCRIPT%"
-echo echo Sistema iniciado com sucesso! >> "%START_SCRIPT%"
-echo echo O servidor esta rodando em segundo plano. >> "%START_SCRIPT%"
-echo echo. >> "%START_SCRIPT%"
-echo echo Para encerrar o sistema, feche as janelas minimizadas manualmente. >> "%START_SCRIPT%"
+echo python "%SCRIPTS_DIR%\start_serveo.py" >> "%START_SCRIPT%"
 echo pause >> "%START_SCRIPT%"
 
 :: Criar script para git pull
@@ -163,30 +147,26 @@ if %errorlevel% == 0 (
     echo ERRO: Falha ao configurar atualizacao automatica.
 )
 
-:: Criar atalho na área de trabalho
+:: Criar atalho direto na área de trabalho para executar o script Python
 echo Criando atalho na area de trabalho...
 set DESKTOP=%USERPROFILE%\Desktop
-set SHORTCUT_CMD=powershell "$s=(New-Object -COM WScript.Shell).CreateShortcut('%DESKTOP%\Controle de Acesso.lnk');$s.TargetPath='%START_SCRIPT%';$s.WorkingDirectory='%SCRIPTS_DIR%';$s.Save()"
+set SHORTCUT_CMD=powershell "$s=(New-Object -COM WScript.Shell).CreateShortcut('%DESKTOP%\Controle de Acesso.lnk');$s.TargetPath='%VENV_DIR%\Scripts\pythonw.exe';$s.Arguments='%SCRIPTS_DIR%\start_serveo.py';$s.WorkingDirectory='%APP_DIR%';$s.Save()"
 %SHORTCUT_CMD%
 
 echo.
 echo ================================================
 echo Instalacao concluida com sucesso!
 echo.
-echo O que voce quer fazer agora?
-echo 1 - Iniciar o sistema agora
-echo 2 - Sair
+echo Um atalho foi criado na area de trabalho para iniciar o sistema.
+echo Clique nele para executar o Sistema de Controle de Acesso.
 echo.
-set /p CHOICE=Escolha uma opcao (1 ou 2): 
-
-if "%CHOICE%"=="1" (
-    echo Iniciando o sistema...
-    call "%START_SCRIPT%"
-) else (
-    echo.
-    echo Sistema instalado com sucesso!
-    echo Para iniciar o sistema depois, clique no atalho criado na area de trabalho
-    echo ou execute: "%START_SCRIPT%"
-    echo.
-    pause
-) 
+echo O sistema ira:
+echo  - Iniciar o servidor Django
+echo  - Abrir o navegador automaticamente
+echo  - Iniciar o tunel Serveo
+echo  - Enviar o link do serveo para o Discord
+echo.
+echo A atualizacao automatica via git pull esta configurada para as 18:00
+echo ================================================
+echo.
+pause 
