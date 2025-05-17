@@ -493,7 +493,7 @@ if %errorLevel% neq 0 (
         call :log "INFO" "NSSM local configurado em: %NSSM_CMD%"
         echo NSSM configurado. Continuando instalação...
         echo %date% %time% - Usando NSSM local: %NSSM_CMD% >> "%LOG_DIR%\nssm_debug.log"
-    ) else (
+    ) else {
         call :log "ERRO" "NSSM não encontrado e versão local não disponível"
         echo ERRO: NSSM nao encontrado. O sistema nao sera instalado como servico.
         echo Por favor, instale o NSSM manualmente e tente novamente.
@@ -512,8 +512,8 @@ if %errorLevel% neq 0 (
         
         :: Definir variável vazia para indicar que NSSM não está disponível
         set "NSSM_CMD="
-    )
-) else (
+    }
+) else {
     call :log "INFO" "NSSM encontrado. Continuando instalação como serviço."
     echo %date% %time% - NSSM encontrado com sucesso >> "%LOG_DIR%\nssm_debug.log"
     echo NSSM encontrado. Continuando instalação como serviço.
@@ -521,196 +521,247 @@ if %errorLevel% neq 0 (
     :: Definir variável para usar o NSSM do sistema
     set "NSSM_CMD=nssm"
     echo.
-)
+}
+
+echo Usando NSSM: %NSSM_CMD% >> "%LOG_DIR%\nssm_debug.log"
+call :log "INFO" "Usando NSSM: %NSSM_CMD%"
+
+:: Criar código de teste para verificar o valor da variável
+echo %date% %time% - Verificando valor da variável NSSM_CMD: "%NSSM_CMD%" >> "%LOG_DIR%\nssm_debug.log"
 
 :: Só continua se o NSSM estiver disponível
 if not "%NSSM_CMD%"=="" (
-    :: Verificar se os serviços já existem e removê-los se necessário
-    call :log "INFO" "Verificando se serviços já existem"
-    sc query ControleAcesso >nul 2>&1
+    call :log "INFO" "NSSM está disponível, continuando instalação do serviço"
+    echo %date% %time% - NSSM está disponível, continuando instalação do serviço >> "%LOG_DIR%\nssm_debug.log"
+    
+    :: Remover serviços existentes se necessário
+    echo Verificando serviços existentes...
+    call :log "INFO" "Verificando serviços existentes"
+    echo %date% %time% - Verificando serviço ControleAcesso >> "%LOG_DIR%\nssm_debug.log"
+    
+    :: Verifica e remove o serviço ControleAcesso se já existir
+    sc query ControleAcesso > "%LOG_DIR%\sc_query_output.log" 2>&1
     if %errorLevel% equ 0 (
-        call :log "INFO" "Serviço ControleAcesso já existe, removendo-o antes de reinstalar"
-        echo Serviço ControleAcesso já existe, removendo-o antes de reinstalar...
-        
-        net stop ControleAcesso >nul 2>&1
-        %NSSM_CMD% remove ControleAcesso confirm >nul 2>&1
-        
-        :: Aguardar um momento para garantir que o serviço foi removido
+        echo Serviço ControleAcesso já existe, removendo...
+        call :log "INFO" "Removendo serviço ControleAcesso existente"
+        net stop ControleAcesso > "%LOG_DIR%\net_stop_output.log" 2>&1
+        %NSSM_CMD% remove ControleAcesso confirm > "%LOG_DIR%\nssm_remove_output.log" 2>&1
         timeout /t 2 >nul
     )
     
-    echo Configurando servico ControleAcesso usando NSSM...
-    call :log "INFO" "Configurando servico ControleAcesso usando NSSM"
+    :: Instalar serviço ControleAcesso
+    echo Instalando serviço ControleAcesso...
+    call :log "INFO" "Instalando serviço ControleAcesso"
+    echo %date% %time% - Executando: %NSSM_CMD% install ControleAcesso "%SCRIPTS_DIR%\start_server.bat" >> "%LOG_DIR%\nssm_debug.log"
     
-    :: Salvar os comandos em um arquivo de log para diagnóstico
-    echo Tentando executar: %NSSM_CMD% install ControleAcesso "%SCRIPTS_DIR%\start_server.bat" > "%LOG_DIR%\nssm_commands.log"
-    
-    :: Instala o serviço principal com tratamento de erros robusto
-    %NSSM_CMD% install ControleAcesso "%SCRIPTS_DIR%\start_server.bat" >nul 2>"%LOG_DIR%\nssm_install_error.log"
-    if %errorLevel% neq 0 (
-        call :log "ERRO" "Falha ao instalar servico ControleAcesso com NSSM (Erro: %errorLevel%)"
-        echo ERRO: Falha ao instalar servico ControleAcesso com NSSM.
-        echo Codigo de erro: %errorLevel%
-        echo Verifique o arquivo de log: "%LOG_DIR%\nssm_install_error.log"
-        
-        :: Tenta obter mais informações sobre o erro
-        type "%LOG_DIR%\nssm_install_error.log" >> "%LOG_FILE%"
-        call :log "INFO" "Log de erro completo adicionado ao arquivo de log principal"
-        
-        echo.
-        echo Pressione qualquer tecla para continuar sem instalar o servico...
+    :: Usar método de instalação direta do NSSM - baseado na documentação
+    %NSSM_CMD% install ControleAcesso "%SCRIPTS_DIR%\start_server.bat" > "%LOG_DIR%\nssm_install_output.log" 2>&1
+    if not %errorLevel% equ 0 (
+        call :log "ERRO" "Falha ao instalar serviço ControleAcesso (Erro: %errorLevel%)"
+        echo %date% %time% - Falha na instalação: %errorLevel% >> "%LOG_DIR%\nssm_debug.log"
+        type "%LOG_DIR%\nssm_install_output.log" >> "%LOG_DIR%\nssm_debug.log"
+        echo ERRO: Falha ao instalar serviço ControleAcesso. Veja %LOG_DIR%\nssm_debug.log
+        echo Pressione qualquer tecla para continuar sem o serviço...
         pause >nul
     ) else (
-        echo Servico criado. Configurando parametros...
-        call :log "INFO" "Serviço ControleAcesso criado. Configurando parâmetros."
+        :: Configurar parâmetros do serviço conforme documentação do NSSM
+        echo Configurando parâmetros do serviço...
+        call :log "INFO" "Configurando parâmetros do serviço ControleAcesso"
         
-        :: Configurar parâmetros com verificação de erros
-        set "ERROR_OCCURRED=0"
+        :: Configuração básica
+        echo %date% %time% - Configurando DisplayName >> "%LOG_DIR%\nssm_debug.log"
+        %NSSM_CMD% set ControleAcesso DisplayName "Sistema de Controle de Acesso" > "%LOG_DIR%\nssm_config1.log" 2>&1
         
-        %NSSM_CMD% set ControleAcesso DisplayName "Sistema de Controle de Acesso" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-        if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+        echo %date% %time% - Configurando Description >> "%LOG_DIR%\nssm_debug.log"
+        %NSSM_CMD% set ControleAcesso Description "Servidor web do Sistema de Controle de Acesso" > "%LOG_DIR%\nssm_config2.log" 2>&1
         
-        %NSSM_CMD% set ControleAcesso Description "Servidor web do Sistema de Controle de Acesso" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-        if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+        echo %date% %time% - Configurando AppDirectory >> "%LOG_DIR%\nssm_debug.log"
+        %NSSM_CMD% set ControleAcesso AppDirectory "%APP_DIR%" > "%LOG_DIR%\nssm_config3.log" 2>&1
         
-        %NSSM_CMD% set ControleAcesso Start SERVICE_AUTO_START >>"%LOG_DIR%\nssm_commands.log" 2>&1
-        if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+        echo %date% %time% - Configurando Start >> "%LOG_DIR%\nssm_debug.log"
+        %NSSM_CMD% set ControleAcesso Start SERVICE_AUTO_START > "%LOG_DIR%\nssm_config4.log" 2>&1
         
-        %NSSM_CMD% set ControleAcesso AppStdout "%LOG_DIR%\service_stdout.log" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-        if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+        :: Configuração de logs
+        echo %date% %time% - Configurando AppStdout >> "%LOG_DIR%\nssm_debug.log"
+        %NSSM_CMD% set ControleAcesso AppStdout "%LOG_DIR%\service_stdout.log" > "%LOG_DIR%\nssm_config5.log" 2>&1
         
-        %NSSM_CMD% set ControleAcesso AppStderr "%LOG_DIR%\service_stderr.log" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-        if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+        echo %date% %time% - Configurando AppStderr >> "%LOG_DIR%\nssm_debug.log"
+        %NSSM_CMD% set ControleAcesso AppStderr "%LOG_DIR%\service_stderr.log" > "%LOG_DIR%\nssm_config6.log" 2>&1
         
-        if "%ERROR_OCCURRED%"=="1" (
-            call :log "AVISO" "Alguns parâmetros do serviço podem não ter sido configurados corretamente"
-            echo AVISO: Alguns parâmetros do serviço podem não ter sido configurados corretamente.
-            echo Verifique o arquivo de log: "%LOG_DIR%\nssm_commands.log"
-        )
+        :: Configuração de rotação de logs
+        echo %date% %time% - Configurando rotação de logs >> "%LOG_DIR%\nssm_debug.log"
+        %NSSM_CMD% set ControleAcesso AppRotateFiles 1 > "%LOG_DIR%\nssm_config7.log" 2>&1
+        %NSSM_CMD% set ControleAcesso AppRotateBytes 1048576 > "%LOG_DIR%\nssm_config8.log" 2>&1
         
-        echo Configuração do serviço concluída.
-        call :log "INFO" "Configuração do serviço ControleAcesso concluída"
-        echo.
+        :: Ações de saída
+        echo %date% %time% - Configurando AppExit >> "%LOG_DIR%\nssm_debug.log"
+        %NSSM_CMD% set ControleAcesso AppExit Default Restart > "%LOG_DIR%\nssm_config9.log" 2>&1
+        %NSSM_CMD% set ControleAcesso AppRestartDelay 30000 > "%LOG_DIR%\nssm_config10.log" 2>&1
         
-        echo Iniciando servico ControleAcesso...
-        call :log "INFO" "Tentando iniciar o serviço ControleAcesso"
+        :: Iniciar o serviço
+        echo Iniciando serviço ControleAcesso...
+        call :log "INFO" "Iniciando serviço ControleAcesso"
+        echo %date% %time% - Iniciando serviço >> "%LOG_DIR%\nssm_debug.log"
+        net start ControleAcesso > "%LOG_DIR%\service_start.log" 2>&1
         
-        net start ControleAcesso >"%LOG_DIR%\service_start.log" 2>&1
         if %errorLevel% neq 0 (
-            call :log "ERRO" "Falha ao iniciar o servico ControleAcesso (Erro: %errorLevel%)"
-            echo ERRO: Falha ao iniciar o servico ControleAcesso.
-            echo Codigo de erro: %errorLevel%
-            echo Verifique o arquivo de log: "%LOG_DIR%\service_start.log"
-            echo O servico foi criado mas nao foi iniciado.
-            echo Tente iniciar manualmente ou reinicie o computador.
-            
-            type "%LOG_DIR%\service_start.log" >> "%LOG_FILE%"
-            call :log "INFO" "Log de início do serviço adicionado ao arquivo de log principal"
-            
+            call :log "ERRO" "Falha ao iniciar o serviço ControleAcesso (Erro: %errorLevel%)"
+            echo %date% %time% - Falha ao iniciar o serviço: %errorLevel% >> "%LOG_DIR%\nssm_debug.log"
+            type "%LOG_DIR%\service_start.log" >> "%LOG_DIR%\nssm_debug.log"
+            echo ERRO: Falha ao iniciar o serviço ControleAcesso.
+            echo O serviço foi criado, mas não pôde ser iniciado.
+            echo Verifique o arquivo de log: %LOG_DIR%\service_start.log
             echo.
             echo Pressione qualquer tecla para continuar...
             pause >nul
         ) else (
-            call :log "INFO" "Servico ControleAcesso iniciado com sucesso"
-            echo Servico ControleAcesso iniciado com sucesso.
+            call :log "INFO" "Serviço ControleAcesso iniciado com sucesso"
+            echo Serviço ControleAcesso iniciado com sucesso!
         )
         
-        :: Instalar o Serveo como serviço automaticamente
+        :: Instalar serviço Serveo
         echo.
-        echo Instalando o servico de acesso remoto (Serveo)...
-        call :log "INFO" "Iniciando instalação automática do serviço Serveo"
+        echo Instalando serviço de acesso remoto (Serveo)...
+        call :log "INFO" "Instalando serviço Serveo"
         
-        :: Definir automaticamente que o Serveo será instalado
+        :: Define automaticamente que o Serveo será instalado
         set "INSTALL_SERVEO=S"
         call :log "INFO" "Configurado para instalar Serveo: %INSTALL_SERVEO%"
-                
-        :: Verificar se o serviço Serveo já existe e removê-lo se necessário
-        sc query ServeoService >nul 2>&1
+        
+        :: Verifica e remove serviço Serveo se já existir
+        echo %date% %time% - Verificando serviço ServeoService >> "%LOG_DIR%\nssm_debug.log"
+        sc query ServeoService > "%LOG_DIR%\sc_query_serveo.log" 2>&1
         if %errorLevel% equ 0 (
-            call :log "INFO" "Serviço ServeoService já existe, removendo-o antes de reinstalar"
-            echo Serviço ServeoService já existe, removendo-o antes de reinstalar...
-            
-            net stop ServeoService >nul 2>&1
-            %NSSM_CMD% remove ServeoService confirm >nul 2>&1
-            
-            :: Aguardar um momento para garantir que o serviço foi removido
+            echo Serviço ServeoService já existe, removendo...
+            call :log "INFO" "Removendo serviço ServeoService existente"
+            net stop ServeoService > "%LOG_DIR%\serveo_stop.log" 2>&1
+            %NSSM_CMD% remove ServeoService confirm > "%LOG_DIR%\serveo_remove.log" 2>&1
             timeout /t 2 >nul
         )
         
-        echo Tentando instalar Serveo... >> "%LOG_DIR%\nssm_commands.log"
+        :: Instalar serviço Serveo
+        echo %date% %time% - Instalando serviço ServeoService >> "%LOG_DIR%\nssm_debug.log"
+        %NSSM_CMD% install ServeoService "%SCRIPTS_DIR%\start_serveo.bat" > "%LOG_DIR%\serveo_install.log" 2>&1
         
-        %NSSM_CMD% install ServeoService "%SCRIPTS_DIR%\start_serveo.bat" >nul 2>>"%LOG_DIR%\nssm_install_error.log"
-        if %errorLevel% neq 0 (
-            call :log "ERRO" "Falha ao instalar servico ServeoService (Erro: %errorLevel%)"
-            echo ERRO: Falha ao instalar servico ServeoService.
-            echo Codigo de erro: %errorLevel%
-            echo Verifique o arquivo de log: "%LOG_DIR%\nssm_install_error.log"
-            
-            :: Tenta obter mais informações sobre o erro
-            type "%LOG_DIR%\nssm_install_error.log" >> "%LOG_FILE%"
-            call :log "INFO" "Log de erro completo adicionado ao arquivo de log principal"
-            
-            echo.
+        if not %errorLevel% equ 0 (
+            call :log "ERRO" "Falha ao instalar serviço ServeoService (Erro: %errorLevel%)"
+            echo %date% %time% - Falha na instalação do Serveo: %errorLevel% >> "%LOG_DIR%\nssm_debug.log"
+            type "%LOG_DIR%\serveo_install.log" >> "%LOG_DIR%\nssm_debug.log"
+            echo ERRO: Falha ao instalar serviço ServeoService.
             echo Pressione qualquer tecla para continuar...
             pause >nul
         ) else (
-            echo Servico Serveo criado. Configurando parametros...
-            call :log "INFO" "Serviço ServeoService criado. Configurando parâmetros."
+            :: Configurar parâmetros do serviço Serveo
+            echo Configurando serviço ServeoService...
+            call :log "INFO" "Configurando parâmetros do serviço ServeoService"
             
-            :: Configurar parâmetros com verificação de erros
-            set "ERROR_OCCURRED=0"
+            %NSSM_CMD% set ServeoService DisplayName "Serveo - Acesso Remoto" > "%LOG_DIR%\serveo_config1.log" 2>&1
+            %NSSM_CMD% set ServeoService Description "Serviço de acesso remoto via Serveo" > "%LOG_DIR%\serveo_config2.log" 2>&1
+            %NSSM_CMD% set ServeoService AppDirectory "%APP_DIR%" > "%LOG_DIR%\serveo_config3.log" 2>&1
+            %NSSM_CMD% set ServeoService Start SERVICE_AUTO_START > "%LOG_DIR%\serveo_config4.log" 2>&1
+            %NSSM_CMD% set ServeoService AppStdout "%LOG_DIR%\serveo_stdout.log" > "%LOG_DIR%\serveo_config5.log" 2>&1
+            %NSSM_CMD% set ServeoService AppStderr "%LOG_DIR%\serveo_stderr.log" > "%LOG_DIR%\serveo_config6.log" 2>&1
+            %NSSM_CMD% set ServeoService AppRotateFiles 1 > "%LOG_DIR%\serveo_config7.log" 2>&1
+            %NSSM_CMD% set ServeoService AppRotateBytes 1048576 > "%LOG_DIR%\serveo_config8.log" 2>&1
+            %NSSM_CMD% set ServeoService AppExit Default Restart > "%LOG_DIR%\serveo_config9.log" 2>&1
             
-            %NSSM_CMD% set ServeoService DisplayName "Serveo - Acesso Remoto" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-            if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
+            :: Iniciar o serviço Serveo
+            echo Iniciando serviço ServeoService...
+            call :log "INFO" "Iniciando serviço ServeoService"
+            echo %date% %time% - Iniciando serviço ServeoService >> "%LOG_DIR%\nssm_debug.log"
+            net start ServeoService > "%LOG_DIR%\serveo_start.log" 2>&1
             
-            %NSSM_CMD% set ServeoService Description "Servico de acesso remoto via Serveo para o Sistema de Controle de Acesso" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-            if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
-            
-            %NSSM_CMD% set ServeoService Start SERVICE_AUTO_START >>"%LOG_DIR%\nssm_commands.log" 2>&1
-            if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
-            
-            %NSSM_CMD% set ServeoService AppStdout "%LOG_DIR%\serveo_stdout.log" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-            if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
-            
-            %NSSM_CMD% set ServeoService AppStderr "%LOG_DIR%\serveo_stderr.log" >>"%LOG_DIR%\nssm_commands.log" 2>&1
-            if %errorLevel% neq 0 set "ERROR_OCCURRED=1"
-            
-            if "%ERROR_OCCURRED%"=="1" (
-                call :log "AVISO" "Alguns parâmetros do serviço ServeoService podem não ter sido configurados corretamente"
-                echo AVISO: Alguns parâmetros do serviço ServeoService podem não ter sido configurados corretamente.
-                echo Verifique o arquivo de log: "%LOG_DIR%\nssm_commands.log"
-            )
-            
-            echo Configuração do serviço ServeoService concluída.
-            call :log "INFO" "Configuração do serviço ServeoService concluída"
-            echo.
-            
-            echo Iniciando servico ServeoService...
-            call :log "INFO" "Tentando iniciar o serviço ServeoService"
-            
-            net start ServeoService >"%LOG_DIR%\serveo_start.log" 2>&1
             if %errorLevel% neq 0 (
-                call :log "ERRO" "Falha ao iniciar o servico ServeoService (Erro: %errorLevel%)"
-                echo ERRO: Falha ao iniciar o servico ServeoService.
-                echo Verifique o arquivo de log: "%LOG_DIR%\serveo_start.log"
-                echo O servico foi criado mas nao foi iniciado.
-                
-                type "%LOG_DIR%\serveo_start.log" >> "%LOG_FILE%"
-                call :log "INFO" "Log de início do serviço Serveo adicionado ao arquivo de log principal"
-                
+                call :log "ERRO" "Falha ao iniciar o serviço ServeoService (Erro: %errorLevel%)"
+                echo %date% %time% - Falha ao iniciar Serveo: %errorLevel% >> "%LOG_DIR%\nssm_debug.log"
+                type "%LOG_DIR%\serveo_start.log" >> "%LOG_DIR%\nssm_debug.log"
+                echo ERRO: Falha ao iniciar o serviço ServeoService.
+                echo O serviço foi criado, mas não pôde ser iniciado.
                 echo.
                 echo Pressione qualquer tecla para continuar...
                 pause >nul
             ) else (
-                call :log "INFO" "Servico ServeoService iniciado com sucesso"
-                echo Servico ServeoService iniciado com sucesso.
+                call :log "INFO" "Serviço ServeoService iniciado com sucesso"
+                echo Serviço ServeoService iniciado com sucesso!
             )
         )
     )
-) else (
+) else {
     call :log "INFO" "Instalação como serviço Windows ignorada devido à falta do NSSM"
     echo Instalação como serviço Windows ignorada.
-)
+    
+    :: Tentativa alternativa com PowerShell
+    echo %date% %time% - Tentando usar PowerShell como alternativa ao NSSM >> "%LOG_DIR%\nssm_debug.log"
+    call :log "INFO" "Tentando usar PowerShell como alternativa para instalar o serviço"
+    echo Tentando usar PowerShell como alternativa para instalar o serviço...
+    
+    echo @echo off > "%SCRIPTS_DIR%\install_service.ps1"
+    echo # Script para criar serviço Windows usando PowerShell >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo $serviceName = "ControleAcesso" >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo $binaryPath = '"%SCRIPTS_DIR%\start_server.bat"' >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo try { >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo     $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo     if ($service) { >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo         Write-Host "O servico ja existe. Removendo..." >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo         Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo         sc.exe delete $serviceName >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo         Start-Sleep -Seconds 2 >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo     } >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo     New-Service -Name $serviceName -BinaryPathName $binaryPath -DisplayName "Sistema de Controle de Acesso" -Description "Servidor web do Sistema de Controle de Acesso" -StartupType Automatic >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo     Write-Host "Servico criado com sucesso." >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo     Start-Service -Name $serviceName >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo     Write-Host "Servico iniciado com sucesso." >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo     exit 0 >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo } catch { >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo     Write-Host "Erro ao criar o servico: $_" >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo     exit 1 >> "%SCRIPTS_DIR%\install_service.ps1"
+    echo } >> "%SCRIPTS_DIR%\install_service.ps1"
+    
+    echo %date% %time% - Executando PowerShell como administrador >> "%LOG_DIR%\nssm_debug.log"
+    call :log "INFO" "Executando PowerShell como administrador para criar o serviço"
+    
+    :: Executar o script com privilégios elevados
+    powershell -ExecutionPolicy Bypass -Command "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -File \"%SCRIPTS_DIR%\install_service.ps1\"' -Verb RunAs" > "%LOG_DIR%\powershell_output.log" 2>&1
+    echo %date% %time% - PowerShell executado com resultado: %errorLevel% >> "%LOG_DIR%\nssm_debug.log"
+    
+    :: Verificar se o serviço foi criado
+    timeout /t 5 >nul
+    sc query ControleAcesso > "%LOG_DIR%\ps_service_check.log" 2>&1
+    if %errorLevel% equ 0 (
+        call :log "INFO" "Serviço criado com sucesso via PowerShell"
+        echo Serviço criado com sucesso via PowerShell.
+        
+        :: Configurar serviço Serveo também
+        echo Configurando serviço Serveo via PowerShell...
+        echo @echo off > "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo # Script para criar serviço Serveo >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo $serviceName = "ServeoService" >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo $binaryPath = '"%SCRIPTS_DIR%\start_serveo.bat"' >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo try { >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo     $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo     if ($service) { >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo         Write-Host "O servico Serveo ja existe. Removendo..." >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo         Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo         sc.exe delete $serviceName >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo         Start-Sleep -Seconds 2 >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo     } >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo     New-Service -Name $serviceName -BinaryPathName $binaryPath -DisplayName "Serveo - Acesso Remoto" -Description "Servico de acesso remoto via Serveo" -StartupType Automatic >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo     Write-Host "Servico Serveo criado com sucesso." >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo     Start-Service -Name $serviceName >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo     Write-Host "Servico Serveo iniciado com sucesso." >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo     exit 0 >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo } catch { >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo     Write-Host "Erro ao criar o servico Serveo: $_" >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo     exit 1 >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        echo } >> "%SCRIPTS_DIR%\install_serveo.ps1"
+        
+        powershell -ExecutionPolicy Bypass -Command "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -File \"%SCRIPTS_DIR%\install_serveo.ps1\"' -Verb RunAs" > "%LOG_DIR%\powershell_serveo_output.log" 2>&1
+    ) else {
+        call :log "ERRO" "Falha ao criar serviço via PowerShell"
+        echo Falha ao criar serviço via PowerShell. 
+        echo Verifique o arquivo de log: "%LOG_DIR%\powershell_output.log"
+    }
+}
 
 echo.
 echo Pressione qualquer tecla para continuar...
@@ -758,10 +809,10 @@ call "%SCRIPTS_DIR%\schedule_update.bat"
 if !errorLevel! neq 0 (
     call :log "ERRO" "Falha ao configurar atualizacoes automaticas."
     echo ERRO: Falha ao configurar atualizacoes automaticas.
-) else (
+) else {
     call :log "INFO" "Atualizacoes automaticas configuradas com sucesso."
     echo Atualizacoes automaticas configuradas com sucesso.
-)
+}
 
 :: Criar atalho na área de trabalho
 echo Criando atalho na area de trabalho...
@@ -783,7 +834,7 @@ if /i "%INSTALL_SERVICE%"=="S" (
     echo O sistema foi instalado como servico e ja esta em execucao.
     echo Para acessar o sistema, abra o navegador e acesse:
     echo   http://localhost:8000
-) else (
+) else {
     echo Para iniciar o servidor manualmente, execute:
     echo   cd "%APP_DIR%"
     echo   "%VENV_DIR%\Scripts\activate.bat"
@@ -791,7 +842,7 @@ if /i "%INSTALL_SERVICE%"=="S" (
     echo.
     echo Para acessar o sistema, abra o navegador e acesse:
     echo   http://localhost:8000
-)
+}
 
 if /i "%INSTALL_SERVEO%"=="S" (
     echo.
@@ -813,10 +864,20 @@ if /i not "%INSTALL_SERVICE%"=="S" (
     start http://localhost:8000/
 )
 
+echo.
 echo Pressione qualquer tecla para sair...
 pause
 exit /b 0
 
 :log
 echo %date% %time% [%~1] %~2 >> "%LOG_FILE%"
-goto :eof 
+goto :eof
+
+:ExecuteCommand
+:: %1 = Comando a ser executado
+:: %2 = Arquivo de saída
+:: %3 = Arquivo de erro
+echo Executando comando: %~1 > "%~2"
+echo Executando comando: %~1 > "%~3"
+%~1 >> "%~2" 2>> "%~3"
+exit /b %errorLevel% 
