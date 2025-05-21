@@ -632,7 +632,8 @@ def exportar_excel(request):
     inicio_plantao = plantao_atual['inicio']
     fim_plantao = plantao_atual['fim']
     
-    registros = RegistroAcesso.objects.filter(
+    # Alterado para usar RegistroDashboard em vez de RegistroAcesso
+    registros = RegistroDashboard.objects.filter(
         data_hora__gte=inicio_plantao,
         data_hora__lte=fim_plantao
     ).select_related('servidor', 'operador', 'operador_saida').order_by('data_hora', 'id')
@@ -659,8 +660,8 @@ def exportar_excel(request):
                 'Setor': registro.servidor.setor or '-',
                 'Veículo': registro.veiculo if registro.veiculo and registro.veiculo.strip() else registro.servidor.veiculo if registro.servidor.veiculo and registro.servidor.veiculo.strip() else '-',
                 'ISV': 'Sim' if registro.isv else 'Não',
-                'Entrada': data_hora.strftime('%H:%M'),
-                'Saída': data_hora_saida.strftime('%H:%M') if data_hora_saida else 'Pendente'
+                'Entrada': data_hora.strftime('%d/%m/%Y %H:%M'),
+                'Saída': data_hora_saida.strftime('%d/%m/%Y %H:%M') if data_hora_saida else 'Pendente'
             })
         # Se for uma saída definitiva
         elif registro.tipo_acesso == 'SAIDA':
@@ -675,7 +676,7 @@ def exportar_excel(request):
                 'Veículo': registro.veiculo if registro.veiculo and registro.veiculo.strip() else registro.servidor.veiculo if registro.servidor.veiculo and registro.servidor.veiculo.strip() else '-',
                 'ISV': 'Sim' if registro.isv else 'Não',
                 'Entrada': '-',
-                'Saída': data_hora.strftime('%H:%M')
+                'Saída': data_hora.strftime('%d/%m/%Y %H:%M')
             })
     
     # Cria o DataFrame com as colunas na ordem especificada
@@ -1510,7 +1511,8 @@ def retirar_faltas(request):
         hoje = timezone.now().date()
         registros_hoje = RegistroDashboard.objects.filter(
             data_hora__date=hoje,
-            tipo_acesso='ENTRADA'
+            tipo_acesso='ENTRADA',
+            saida_pendente=True  # Adiciona filtro para considerar apenas registros ativos
         ).select_related('servidor')
         
         servidores_presentes = set(registro.servidor_id for registro in registros_hoje)
