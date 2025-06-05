@@ -57,24 +57,15 @@ def home(request):
     tz = pytz.timezone('America/Manaus')
     agora = timezone.localtime(timezone.now(), tz)
     
-    # Verifica se é o primeiro acesso do usuário hoje
-    ultima_visita = request.session.get('ultima_visita_dashboard')
+    # Atualiza a última visita do usuário (mantido para outras funcionalidades)
     request.session['ultima_visita_dashboard'] = agora.isoformat()
     
-    # Verifica se está no horário de troca de plantão (entre 07:15 e 07:45)
+    # Obtém hora atual para uso em outros lugares
     hora_atual = agora.hour
     minuto_atual = agora.minute
-    horario_troca_plantao = (hora_atual == 7 and 15 <= minuto_atual <= 45)
     
-    # Define se deve mostrar o aviso
+    # Define mostrar_aviso como False para desativar o aviso de troca de plantão
     mostrar_aviso = False
-    if not ultima_visita and horario_troca_plantao:
-        mostrar_aviso = True
-    elif ultima_visita:
-        ultima_visita = datetime.fromisoformat(ultima_visita)
-        # Se a última visita foi em um dia diferente e estamos no horário de troca
-        if ultima_visita.date() != agora.date() and horario_troca_plantao:
-            mostrar_aviso = True
     
     plantao_atual = calcular_plantao_atual()
     
@@ -160,7 +151,7 @@ def servidor_update(request, pk):
 @login_required
 def buscar_servidor(request):
     query = request.GET.get('q', '')
-    if len(query) >= 3:
+    if len(query) >= 2:  # Alterado de 3 para 2
         servidores = Servidor.objects.filter(
             Q(nome__icontains=query) |
             Q(numero_documento__icontains=query),
@@ -1955,11 +1946,11 @@ def buscar_servidor_treinamento(request):
     query = request.GET.get('query', '').strip()
     print(f"[DEBUG TREINAMENTO] Query de busca: '{query}'")
     
-    if len(query) < 3:
+    if len(query) < 2:  # Alterado de 3 para 2
         print(f"[DEBUG TREINAMENTO] Query muito curta, retornando erro")
         return JsonResponse({
             'status': 'error',
-            'message': 'Digite pelo menos 3 caracteres para buscar.'
+            'message': 'Digite pelo menos 2 caracteres para buscar.'  # Alterado de 3 para 2
         }, status=400)
     
     try:

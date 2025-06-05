@@ -184,10 +184,14 @@
     </main>
 
     <!-- Feedback Bar -->
-    <div class="feedback-bar">
-        <a href="https://docs.google.com/forms/d/1bJh5YQDbyYgi94nKFN93AhhiBiEg3nK737sh1ObxiWk/edit" target="_blank">
+    <div class="feedback-bar" id="feedback-bar">
+        <a href="https://docs.google.com/forms/d/1bJh5YQDbyYgi94nKFN93AhhiBiEg3nK737sh1ObxiWk/edit" target="_blank" id="feedback-link">
             <i class="bi bi-chat-right-text"></i>
             <span>Feedback</span>
+        </a>
+        <a href="#" id="back-to-top-link" style="display: none;" onclick="scrollToTop(); return false;">
+            <i class="bi bi-arrow-up-circle"></i>
+            <span>Voltar ao topo</span>
         </a>
     </div>
 
@@ -217,7 +221,40 @@
                     bsAlert.close();
                 });
             }, 5000);
+            
+            // Controle do botão de feedback/voltar ao topo
+            const feedbackBar = document.getElementById('feedback-bar');
+            const feedbackLink = document.getElementById('feedback-link');
+            const backToTopLink = document.getElementById('back-to-top-link');
+            
+            window.addEventListener('scroll', function() {
+                // Tenta encontrar o elemento de busca de servidor (presente apenas nas páginas relevantes)
+                const buscaServidor = document.getElementById('busca-servidor');
+                
+                if (buscaServidor) {
+                    // Verificar se o elemento de busca está visível na tela
+                    const rect = buscaServidor.getBoundingClientRect();
+                    const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
+                    
+                    // Se o elemento de busca não estiver visível, mostra o botão de voltar ao topo
+                    if (!isVisible && window.scrollY > 300) {
+                        feedbackLink.style.display = 'none';
+                        backToTopLink.style.display = 'flex';
+                    } else {
+                        feedbackLink.style.display = 'flex';
+                        backToTopLink.style.display = 'none';
+                    }
+                }
+            });
         });
+        
+        // Função para rolar suavemente ao topo da página
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
     </script>
 </body>
 </html> 
