@@ -628,18 +628,14 @@ def excluir_registro(request, registro_id):
 
 @login_required
 def exportar_excel(request):
-    plantao_atual = calcular_plantao_atual()
-    inicio_plantao = plantao_atual['inicio']
-    fim_plantao = plantao_atual['fim']
-    
-    # Alterado para usar RegistroDashboard em vez de RegistroAcesso
-    registros = RegistroDashboard.objects.filter(
-        data_hora__gte=inicio_plantao,
-        data_hora__lte=fim_plantao
-    ).select_related('servidor', 'operador', 'operador_saida').order_by('data_hora', 'id')
+    # Obtém todos os registros do dashboard, sem filtrar por plantão
+    registros = RegistroDashboard.objects.all().select_related(
+        'servidor', 'operador', 'operador_saida'
+    ).order_by('data_hora', 'id')
     
     # Define o timezone UTC-4
     tz = pytz.timezone('America/Manaus')
+    agora = timezone.localtime(timezone.now(), tz)
     
     # Cria um DataFrame com os registros
     data = []
@@ -648,11 +644,14 @@ def exportar_excel(request):
         data_hora = timezone.localtime(registro.data_hora, tz)
         data_hora_saida = timezone.localtime(registro.data_hora_saida, tz) if registro.data_hora_saida else None
         
+        # Identifica o plantão do registro
+        plantao_registro = calcular_plantao_atual(data_hora)['nome']
+        
         # Se for uma entrada normal
         if registro.tipo_acesso == 'ENTRADA':
             data.append({
                 'ORD': len(data) + 1,
-                'Plantão': plantao_atual['nome'],
+                'Plantão': plantao_registro,
                 'Data': data_hora.strftime('%d/%m/%Y'),
                 'Operador': registro.operador.get_full_name() or registro.operador.username,
                 'Servidor': registro.servidor.nome,
@@ -667,7 +666,7 @@ def exportar_excel(request):
         elif registro.tipo_acesso == 'SAIDA':
             data.append({
                 'ORD': len(data) + 1,
-                'Plantão': plantao_atual['nome'],
+                'Plantão': plantao_registro,
                 'Data': data_hora.strftime('%d/%m/%Y'),
                 'Operador': registro.operador.get_full_name() or registro.operador.username,
                 'Servidor': f"Egresso: {registro.servidor.nome}" if not registro.servidor.nome.startswith('Egresso:') else registro.servidor.nome,
@@ -687,7 +686,7 @@ def exportar_excel(request):
     
     # Cria o arquivo Excel
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename=plantao_{plantao_atual["nome"].lower()}_{timezone.localtime(timezone.now(), tz).strftime("%Y%m%d_%H%M")}.xlsx'
+    response['Content-Disposition'] = f'attachment; filename=dashboard_controle_acesso_{agora.strftime("%Y%m%d_%H%M")}.xlsx'
     
     with pd.ExcelWriter(response, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Registros')
