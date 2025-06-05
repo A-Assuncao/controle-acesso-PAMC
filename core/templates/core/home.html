@@ -510,7 +510,8 @@ document.addEventListener('DOMContentLoaded', function() {
     atualizarRegistros();
     
     // Configurar atualizações automáticas a cada 30 segundos
-    setInterval(atualizarRegistros, 30000);
+    // Removido para melhorar o desempenho com muitos registros (até 200 por dia)
+    // setInterval(atualizarRegistros, 30000);
     
     // Mostrar ou ocultar elementos com base na rolagem
     window.addEventListener('scroll', function() {
@@ -530,7 +531,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnScrollTop').addEventListener('click', function() {
         window.scrollTo({
             top: 0,
-            behavior: 'smooth'
+            behavior: 'auto'  // Alterado de 'smooth' para 'auto' para uma rolagem instantânea
         });
     });
     
@@ -540,6 +541,12 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('filtroSetor').addEventListener('input', aplicarFiltros);
     document.getElementById('filtroISV').addEventListener('change', aplicarFiltros);
     document.getElementById('filtroSaida').addEventListener('change', aplicarFiltros);
+    
+    // Adicionar listener para atualizar a tabela quando a janela recuperar o foco
+    // Isso permite atualizar apenas quando o usuário voltar à aba
+    window.addEventListener('focus', function() {
+        atualizarRegistros();
+    });
 });
 
 function buscarServidor(query) {
@@ -667,19 +674,7 @@ document.getElementById('registroForm').addEventListener('submit', function(even
 });
 
 function atualizarRegistros() {
-    // Mostra um indicador de carregamento
-    const tbody = document.getElementById('registros-tbody');
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="8" class="text-center p-3">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Carregando...</span>
-                </div>
-                <div class="mt-2">Carregando registros...</div>
-            </td>
-        </tr>
-    `;
-    
+    // Evitar mostrar o indicador de carregamento para tornar a atualização menos perceptível
     fetch('/registros-plantao/')
         .then(response => response.json())
         .then(data => {

@@ -250,9 +250,10 @@
         
         // Função para rolar suavemente ao topo da página
         function scrollToTop() {
+            // Usar scrollTo com comportamento instantâneo para maior velocidade
             window.scrollTo({
                 top: 0,
-                behavior: 'smooth'
+                behavior: 'auto'  // Alterado de 'smooth' para 'auto' para uma rolagem instantânea
             });
         }
     </script>
