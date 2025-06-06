@@ -47,4 +47,5 @@ urlpatterns = [
     path('verificar-entrada/<int:servidor_id>/', views.verificar_entrada, name='verificar_entrada'),
     path('limpar-dashboard/', views.limpar_dashboard, name='limpar_dashboard'),
     path('trocar-senha/', views.trocar_senha, name='trocar_senha'),
+
 ] 

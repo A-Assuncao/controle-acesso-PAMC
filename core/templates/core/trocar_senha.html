@@ -23,6 +23,30 @@
         .requirement-item i {
             width: 20px;
         }
+        .requirement-valid {
+            color: #198754 !important;
+        }
+        .requirement-invalid {
+            color: #dc3545 !important;
+        }
+        .requirement-pending {
+            color: #6c757d !important;
+        }
+        .password-match {
+            color: #198754;
+        }
+        .password-mismatch {
+            color: #dc3545;
+        }
+        .password-strength {
+            height: 5px;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+        .strength-weak { background-color: #dc3545; width: 25%; }
+        .strength-fair { background-color: #fd7e14; width: 50%; }
+        .strength-good { background-color: #ffc107; width: 75%; }
+        .strength-strong { background-color: #198754; width: 100%; }
     </style>
 </head>
 <body>
@@ -55,6 +79,17 @@
                             {% endif %}
                         </div>
 
+                        <!-- Mensagens de erro e sucesso -->
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                                    <i class="bi bi-{% if message.tags == 'error' %}exclamation-triangle-fill{% elif message.tags == 'success' %}check-circle-fill{% else %}info-circle-fill{% endif %} me-2"></i>
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+
                         <form method="post" class="needs-validation" novalidate>
                             {% csrf_token %}
                             
@@ -62,7 +97,7 @@
                                 <label class="form-label">Senha Atual*</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
-                                    <input type="password" name="senha_atual" class="form-control" required autofocus>
+                                    <input type="password" id="senha_atual" name="senha_atual" class="form-control" required autofocus>
                                 </div>
                                 <div class="invalid-feedback">
                                     Por favor, informe sua senha atual.
@@ -73,10 +108,23 @@
                                 <label class="form-label">Nova Senha*</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                                    <input type="password" name="nova_senha" class="form-control" required>
+                                    <input type="password" id="nova_senha" name="nova_senha" class="form-control" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                        <i class="bi bi-eye" id="passwordIcon"></i>
+                                    </button>
                                 </div>
                                 <div class="invalid-feedback">
                                     Por favor, informe uma nova senha.
+                                </div>
+                                <!-- Indicador de força da senha -->
+                                <div class="mt-2">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small class="text-muted">Força da senha:</small>
+                                        <small id="strengthText" class="text-muted">-</small>
+                                    </div>
+                                    <div class="progress" style="height: 5px;">
+                                        <div id="strengthBar" class="progress-bar" style="width: 0%"></div>
+                                    </div>
                                 </div>
                             </div>
                             
@@ -84,10 +132,17 @@
                                 <label class="form-label">Confirmar Nova Senha*</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                                    <input type="password" name="confirmar_senha" class="form-control" required>
+                                    <input type="password" id="confirmar_senha" name="confirmar_senha" class="form-control" required>
                                 </div>
                                 <div class="invalid-feedback">
                                     Por favor, confirme sua nova senha.
+                                </div>
+                                <!-- Indicador de senhas iguais -->
+                                <div class="mt-2">
+                                    <small id="passwordMatch" class="d-none">
+                                        <i id="matchIcon" class="bi"></i>
+                                        <span id="matchText"></span>
+                                    </small>
                                 </div>
                             </div>
 
@@ -98,21 +153,25 @@
                                         Requisitos da Senha
                                     </h6>
                                     <div class="password-requirements">
-                                        <div class="requirement-item">
-                                            <i class="bi bi-check-circle text-success"></i>
-                                            Mínimo de 6 caracteres
+                                        <div class="requirement-item" id="req-length">
+                                            <i class="bi bi-circle requirement-pending"></i>
+                                            Mínimo de 8 caracteres
                                         </div>
-                                        <div class="requirement-item">
-                                            <i class="bi bi-check-circle text-success"></i>
-                                            Não pode ser igual à senha anterior
+                                        <div class="requirement-item" id="req-uppercase">
+                                            <i class="bi bi-circle requirement-pending"></i>
+                                            Pelo menos uma letra maiúscula
                                         </div>
-                                        <div class="requirement-item">
-                                            <i class="bi bi-check-circle text-success"></i>
-                                            Recomendado: use letras maiúsculas e minúsculas
+                                        <div class="requirement-item" id="req-lowercase">
+                                            <i class="bi bi-circle requirement-pending"></i>
+                                            Pelo menos uma letra minúscula
                                         </div>
-                                        <div class="requirement-item">
-                                            <i class="bi bi-check-circle text-success"></i>
-                                            Recomendado: inclua números e caracteres especiais
+                                        <div class="requirement-item" id="req-number">
+                                            <i class="bi bi-circle requirement-pending"></i>
+                                            Pelo menos um número
+                                        </div>
+                                        <div class="requirement-item" id="req-special">
+                                            <i class="bi bi-circle requirement-pending"></i>
+                                            Pelo menos um caractere especial (!@#$%^&*)
                                         </div>
                                     </div>
                                 </div>
@@ -139,22 +198,184 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-    // Validação do formulário
-    (function() {
-        'use strict';
-        window.addEventListener('load', function() {
-            var forms = document.getElementsByClassName('needs-validation');
-            Array.prototype.filter.call(forms, function(form) {
-                form.addEventListener('submit', function(event) {
-                    if (form.checkValidity() === false) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                    }
-                    form.classList.add('was-validated');
-                }, false);
-            });
-        }, false);
-    })();
+    document.addEventListener('DOMContentLoaded', function() {
+        const senhaAtual = document.getElementById('senha_atual');
+        const novaSenha = document.getElementById('nova_senha');
+        const confirmarSenha = document.getElementById('confirmar_senha');
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordIcon = document.getElementById('passwordIcon');
+        const strengthBar = document.getElementById('strengthBar');
+        const strengthText = document.getElementById('strengthText');
+        const passwordMatch = document.getElementById('passwordMatch');
+        const matchIcon = document.getElementById('matchIcon');
+        const matchText = document.getElementById('matchText');
+
+
+        // Toggle para mostrar/ocultar senha
+        togglePassword.addEventListener('click', function() {
+            const type = novaSenha.getAttribute('type') === 'password' ? 'text' : 'password';
+            novaSenha.setAttribute('type', type);
+            passwordIcon.classList.toggle('bi-eye');
+            passwordIcon.classList.toggle('bi-eye-slash');
+        });
+
+        // Função para atualizar o requisito
+        function updateRequirement(id, isValid) {
+            const element = document.getElementById(id);
+            const icon = element.querySelector('i');
+            
+            if (isValid) {
+                icon.className = 'bi bi-check-circle-fill requirement-valid';
+                element.classList.add('requirement-valid');
+                element.classList.remove('requirement-invalid', 'requirement-pending');
+            } else {
+                icon.className = 'bi bi-x-circle-fill requirement-invalid';
+                element.classList.add('requirement-invalid');
+                element.classList.remove('requirement-valid', 'requirement-pending');
+            }
+        }
+
+        // Função para resetar o requisito para estado pendente
+        function resetRequirement(id) {
+            const element = document.getElementById(id);
+            const icon = element.querySelector('i');
+            
+            icon.className = 'bi bi-circle requirement-pending';
+            element.classList.add('requirement-pending');
+            element.classList.remove('requirement-valid', 'requirement-invalid');
+        }
+
+
+
+        // Função para calcular força da senha
+        function calculatePasswordStrength(password) {
+            // Se a senha estiver vazia, retorna 0
+            if (!password) {
+                strengthBar.className = 'progress-bar';
+                strengthBar.style.width = '0%';
+                strengthText.textContent = '';
+                return 0;
+            }
+            
+            let score = 0;
+            let strength = '';
+            
+            if (password.length >= 8) score += 1;
+            if (/[a-z]/.test(password)) score += 1;
+            if (/[A-Z]/.test(password)) score += 1;
+            if (/[0-9]/.test(password)) score += 1;
+            if (/[^A-Za-z0-9]/.test(password)) score += 1;
+            
+            switch(score) {
+                case 0:
+                case 1:
+                    strength = 'Muito fraca';
+                    strengthBar.className = 'progress-bar bg-danger';
+                    strengthBar.style.width = '20%';
+                    break;
+                case 2:
+                    strength = 'Fraca';
+                    strengthBar.className = 'progress-bar bg-warning';
+                    strengthBar.style.width = '40%';
+                    break;
+                case 3:
+                    strength = 'Regular';
+                    strengthBar.className = 'progress-bar bg-info';
+                    strengthBar.style.width = '60%';
+                    break;
+                case 4:
+                    strength = 'Boa';
+                    strengthBar.className = 'progress-bar bg-primary';
+                    strengthBar.style.width = '80%';
+                    break;
+                case 5:
+                    strength = 'Muito forte';
+                    strengthBar.className = 'progress-bar bg-success';
+                    strengthBar.style.width = '100%';
+                    break;
+            }
+            
+            strengthText.textContent = strength;
+            return score;
+        }
+
+
+
+        // Validação em tempo real da nova senha
+        novaSenha.addEventListener('input', function() {
+            const password = this.value;
+            
+            // Se a senha estiver vazia, reset tudo
+            if (!password) {
+                // Reset todos os requisitos
+                resetRequirement('req-length');
+                resetRequirement('req-lowercase');
+                resetRequirement('req-uppercase');
+                resetRequirement('req-number');
+                resetRequirement('req-special');
+                
+                // Reset barra de força
+                strengthBar.className = 'progress-bar';
+                strengthBar.style.width = '0%';
+                strengthText.textContent = '';
+                
+                // Reset validação de coincidência
+                if (confirmarSenha.value) {
+                    checkPasswordMatch();
+                }
+                return;
+            }
+            
+            // Atualiza requisitos
+            updateRequirement('req-length', password.length >= 8);
+            updateRequirement('req-lowercase', /[a-z]/.test(password));
+            updateRequirement('req-uppercase', /[A-Z]/.test(password));
+            updateRequirement('req-number', /[0-9]/.test(password));
+            updateRequirement('req-special', /[!@#$%^&*(),.?":{}|<>]/.test(password));
+            
+
+            
+            // Calcula força da senha
+            calculatePasswordStrength(password);
+            
+            // Verifica se as senhas coincidem (se a confirmação já foi preenchida)
+            if (confirmarSenha.value) {
+                checkPasswordMatch();
+            }
+        });
+
+        // Função para verificar se as senhas coincidem
+        function checkPasswordMatch() {
+            const password = novaSenha.value;
+            const confirmPassword = confirmarSenha.value;
+            
+            if (confirmPassword.length > 0) {
+                passwordMatch.classList.remove('d-none');
+                
+                if (password === confirmPassword) {
+                    matchIcon.className = 'bi bi-check-circle-fill password-match';
+                    matchText.textContent = 'As senhas coincidem';
+                    matchText.className = 'password-match';
+                } else {
+                    matchIcon.className = 'bi bi-x-circle-fill password-mismatch';
+                    matchText.textContent = 'As senhas não coincidem';
+                    matchText.className = 'password-mismatch';
+                }
+            } else {
+                passwordMatch.classList.add('d-none');
+            }
+        }
+
+        // Função para resetar a validação de coincidência
+        function resetPasswordMatch() {
+            passwordMatch.classList.add('d-none');
+        }
+
+        // Validação da confirmação de senha
+        confirmarSenha.addEventListener('input', checkPasswordMatch);
+
+        // Toda validação é feita no backend para evitar duplicação de mensagens
+    });
     </script>
 </body>
 </html> 

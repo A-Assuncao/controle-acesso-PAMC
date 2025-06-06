@@ -1714,27 +1714,37 @@ def ambiente_treinamento(request):
     """View principal do ambiente de treinamento."""
     # Define o timezone UTC-4
     tz = pytz.timezone('America/Manaus')
-    agora = timezone.now()
+    agora = timezone.localtime(timezone.now(), tz)
     
     # Obtém o plantão atual
     plantao_atual = calcular_plantao_atual()
     
-    # Obtém os registros do plantão atual
-    registros = RegistroAcessoTreinamento.objects.filter(
-        data_hora__date=agora.date()
-    ).select_related('servidor', 'operador', 'operador_saida')
+    # Filtra registros do plantão atual (todos os registros para treinamento)
+    registros = RegistroAcessoTreinamento.objects.all().select_related('servidor', 'operador')
     
-    # Calcula os totais
-    total_entradas = registros.filter(tipo_acesso='ENTRADA').count()
-    total_saidas = registros.filter(tipo_acesso='SAIDA').count()
-    total_pendentes = registros.filter(saida_pendente=True).count()
+    # Calcula totais para os cards (similar ao dashboard principal)
+    total_entradas = registros.filter(tipo_acesso='ENTRADA').count()  # Total de entradas
+    total_saidas = registros.filter(data_hora_saida__isnull=False).count()  # Total de saídas normais
+    total_pendentes = registros.filter(tipo_acesso='ENTRADA', saida_pendente=True).count()  # Entradas sem saída
+    
+    # Lista de servidores para os modais (do banco principal)
+    servidores = Servidor.objects.filter(ativo=True).order_by('nome')
+    
+    # Define mostrar_aviso como False para desativar o aviso de troca de plantão
+    mostrar_aviso = False
+    
+    # Obtém hora atual para uso em outros lugares
+    hora_atual = agora.hour
+    minuto_atual = agora.minute
     
     context = {
         'plantao_atual': plantao_atual,
         'total_entradas': total_entradas,
         'total_saidas': total_saidas,
         'total_pendentes': total_pendentes,
-        'registros': registros,
+        'servidores': servidores,
+        'mostrar_aviso_plantao': mostrar_aviso,
+        'hora_atual': f"{hora_atual:02d}:{minuto_atual:02d}",
         'agora': agora
     }
     
@@ -2007,72 +2017,76 @@ def buscar_servidor_treinamento(request):
 def registro_acesso_treinamento_create(request):
     """View para registrar acesso no ambiente de treinamento."""
     if request.method == 'POST':
-        try:
-            # Obtém os dados do formulário
-            servidor_id = request.POST.get('servidor')
-            tipo_acesso = request.POST.get('tipo_acesso')
-            isv = request.POST.get('isv') == 'on'
+        servidor_id = request.POST.get('servidor')
+        tipo_acesso = request.POST.get('tipo_acesso')
+        observacao = request.POST.get('observacao', '')
+        isv = request.POST.get('isv') == 'on'
+        
+        servidor_original = get_object_or_404(Servidor, id=servidor_id)
+        
+        # Busca ou cria um ServidorTreinamento correspondente
+        servidor_treinamento, created = ServidorTreinamento.objects.get_or_create(
+            numero_documento=servidor_original.numero_documento,
+            defaults={
+                'nome': servidor_original.nome,
+                'tipo_funcionario': servidor_original.tipo_funcionario,
+                'plantao': servidor_original.plantao,
+                'setor': servidor_original.setor,
+                'veiculo': servidor_original.veiculo,
+                'ativo': True
+            }
+        )
+        
+        # Verifica se já existe uma entrada sem saída
+        entrada_pendente = RegistroAcessoTreinamento.objects.filter(
+            servidor=servidor_treinamento,
+            saida_pendente=True
+        ).exists()
+        
+        if tipo_acesso == 'ENTRADA':
+            if entrada_pendente:
+                messages.error(request, 'Este servidor já possui uma entrada sem saída registrada. Registre a saída antes de fazer uma nova entrada.')
+                return redirect('ambiente_treinamento')
             
-            # Obtém o servidor original
-            servidor_original = get_object_or_404(Servidor, id=servidor_id)
-            
-            # Busca ou cria um ServidorTreinamento correspondente
-            servidor_treinamento, created = ServidorTreinamento.objects.get_or_create(
-                numero_documento=servidor_original.numero_documento,
-                defaults={
-                    'nome': servidor_original.nome,
-                    'tipo_funcionario': servidor_original.tipo_funcionario,
-                    'plantao': servidor_original.plantao,
-                    'setor': servidor_original.setor,
-                    'veiculo': servidor_original.veiculo,
-                    'ativo': True
-                }
-            )
-            
-            # Define o timezone UTC-4
-            tz = pytz.timezone('America/Manaus')
-            agora = timezone.now()
-            
-            # Verifica se já existe uma entrada sem saída
-            if tipo_acesso == 'ENTRADA':
-                entrada_pendente = RegistroAcessoTreinamento.objects.filter(
-                    servidor=servidor_treinamento,
-                    saida_pendente=True
-                ).exists()
-                
-                if entrada_pendente:
-                    return JsonResponse({
-                        'status': 'error',
-                        'message': 'Este servidor já possui uma entrada sem saída registrada.'
-                    }, status=400)
-            
-            # Cria o registro
+            # Cria um novo registro
             registro = RegistroAcessoTreinamento.objects.create(
                 servidor=servidor_treinamento,
                 operador=request.user,
-                tipo_acesso=tipo_acesso,
-                data_hora=agora,
+                tipo_acesso='ENTRADA',
+                observacao=observacao,
                 isv=isv,
                 veiculo=servidor_treinamento.veiculo,
                 setor=servidor_treinamento.setor,
-                saida_pendente=(tipo_acesso == 'ENTRADA')
+                saida_pendente=True,
+                status_alteracao='ORIGINAL',
+                data_hora=timezone.now()
             )
             
-            return JsonResponse({
-                'status': 'success',
-                'message': f'{tipo_acesso.title()} registrada com sucesso!'
-            })
+            messages.success(request, 'Entrada registrada com sucesso!')
+            return redirect('ambiente_treinamento')
             
-        except Exception as e:
-            return JsonResponse({
-                'status': 'error',
-                'message': str(e)
-            }, status=400)
+        elif tipo_acesso == 'SAIDA':
+            if not entrada_pendente:
+                messages.error(request, 'Não foi encontrada uma entrada sem saída para este servidor. Registre uma entrada primeiro.')
+                return redirect('ambiente_treinamento')
+            
+            # Procura a última entrada sem saída
+            ultima_entrada = RegistroAcessoTreinamento.objects.filter(
+                servidor=servidor_treinamento,
+                saida_pendente=True
+            ).first()
+            
+            # Atualiza o registro existente
+            ultima_entrada.data_hora_saida = timezone.now()
+            ultima_entrada.operador_saida = request.user
+            ultima_entrada.observacao_saida = observacao
+            ultima_entrada.saida_pendente = False
+            ultima_entrada.save()
+            
+            messages.success(request, 'Saída registrada com sucesso!')
+            return redirect('ambiente_treinamento')
     
-    return JsonResponse({
-        'status': 'error',
-        'message': 'Método não permitido'
-    }, status=405)
+    return redirect('ambiente_treinamento')
 
 @login_required
 def registro_manual_treinamento_create(request):
@@ -2080,31 +2094,55 @@ def registro_manual_treinamento_create(request):
     if request.method == 'POST':
         servidor_id = request.POST.get('servidor')
         tipo_acesso = request.POST.get('tipo_acesso')
-        data_hora = request.POST.get('data_hora')
+        data_hora = request.POST.get('data_hora_manual')
+        justificativa = request.POST.get('justificativa')
         observacao = request.POST.get('observacao', '')
         isv = request.POST.get('isv') == 'on'
         
-        servidor = get_object_or_404(ServidorTreinamento, id=servidor_id)
+        servidor_original = get_object_or_404(Servidor, id=servidor_id)
         
-        try:
-            data_hora = timezone.make_aware(datetime.strptime(data_hora, '%Y-%m-%dT%H:%M'))
-        except ValueError:
-            messages.error(request, 'Data/hora inválida.')
-            return redirect('ambiente_treinamento')
-        
-        RegistroAcessoTreinamento.objects.create(
-            servidor=servidor,
-            operador=request.user,
-            tipo_acesso=tipo_acesso,
-            data_hora=data_hora,
-            observacao=observacao,
-            isv=isv,
-            veiculo=servidor.veiculo,
-            setor=servidor.setor,
-            saida_pendente=tipo_acesso == 'ENTRADA'
+        # Busca ou cria um ServidorTreinamento correspondente
+        servidor_treinamento, created = ServidorTreinamento.objects.get_or_create(
+            numero_documento=servidor_original.numero_documento,
+            defaults={
+                'nome': servidor_original.nome,
+                'tipo_funcionario': servidor_original.tipo_funcionario,
+                'plantao': servidor_original.plantao,
+                'setor': servidor_original.setor,
+                'veiculo': servidor_original.veiculo,
+                'ativo': True
+            }
         )
         
-        messages.success(request, 'Registro manual criado com sucesso!')
+        # Cria o registro manual
+        registro = RegistroAcessoTreinamento.objects.create(
+            servidor=servidor_treinamento,
+            operador=request.user,
+            tipo_acesso=tipo_acesso,
+            data_hora_manual=data_hora,
+            justificativa=justificativa,
+            observacao=observacao,
+            isv=isv,
+            veiculo=servidor_treinamento.veiculo,
+            setor=servidor_treinamento.setor,
+            status_alteracao='ORIGINAL'
+        )
+        
+        # Atualiza saída pendente
+        if tipo_acesso == 'ENTRADA':
+            registro.saida_pendente = True
+            registro.save()
+        elif tipo_acesso == 'SAIDA':
+            ultima_entrada = RegistroAcessoTreinamento.objects.filter(
+                servidor=servidor_treinamento,
+                tipo_acesso='ENTRADA',
+                saida_pendente=True
+            ).first()
+            if ultima_entrada:
+                ultima_entrada.saida_pendente = False
+                ultima_entrada.save()
+        
+        messages.success(request, f'{tipo_acesso.title()} manual registrada com sucesso!')
         return redirect('ambiente_treinamento')
     
     return redirect('ambiente_treinamento')
@@ -2113,413 +2151,352 @@ def registro_manual_treinamento_create(request):
 def saida_definitiva_treinamento(request):
     """View para registrar saída definitiva no ambiente de treinamento."""
     if request.method == 'POST':
+        nome = request.POST.get('nome')
+        numero_documento = request.POST.get('numero_documento')
+        observacao = request.POST.get('observacao', '')
+        
         try:
-            # Obtém os dados do formulário
-            servidor_id = request.POST.get('servidor_id')
-            observacao = request.POST.get('observacao')
+            # Validação dos campos obrigatórios
+            if not nome or not numero_documento:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Nome e número do documento são obrigatórios.'
+                })
             
-            # Obtém o servidor
-            servidor = get_object_or_404(ServidorTreinamento, id=servidor_id)
+            # Adiciona o prefixo "Egresso: " ao nome
+            nome_completo = f"Egresso: {nome}"
             
-            # Define o timezone UTC-4
-            tz = pytz.timezone('America/Manaus')
-            agora = timezone.now()
+            # Busca ou cria o servidor de treinamento
+            servidor, created = ServidorTreinamento.objects.get_or_create(
+                numero_documento=numero_documento,
+                defaults={
+                    'nome': nome_completo,
+                    'setor': observacao,
+                    'ativo': True,
+                    'veiculo': None
+                }
+            )
             
-            # Cria o registro de saída
+            if not created:
+                servidor.nome = nome_completo
+                servidor.setor = observacao
+                servidor.save()
+            
+            # Pega o horário atual
+            data_hora = timezone.now()
+            
+            # Cria o registro de saída definitiva
             registro = RegistroAcessoTreinamento.objects.create(
                 servidor=servidor,
-                operador=request.user,
                 tipo_acesso='SAIDA',
-                data_hora=agora,
-                observacao=observacao
+                operador=request.user,
+                observacao=observacao,
+                data_hora=data_hora,
+                data_hora_saida=data_hora,  # Adiciona o horário de saída
+                veiculo=servidor.veiculo,
+                setor=servidor.setor,
+                status_alteracao='ORIGINAL',
+                saida_pendente=False  # Marca como não pendente
             )
             
             return JsonResponse({
                 'status': 'success',
-                'message': 'Saída definitiva registrada com sucesso.'
+                'message': f'Saída definitiva registrada com sucesso para {servidor.nome}'
             })
-            
+                
         except Exception as e:
             return JsonResponse({
                 'status': 'error',
                 'message': str(e)
-            }, status=400)
-    
-    return JsonResponse({'status': 'error', 'message': 'Método não permitido'}, status=405)
+            })
+            
+    return JsonResponse({
+        'status': 'error',
+        'message': 'Método não permitido'
+    })
 
 @login_required
 def limpar_dashboard_treinamento(request):
-    """View para limpar todos os registros do ambiente de treinamento."""
+    """
+    View para limpar registros do ambiente de treinamento exceto os que têm saída pendente.
+    Versão simplificada sem necessidade de senha para facilitar o treinamento.
+    """
     if request.method == 'POST':
         try:
-            print(f"\n\n[DEBUG TREINAMENTO] ======= INÍCIO LIMPEZA DASHBOARD =======")
-            print(f"[DEBUG TREINAMENTO] Requisição recebida de: {request.user}")
-            print(f"[DEBUG TREINAMENTO] Método HTTP: {request.method}")
-            print(f"[DEBUG TREINAMENTO] Path: {request.path}")
-            print(f"[DEBUG TREINAMENTO] Corpo da requisição: {request.body.decode('utf-8')[:100]}")
-            print(f"[DEBUG TREINAMENTO] Headers: {dict(request.headers)}")
+            # Exclui registros EXCETO os que têm saída pendente
+            # Isso inclui registros com saída já registrada E saídas definitivas
+            registros_excluidos = RegistroAcessoTreinamento.objects.filter(
+                Q(saida_pendente=False) | Q(tipo_acesso='SAIDA')
+            ).delete()
+            excluidos_count = registros_excluidos[0] if registros_excluidos else 0
             
-            # Verificar CSRF token
-            csrf_token = request.headers.get('X-CSRFToken')
-            print(f"[DEBUG TREINAMENTO] CSRF Token: {csrf_token}")
-            
-            # Contagem de registros antes da exclusão
-            total_registros_antes = RegistroAcessoTreinamento.objects.count()
-            total_servidores_antes = ServidorTreinamento.objects.count()
-            print(f"[DEBUG TREINAMENTO] Registros antes da limpeza: {total_registros_antes}")
-            print(f"[DEBUG TREINAMENTO] Servidores antes da limpeza: {total_servidores_antes}")
-            
-            # Limpa todos os registros de acesso
-            print(f"[DEBUG TREINAMENTO] Excluindo registros de acesso")
-            RegistroAcessoTreinamento.objects.all().delete()
-            
-            # Contagem após exclusão de registros
-            total_registros_depois = RegistroAcessoTreinamento.objects.count()
-            print(f"[DEBUG TREINAMENTO] Registros após exclusão: {total_registros_depois}")
-            print(f"[DEBUG TREINAMENTO] {total_registros_antes - total_registros_depois} registros excluídos")
-            
-            # Limpa todos os servidores de treinamento
-            print(f"[DEBUG TREINAMENTO] Excluindo servidores")
-            ServidorTreinamento.objects.all().delete()
-            
-            # Contagem após exclusão de servidores
-            total_servidores_depois = ServidorTreinamento.objects.count()
-            print(f"[DEBUG TREINAMENTO] Servidores após exclusão: {total_servidores_depois}")
-            print(f"[DEBUG TREINAMENTO] {total_servidores_antes - total_servidores_depois} servidores excluídos")
-            
-            # Registra a ação no log de auditoria
-            LogAuditoria.objects.create(
-                usuario=request.user,
-                tipo_acao='EXCLUSAO',
-                modelo='RegistroAcessoTreinamento',
-                objeto_id=0,
-                detalhes=f'Limpeza do ambiente de treinamento: {total_registros_antes} registros e {total_servidores_antes} servidores excluídos'
-            )
-            print(f"[DEBUG TREINAMENTO] Log de auditoria registrado")
-            
-            # Prepara a resposta
-            resposta = {
+            # Retorna uma resposta JSON de sucesso
+            return JsonResponse({
                 'status': 'success',
-                'message': 'Ambiente de treinamento limpo com sucesso.',
+                'message': 'Dashboard de treinamento limpo com sucesso! (Registros com saída pendente foram mantidos)',
                 'detalhes': {
-                    'registros_excluidos': total_registros_antes,
-                    'servidores_excluidos': total_servidores_antes
+                    'registros_excluidos': excluidos_count
                 }
-            }
-            
-            print(f"[DEBUG TREINAMENTO] Resposta preparada com sucesso")
-            print(f"[DEBUG TREINAMENTO] Chaves na resposta: {resposta.keys()}")
-            print(f"[DEBUG TREINAMENTO] ======= FIM LIMPEZA DASHBOARD =======\n\n")
-            
-            return JsonResponse(resposta)
-            
+            })
+                
         except Exception as e:
-            import traceback
-            print(f"[ERRO TREINAMENTO] Erro ao limpar dashboard: {str(e)}")
-            print(f"[ERRO TREINAMENTO] Traceback:")
-            traceback.print_exc()
-            
             return JsonResponse({
                 'status': 'error',
-                'message': f'Erro ao limpar dashboard: {str(e)}'
+                'message': f'Erro ao excluir registros: {str(e)}'
             }, status=500)
     
-    print(f"[ERRO TREINAMENTO] Método não permitido: {request.method}")
     return JsonResponse({
         'status': 'error',
-        'message': f'Método não permitido: {request.method}'
+        'message': 'Método não permitido. Use POST para esta operação.'
     }, status=405)
 
 @login_required
 def exportar_excel_treinamento(request):
-    """View para exportar os dados do ambiente de treinamento para Excel."""
-    try:
-        print(f"\n\n[DEBUG TREINAMENTO] ======= INÍCIO EXPORTAÇÃO EXCEL =======")
-        print(f"[DEBUG TREINAMENTO] Requisição recebida de: {request.user}")
-        print(f"[DEBUG TREINAMENTO] Método HTTP: {request.method}")
-        print(f"[DEBUG TREINAMENTO] Path: {request.path}")
-        print(f"[DEBUG TREINAMENTO] GET params: {dict(request.GET)}")
+    """View para exportar os dados reais do ambiente de treinamento para Excel."""
+    # Obtém todos os registros do ambiente de treinamento
+    registros = RegistroAcessoTreinamento.objects.all().select_related(
+        'servidor', 'operador', 'operador_saida'
+    ).order_by('data_hora', 'id')
+    
+    # Define o timezone UTC-4
+    tz = pytz.timezone('America/Manaus')
+    agora = timezone.localtime(timezone.now(), tz)
+    
+    # Cria um DataFrame com os registros
+    data = []
+    for registro in registros:
+        # Converte os horários para UTC-4
+        data_hora = timezone.localtime(registro.data_hora, tz) if registro.data_hora else None
+        data_hora_saida = timezone.localtime(registro.data_hora_saida, tz) if registro.data_hora_saida else None
         
-        # Define o timezone UTC-4
-        tz = pytz.timezone('America/Manaus')
-        agora = timezone.now()
-        print(f"[DEBUG TREINAMENTO] Data/hora atual (UTC): {agora}")
-        print(f"[DEBUG TREINAMENTO] Data/hora atual (local): {timezone.localtime(agora, tz)}")
+        # Identifica o plantão do registro
+        plantao_registro = calcular_plantao_atual(data_hora)['nome'] if data_hora else "N/A"
         
-        print(f"[DEBUG TREINAMENTO] Criando dados de exemplo para o Excel")
-        # Cria uma lista de dados de exemplo
-        dados = [
+        # Se for uma entrada normal
+        if registro.tipo_acesso == 'ENTRADA':
+            data.append({
+                'ORD': len(data) + 1,
+                'Plantão': plantao_registro,
+                'Data': data_hora.strftime('%d/%m/%Y') if data_hora else 'N/A',
+                'Operador': registro.operador.get_full_name() or registro.operador.username,
+                'Servidor': registro.servidor.nome,
+                'Documento': registro.servidor.numero_documento,
+                'Setor': registro.servidor.setor or '-',
+                'Veículo': registro.veiculo if registro.veiculo and registro.veiculo.strip() else registro.servidor.veiculo if registro.servidor.veiculo and registro.servidor.veiculo.strip() else '-',
+                'ISV': 'Sim' if registro.isv else 'Não',
+                'Entrada': data_hora.strftime('%d/%m/%Y %H:%M') if data_hora else 'N/A',
+                'Saída': data_hora_saida.strftime('%d/%m/%Y %H:%M') if data_hora_saida else 'Pendente'
+            })
+        # Se for uma saída definitiva
+        elif registro.tipo_acesso == 'SAIDA':
+            data.append({
+                'ORD': len(data) + 1,
+                'Plantão': plantao_registro,
+                'Data': data_hora.strftime('%d/%m/%Y') if data_hora else 'N/A',
+                'Operador': registro.operador.get_full_name() or registro.operador.username,
+                'Servidor': f"Egresso: {registro.servidor.nome}" if not registro.servidor.nome.startswith('Egresso:') else registro.servidor.nome,
+                'Documento': registro.servidor.numero_documento,
+                'Setor': registro.setor or '-',  # Aqui estará a justificativa
+                'Veículo': registro.veiculo if registro.veiculo and registro.veiculo.strip() else registro.servidor.veiculo if registro.servidor.veiculo and registro.servidor.veiculo.strip() else '-',
+                'ISV': 'Sim' if registro.isv else 'Não',
+                'Entrada': '-',
+                'Saída': data_hora.strftime('%d/%m/%Y %H:%M') if data_hora else 'N/A'
+            })
+    
+    # Se não houver registros, cria dados de exemplo
+    if not data:
+        data = [
             {
                 'ORD': 1,
-                'Operador': 'MARIA SILVA',
-                'Servidor': 'JOÃO SANTOS',
+                'Plantão': 'DIURNO',
+                'Data': agora.strftime('%d/%m/%Y'),
+                'Operador': 'USUÁRIO TREINAMENTO',
+                'Servidor': 'SERVIDOR EXEMPLO',
                 'Documento': '12345678900',
-                'Setor': 'ADMINISTRATIVO',
+                'Setor': 'EXEMPLO',
                 'Veículo': 'ABC-1234',
-                'ISV': 'Sim',
-                'Entrada': f"{agora.strftime('%d/%m/%Y')} 07:15",
-                'Saída': f"{agora.strftime('%d/%m/%Y')} 17:00"
-            },
-            {
-                'ORD': 2,
-                'Operador': 'PEDRO OLIVEIRA',
-                'Servidor': 'CARLOS FERREIRA',
-                'Documento': '98765432100',
-                'Setor': 'MANUTENÇÃO',
-                'Veículo': '-',
                 'ISV': 'Não',
                 'Entrada': f"{agora.strftime('%d/%m/%Y')} 08:00",
-                'Saída': f"{agora.strftime('%d/%m/%Y')} 16:30"
-            },
-            {
-                'ORD': 3,
-                'Operador': 'ANA COSTA',
-                'Servidor': 'MARCOS SOUZA',
-                'Documento': '45678912300',
-                'Setor': 'SEGURANÇA',
-                'Veículo': 'XYZ-9876',
-                'ISV': 'Não',
-                'Entrada': f"{agora.strftime('%d/%m/%Y')} 09:00",
                 'Saída': 'Pendente'
-            },
-            {
-                'ORD': 4,
-                'Operador': 'JOSÉ PEREIRA',
-                'Servidor': 'Egresso: LUCAS LIMA',
-                'Documento': '78912345600',
-                'Setor': 'Alvará de Soltura',
-                'Veículo': '-',
-                'ISV': 'Não',
-                'Entrada': '-',
-                'Saída': f"{agora.strftime('%d/%m/%Y')} 10:45"
-            },
-            {
-                'ORD': 5,
-                'Operador': 'MARIA SILVA',
-                'Servidor': 'PATRICIA ROCHA',
-                'Documento': '32165498700',
-                'Setor': 'JURÍDICO',
-                'Veículo': 'DEF-5678',
-                'ISV': 'Sim',
-                'Entrada': f"{agora.strftime('%d/%m/%Y')} 13:00",
-                'Saída': f"{agora.strftime('%d/%m/%Y')} 18:00"
             }
         ]
+    
+    # Cria o DataFrame com as colunas na ordem especificada
+    df = pd.DataFrame(data, columns=[
+        'ORD', 'Plantão', 'Data', 'Operador', 'Servidor', 'Documento', 
+        'Setor', 'Veículo', 'ISV', 'Entrada', 'Saída'
+    ])
+    
+    # Cria o arquivo Excel
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename=treinamento_controle_acesso_{agora.strftime("%Y%m%d_%H%M")}.xlsx'
+    
+    with pd.ExcelWriter(response, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Registros')
         
-        print(f"[DEBUG TREINAMENTO] Criando DataFrame pandas com {len(dados)} linhas")
-        # Cria um DataFrame com os dados
-        df = pd.DataFrame(dados)
-        
-        # Define a ordem das colunas
-        colunas = [
-            'ORD', 'Operador', 'Servidor', 'Documento', 'Setor', 'Veículo', 'ISV', 'Entrada', 'Saída'
-        ]
-        df = df[colunas]
-        print(f"[DEBUG TREINAMENTO] DataFrame criado com sucesso, colunas: {', '.join(colunas)}")
-        
-        print(f"[DEBUG TREINAMENTO] Criando resposta HTTP para download do Excel")
-        # Cria a resposta Excel
-        response = HttpResponse(content_type='application/vnd.ms-excel')
-        response['Content-Disposition'] = 'attachment; filename=exemplo_planilha_controle_acesso.xlsx'
-        
-        print(f"[DEBUG TREINAMENTO] Salvando DataFrame no Excel")
-        # Salva o DataFrame no Excel
-        with pd.ExcelWriter(response, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Registros')
-            
-            print(f"[DEBUG TREINAMENTO] Ajustando largura das colunas")
-            # Ajusta a largura das colunas
-            worksheet = writer.sheets['Registros']
-            for idx, col in enumerate(df.columns):
-                max_length = max(
-                    df[col].astype(str).apply(len).max(),
-                    len(str(col))
-                )
-                worksheet.column_dimensions[get_column_letter(idx + 1)].width = max_length + 2
-        
-        print(f"[DEBUG TREINAMENTO] Excel gerado com sucesso")
-        print(f"[DEBUG TREINAMENTO] ======= FIM EXPORTAÇÃO EXCEL =======\n\n")
-        
-        return response
-        
-    except Exception as e:
-        import traceback
-        print(f"[ERRO TREINAMENTO] Erro ao exportar Excel: {str(e)}")
-        print(f"[ERRO TREINAMENTO] Traceback:")
-        traceback.print_exc()
-        
-        return JsonResponse({
-            'status': 'error',
-            'message': f'Erro ao exportar Excel: {str(e)}'
-        }, status=500)
+        # Ajusta a largura das colunas
+        worksheet = writer.sheets['Registros']
+        for idx, col in enumerate(df.columns):
+            max_length = max(
+                df[col].astype(str).apply(len).max(),
+                len(col)
+            )
+            worksheet.column_dimensions[chr(65 + idx)].width = max_length + 2
+    
+    return response
 
 @login_required
 def registro_acesso_treinamento_update(request, registro_id):
-    """View para atualizar um registro de acesso no ambiente de treinamento."""
-    if request.method == 'POST':
-        try:
-            # Obtém os dados do formulário
+    """
+    Atualiza um registro de acesso existente no ambiente de treinamento.
+    Permite a edição de data e hora de entrada e saída por qualquer usuário.
+    """
+    try:
+        # Tenta localizar o registro no banco de dados
+        registro = RegistroAcessoTreinamento.objects.get(id=registro_id)
+        
+        # Para GET, retorna os detalhes do registro em JSON para AJAX
+        if request.method == 'GET':
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Prepara as datas em formato legível
+                data_hora = None
+                data_hora_saida = None
+                
+                if registro.data_hora:
+                    data_hora = registro.data_hora.strftime('%Y-%m-%dT%H:%M')
+                    
+                if registro.data_hora_saida:
+                    data_hora_saida = registro.data_hora_saida.strftime('%Y-%m-%dT%H:%M')
+                    
+                data = {
+                    'id': registro.id,
+                    'servidor_id': registro.servidor.id,
+                    'servidor_nome': registro.servidor.nome,
+                    'servidor_documento': registro.servidor.numero_documento,
+                    'data_hora': data_hora,
+                    'data': registro.data_hora.strftime('%Y-%m-%d') if registro.data_hora else None,
+                    'hora_entrada': registro.data_hora.strftime('%H:%M') if registro.data_hora else None,
+                    'data_hora_saida': data_hora_saida,
+                    'data_saida': registro.data_hora_saida.strftime('%Y-%m-%d') if registro.data_hora_saida else None,
+                    'hora_saida': registro.data_hora_saida.strftime('%H:%M') if registro.data_hora_saida else None,
+                    'isv': registro.isv,
+                    'saida_pendente': registro.saida_pendente,
+                    'observacao': registro.observacao or '',
+                    'setor': registro.setor
+                }
+                return JsonResponse(data)
+            else:
+                # Para acesso direto, redireciona para o ambiente de treinamento
+                return redirect('ambiente_treinamento')
+        
+        elif request.method == 'POST':
+            # Extrai os dados do formulário
             data_entrada = request.POST.get('data_entrada')
             hora_entrada = request.POST.get('hora_entrada')
             data_saida = request.POST.get('data_saida')
             hora_saida = request.POST.get('hora_saida')
+            justificativa = request.POST.get('justificativa')
             isv = request.POST.get('isv') == 'on'
-            justificativa = request.POST.get('justificativa', 'Treinamento')  # Valor padrão se não for fornecido
             
-            # Debug completo dos dados recebidos
-            print(f"[DEBUG] ======= INÍCIO DA EDIÇÃO DE REGISTRO {registro_id} =======")
-            print(f"[DEBUG] Dados brutos recebidos do formulário:")
-            print(f"[DEBUG] data_entrada={data_entrada}, hora_entrada={hora_entrada}")
-            print(f"[DEBUG] data_saida={data_saida}, hora_saida={hora_saida}")
-            print(f"[DEBUG] isv={isv}, justificativa={justificativa}")
+            # Compatibilidade com código anterior que usava 'data' em vez de 'data_entrada'
+            if not data_entrada and request.POST.get('data'):
+                data_entrada = request.POST.get('data')
             
-            # Obtém o registro a ser atualizado
-            registro = get_object_or_404(RegistroAcessoTreinamento, id=registro_id)
-            
-            # Log estado atual do registro antes da atualização
-            print(f"[DEBUG] Estado ATUAL do registro antes da atualização:")
-            print(f"[DEBUG] ID: {registro.id}, Tipo: {registro.tipo_acesso}")
-            print(f"[DEBUG] Data/Hora Entrada: {registro.data_hora}")
-            print(f"[DEBUG] Data/Hora Saída: {registro.data_hora_saida}")
-            print(f"[DEBUG] Saída Pendente: {registro.saida_pendente}")
-            
-            # Salva os valores originais para comparação
-            data_hora_original = registro.data_hora
-            data_hora_saida_original = registro.data_hora_saida
-            
-            # Define o timezone UTC-4
-            tz = pytz.timezone('America/Manaus')
-            
-            # Processa data e hora de entrada
-            if data_entrada and hora_entrada:
-                try:
-                    # Formata a entrada como datetime
-                    data_hora_entrada_str = f"{data_entrada} {hora_entrada}"
-                    data_hora_entrada = timezone.make_aware(
-                        datetime.strptime(data_hora_entrada_str, "%Y-%m-%d %H:%M"),
-                        timezone=tz
-                    )
-                    
-                    # Atualiza a data e hora
-                    registro.data_hora = data_hora_entrada
-                    
-                    print(f"[DEBUG] Nova Data/Hora de Entrada: {data_hora_entrada}")
-                except ValueError as e:
-                    print(f"[ERRO] Formato inválido para data/hora de entrada: {e}")
+            # Validação básica
+            if not justificativa:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({
                         'status': 'error',
-                        'message': f'Formato de data/hora de entrada inválido: {e}'
+                        'message': 'A justificativa é obrigatória'
                     }, status=400)
+                messages.error(request, 'A justificativa é obrigatória')
+                return redirect('ambiente_treinamento')
             
-            # Processa data e hora de saída, se fornecidos
-            if data_saida and hora_saida:
-                try:
-                    # Formata a saída como datetime
-                    data_hora_saida_str = f"{data_saida} {hora_saida}"
-                    data_hora_saida = timezone.make_aware(
-                        datetime.strptime(data_hora_saida_str, "%Y-%m-%d %H:%M"),
-                        timezone=tz
-                    )
-                    
-                    # Atualiza a data e hora de saída
-                    registro.data_hora_saida = data_hora_saida
-                    registro.saida_pendente = False
-                    
-                    print(f"[DEBUG] Nova Data/Hora de Saída: {data_hora_saida}")
-                except ValueError as e:
-                    print(f"[ERRO] Formato inválido para data/hora de saída: {e}")
+            try:
+                # Processa a data e hora de entrada
+                entrada_datetime = None
+                if data_entrada and hora_entrada:
+                    try:
+                        entrada_datetime = datetime.strptime(f"{data_entrada} {hora_entrada}", "%Y-%m-%d %H:%M")
+                        entrada_datetime = pytz.timezone('America/Sao_Paulo').localize(entrada_datetime)
+                        registro.data_hora = entrada_datetime
+                    except ValueError as e:
+                        return JsonResponse({
+                            'status': 'error',
+                            'message': f'Formato de data/hora de entrada inválido: {e}'
+                        }, status=400)
+                
+                # Processa a data e hora de saída, se fornecidas
+                saida_datetime = None
+                if data_saida and hora_saida:
+                    try:
+                        saida_datetime = datetime.strptime(f"{data_saida} {hora_saida}", "%Y-%m-%d %H:%M")
+                        saida_datetime = pytz.timezone('America/Sao_Paulo').localize(saida_datetime)
+                        registro.data_hora_saida = saida_datetime
+                        registro.saida_pendente = False
+                    except ValueError as e:
+                        return JsonResponse({
+                            'status': 'error',
+                            'message': f'Formato de data/hora de saída inválido: {e}'
+                        }, status=400)
+                
+                # Se não tiver saída, marca como pendente
+                if not saida_datetime:
+                    registro.saida_pendente = True
+                
+                # Atualiza o campo de ISV
+                registro.isv = isv
+                
+                # Registra a justificativa para a edição
+                registro.justificativa_edicao = justificativa
+                registro.editado_por = request.user
+                registro.data_edicao = timezone.now()
+                registro.status_alteracao = 'EDITADO'
+                
+                # Salva o registro atualizado
+                registro.save()
+                
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'status': 'success'})
+                else:
+                    messages.success(request, 'Registro atualizado com sucesso')
+                    return redirect('ambiente_treinamento')
+                
+            except Exception as e:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({
                         'status': 'error',
-                        'message': f'Formato de data/hora de saída inválido: {e}'
-                    }, status=400)
-            else:
-                # Se não tiver data e hora de saída, mantém como pendente
-                registro.data_hora_saida = None
-                registro.saida_pendente = True
-                
-                print("[DEBUG] Saída pendente: Sim (nenhuma data/hora fornecida)")
-            
-            # Atualiza o status de ISV
-            registro.isv = isv
-            print(f"[DEBUG] Novo status ISV: {isv}")
-            
-            # Salva as alterações
-            registro.save()
-            
-            # Log do estado final após a atualização
-            print(f"[DEBUG] Estado FINAL do registro após atualização:")
-            print(f"[DEBUG] ID: {registro.id}")
-            print(f"[DEBUG] Data/Hora Entrada: {registro.data_hora}")
-            print(f"[DEBUG] Data/Hora Saída: {registro.data_hora_saida}")
-            print(f"[DEBUG] Saída Pendente: {registro.saida_pendente}")
-            print(f"[DEBUG] ======= FIM DA EDIÇÃO DE REGISTRO {registro_id} =======")
-            
-            return JsonResponse({
-                'status': 'success',
-                'message': 'Registro atualizado com sucesso!'
-            })
-            
-        except Exception as e:
-            import traceback
-            print(f"[ERRO] Exceção não tratada ao atualizar registro: {str(e)}")
-            traceback.print_exc()
+                        'message': f'Erro ao processar datas: {str(e)}'
+                    }, status=500)
+                else:
+                    messages.error(request, f'Erro ao processar datas: {str(e)}')
+                    return redirect('ambiente_treinamento')
+    
+    except RegistroAcessoTreinamento.DoesNotExist:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
                 'status': 'error',
-                'message': str(e)
-            }, status=400)
-    
-    # Para GET, retorna os detalhes do registro
-    elif request.method == 'GET':
-        try:
-            registro = get_object_or_404(RegistroAcessoTreinamento, id=registro_id)
-            
-            # Define o timezone UTC-4
-            tz = pytz.timezone('America/Manaus')
-            
-            # Prepara as datas em formato legível
-            data_hora = None
-            data_hora_saida = None
-            
-            if registro.data_hora:
-                data_hora_local = timezone.localtime(registro.data_hora, tz)
-                data_hora = data_hora_local.strftime('%Y-%m-%dT%H:%M')
-                
-            if registro.data_hora_saida:
-                data_hora_saida_local = timezone.localtime(registro.data_hora_saida, tz)
-                data_hora_saida = data_hora_saida_local.strftime('%Y-%m-%dT%H:%M')
-                
-            data = {
-                'id': registro.id,
-                'servidor_id': registro.servidor.id,
-                'servidor_nome': registro.servidor.nome,
-                'servidor_documento': registro.servidor.numero_documento,
-                'data_hora': data_hora,
-                'data': data_hora_local.strftime('%Y-%m-%d') if registro.data_hora else None,
-                'hora_entrada': data_hora_local.strftime('%H:%M') if registro.data_hora else None,
-                'data_hora_saida': data_hora_saida,
-                'data_saida': data_hora_saida_local.strftime('%Y-%m-%d') if registro.data_hora_saida else None,
-                'hora_saida': data_hora_saida_local.strftime('%H:%M') if registro.data_hora_saida else None,
-                'isv': registro.isv,
-                'saida_pendente': registro.saida_pendente
-            }
-            
-            return JsonResponse(data)
-        except Exception as e:
+                'message': 'Registro não encontrado'
+            }, status=404)
+        else:
+            messages.error(request, 'Registro não encontrado')
+            return redirect('ambiente_treinamento')
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
                 'status': 'error',
-                'message': str(e)
-            }, status=400)
-    
-    return JsonResponse({
-        'status': 'error',
-        'message': 'Método não permitido'
-    }, status=405)
+                'message': f'Erro ao processar a requisição: {str(e)}'
+            }, status=500)
+        else:
+            messages.error(request, f'Erro ao processar a requisição: {str(e)}')
+            return redirect('ambiente_treinamento')
 
 @login_required
 def excluir_registro_treinamento(request, registro_id):
     """View para excluir registros no ambiente de treinamento."""
     if request.method == 'POST':
         try:
+            # Obtém o registro
             registro = get_object_or_404(RegistroAcessoTreinamento, id=registro_id)
             justificativa = request.POST.get('justificativa')
             
@@ -2529,6 +2506,27 @@ def excluir_registro_treinamento(request, registro_id):
                     'message': 'É necessário informar uma justificativa para excluir o registro.'
                 }, status=400)
             
+            # Cria uma cópia do registro com status EXCLUIDO para manter histórico
+            registro_excluido = RegistroAcessoTreinamento.objects.create(
+                servidor=registro.servidor,
+                operador=registro.operador,
+                tipo_acesso=registro.tipo_acesso,
+                observacao=registro.observacao,
+                observacao_saida=registro.observacao_saida,
+                isv=registro.isv,
+                veiculo=registro.veiculo,
+                setor=registro.setor,
+                data_hora=registro.data_hora,
+                data_hora_saida=registro.data_hora_saida,
+                operador_saida=registro.operador_saida,
+                registro_original=registro,
+                status_alteracao='EXCLUIDO',
+                data_hora_alteracao=timezone.now(),
+                justificativa=justificativa,
+                saida_pendente=registro.saida_pendente
+            )
+            
+            # Remove o registro original
             registro.delete()
             
             return JsonResponse({'status': 'success'})
@@ -2543,7 +2541,7 @@ def excluir_registro_treinamento(request, registro_id):
 
 @login_required
 def registrar_saida_treinamento(request, registro_id):
-    """View para registrar saída no ambiente de treinamento."""
+    """Registra a saída diretamente para um registro pendente no ambiente de treinamento."""
     if request.method == 'POST':
         try:
             # Obtém o registro
@@ -2556,9 +2554,6 @@ def registrar_saida_treinamento(request, registro_id):
                     'message': 'Este registro não está pendente de saída.'
                 }, status=400)
             
-            # Obtém os dados do formulário
-            observacao = request.POST.get('observacao')
-            
             # Define o timezone UTC-4
             tz = pytz.timezone('America/Manaus')
             agora = timezone.now()
@@ -2566,14 +2561,10 @@ def registrar_saida_treinamento(request, registro_id):
             # Atualiza o registro
             registro.data_hora_saida = agora
             registro.operador_saida = request.user
-            registro.observacao_saida = observacao
             registro.saida_pendente = False
             registro.save()
             
-            return JsonResponse({
-                'status': 'success',
-                'message': 'Saída registrada com sucesso.'
-            })
+            return JsonResponse({'status': 'success'})
             
         except Exception as e:
             return JsonResponse({
@@ -2647,6 +2638,16 @@ def user_reset_password(request, pk):
 
 @login_required
 def trocar_senha(request):
+    # Obtém ou cria o perfil do usuário
+    try:
+        perfil = request.user.perfil
+    except:
+        from core.models import PerfilUsuario
+        perfil = PerfilUsuario.objects.create(
+            usuario=request.user,
+            precisa_trocar_senha=False
+        )
+    
     if request.method == 'POST':
         senha_atual = request.POST.get('senha_atual')
         nova_senha = request.POST.get('nova_senha')
@@ -2655,20 +2656,33 @@ def trocar_senha(request):
         # Validações básicas
         if not senha_atual or not nova_senha or not confirmar_senha:
             messages.error(request, 'Todos os campos são obrigatórios.')
-            return redirect('trocar_senha')
+            return render(request, 'core/trocar_senha.html', {'perfil': perfil})
         
         if nova_senha != confirmar_senha:
             messages.error(request, 'A nova senha e a confirmação não coincidem.')
-            return redirect('trocar_senha')
+            return render(request, 'core/trocar_senha.html', {'perfil': perfil})
         
         if len(nova_senha) < 8:
             messages.error(request, 'A nova senha deve ter pelo menos 8 caracteres.')
-            return redirect('trocar_senha')
+            return render(request, 'core/trocar_senha.html', {'perfil': perfil})
+        
+
         
         # Verifica se a senha atual está correta
         if not request.user.check_password(senha_atual):
             messages.error(request, 'Senha atual incorreta.')
-            return redirect('trocar_senha')
+            return render(request, 'core/trocar_senha.html', {'perfil': perfil})
+        
+        # Validações adicionais de segurança
+        if nova_senha.lower() in [request.user.username.lower(), request.user.first_name.lower(), request.user.last_name.lower()]:
+            messages.error(request, 'A nova senha não pode conter seu nome de usuário ou nome pessoal.')
+            return render(request, 'core/trocar_senha.html', {'perfil': perfil})
+        
+        # Verifica se a senha não é muito simples
+        senhas_comuns = ['12345678', '87654321', 'abcdefgh', 'password', 'senha123', '11111111', '00000000']
+        if nova_senha.lower() in senhas_comuns:
+            messages.error(request, 'Por favor, escolha uma senha mais segura.')
+            return render(request, 'core/trocar_senha.html', {'perfil': perfil})
         
         # Altera a senha
         request.user.set_password(nova_senha)
@@ -2676,7 +2690,6 @@ def trocar_senha(request):
         
         # Atualiza o perfil do usuário
         try:
-            perfil = request.user.perfil
             perfil.precisa_trocar_senha = False
             perfil.senha_temporaria = None  # Limpa a senha temporária
             perfil.save()
@@ -2687,5 +2700,7 @@ def trocar_senha(request):
         messages.success(request, 'Senha alterada com sucesso! Por favor, faça login novamente.')
         return redirect('login')
     
-    return render(request, 'core/trocar_senha.html')
+    return render(request, 'core/trocar_senha.html', {'perfil': perfil})
+
+
 
