@@ -1,279 +1,828 @@
 # Sistema de Controle de Acesso PAMC
 
-![Django](https://img.shields.io/badge/Django-4.2%2B-green)
-![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
-![License](https://img.shields.io/badge/License-MIT-yellow)
-![Status](https://img.shields.io/badge/Status-Production-success)
+![Django](https://img.shields.io/badge/Django-4.2%2B-092E20?style=for-the-badge&logo=django)
+![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Bootstrap](https://img.shields.io/badge/Bootstrap-5.0-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Production-success?style=for-the-badge)
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/django/django/main/docs/images/django-logo-negative.svg" alt="Django Logo" width="300"/>
-  <h3>Sistema de gerenciamento e controle de acesso para servidores</h3>
+  <h3>Sistema completo de gestão e controle de acesso para servidores penitenciários</h3>
+  <p><em>Desenvolvido com Django, Bootstrap e tecnologias modernas para máxima confiabilidade</em></p>
 </div>
+
+---
 
 ## 📋 Índice
 
-- [Visão Geral](#-visão-geral)
-- [Funcionalidades](#-funcionalidades)
-- [Tecnologias](#-tecnologias)
-- [Requisitos](#-requisitos)
-- [Instalação](#-instalação)
-  - [Instalação Automática (Windows)](#instalação-automática-windows)
-  - [Instalação Manual](#instalação-manual)
-- [Configuração](#-configuração)
-- [Uso](#-uso)
-- [Backup e Restauração](#-backup-e-restauração)
-- [Ambiente de Produção](#-ambiente-de-produção)
-- [Funcionamento Offline](#-funcionamento-offline)
-- [Atualização](#-atualização)
-- [Informações Importantes](#-informações-importantes)
-- [Licença](#-licença)
+- [🔍 Visão Geral](#-visão-geral)
+- [✨ Funcionalidades](#-funcionalidades)
+- [🏗️ Arquitetura](#-arquitetura)
+- [🛠 Tecnologias](#-tecnologias)
+- [📦 Requisitos](#-requisitos)
+- [💻 Instalação](#-instalação)
+- [⚙️ Configuração](#-configuração)
+- [📖 Guia de Uso](#-guia-de-uso)
+- [🎓 Ambiente de Treinamento](#-ambiente-de-treinamento)
+- [📊 Dashboard e Relatórios](#-dashboard-e-relatórios)
+- [🔐 Segurança](#-segurança)
+- [💾 Backup e Restauração](#-backup-e-restauração)
+- [🌐 Acesso Remoto](#-acesso-remoto)
+- [🔧 Desenvolvimento](#-desenvolvimento)
+- [📚 Documentação Técnica](#-documentação-técnica)
+- [🐛 Troubleshooting](#-troubleshooting)
+- [📄 Licença](#-licença)
+
+---
 
 ## 🔍 Visão Geral
 
-O Sistema de Controle de Acesso PAMC é uma aplicação web desenvolvida em Django que gerencia o acesso de servidores, registra entradas e saídas, e oferece ferramentas de relatórios e administração. O sistema foi projetado para ser fácil de usar, seguro e funcionar mesmo em ambientes sem conexão à internet.
+O **Sistema de Controle de Acesso PAMC** é uma aplicação web robusta desenvolvida especificamente para o controle de acesso em ambientes penitenciários. O sistema oferece gestão completa de servidores, registros de entrada/saída, relatórios detalhados e um ambiente de treinamento separado para capacitação de novos usuários.
+
+### 🎯 Principais Características
+
+- **🛡️ Segurança Avançada**: Autenticação robusta, controle de sessões e logs de auditoria
+- **📱 Interface Moderna**: Design responsivo com Bootstrap 5 e UX otimizada
+- **🔌 Funcionamento Offline**: Operação completa sem conexão à internet
+- **🎓 Ambiente de Treinamento**: Área isolada para capacitação de usuários
+- **📊 Relatórios Inteligentes**: Exportação em Excel e filtros avançados
+- **🌐 Acesso Remoto**: Integração com Serveo para acesso externo seguro
+
+---
 
 ## ✨ Funcionalidades
 
-- **Gestão de Usuários**
-  - Cadastro e gerenciamento de usuários
-  - Sistema de autenticação seguro
-  - Gerenciamento de senhas temporárias
-  - Níveis de acesso personalizados
+### 👥 **Gestão de Usuários e Segurança**
+- **Controle de Acesso**: Sistema completo de autenticação com níveis hierárquicos
+- **Gestão de Senhas**: Sistema moderno de troca de senhas com validação em tempo real
+- **Perfis de Usuário**: Configurações personalizadas e controle de permissões
+- **Senhas Temporárias**: Geração automática para novos usuários
+- **Auditoria Completa**: Logs detalhados de todas as ações do sistema
 
-- **Controle de Acesso**
-  - Registro de entrada e saída de servidores
-  - Controle de plantões e turnos
-  - Histórico completo de acessos
+### 📝 **Controle de Acesso de Servidores**
+- **Registro de Entrada/Saída**: Interface intuitiva para controle de acesso
+- **Gestão de Plantões**: Organização por turnos (ALFA, BRAVO, CHARLIE, DELTA)
+- **Tipos de Funcionário**: Categorização (Plantonista, Expediente, Visitante, Terceirizado)
+- **Controle de Veículos**: Validação automática de placas no formato Mercosul
+- **Saídas Definitivas**: Processo específico para registros de egresso
+- **Edição de Registros**: Sistema completo de edição com justificativas obrigatórias
 
-- **Relatórios**
-  - Exportação de dados em Excel
-  - Relatórios personalizados em PDF
-  - Filtros avançados para busca
+### 📊 **Dashboard e Monitoramento**
+- **Painel em Tempo Real**: Visualização instantânea de entradas, saídas e pendências
+- **Cards Informativos**: Totalizadores com cores intuitivas
+- **Lista Dinâmica**: Registros ordenados por horário com ações rápidas
+- **Filtros Avançados**: Busca por plantão, tipo de funcionário e status
+- **Limpeza de Dashboard**: Função para reset do plantão atual
 
-- **Sistema de Auditoria**
-  - Log detalhado de ações dos usuários
-  - Rastreamento de alterações
-  - Histórico de operações
+### 📈 **Relatórios e Exportação**
+- **Exportação Excel**: Planilhas formatadas com dados completos
+- **Histórico Completo**: Consulta de todos os registros com filtros
+- **Relatórios por Plantão**: Dados específicos de cada turno
+- **Busca Avançada**: Filtros por data, servidor, plantão e status
+- **Dados Estruturados**: Informações organizadas para análise
 
-- **Modo Offline**
-  - Funcionamento sem conexão à internet
-  - Sincronização quando a conexão for restabelecida
-  - Armazenamento local de recursos
+### 🎓 **Ambiente de Treinamento**
+- **Dashboard Isolado**: Réplica fiel do sistema principal para práticas
+- **Tutoriais em Vídeo**: Biblioteca de vídeos explicativos organizados por categoria
+- **Dados de Teste**: Registros fictícios para simulações realísticas
+- **Reset de Dados**: Limpeza fácil para recomeçar treinamentos
+- **Funcionalidades Completas**: Todas as operações disponíveis para prática
+
+### 🔧 **Administração e Manutenção**
+- **Gestão de Servidores**: CRUD completo com validações
+- **Importação em Massa**: Upload de planilhas Excel para cadastro
+- **Backup Automático**: Rotinas diárias de backup dos dados
+- **Limpeza de Banco**: Ferramentas para manutenção dos dados
+- **Atualização Automática**: Git pull agendado para atualizações
+
+---
+
+## 🏗️ Arquitetura
+
+O sistema foi desenvolvido seguindo princípios de **arquitetura limpa** e boas práticas:
+
+```
+Sistema de Controle de Acesso PAMC/
+├── 🎯 Core Application (Django)
+│   ├── Models: Servidor, RegistroAcesso, LogAuditoria, PerfilUsuario
+│   ├── Views: Dashboard, Treinamento, Relatórios, Administração
+│   └── Templates: Interface responsiva com Bootstrap 5
+├── 🎓 Training Environment
+│   ├── Isolated Models: ServidorTreinamento, RegistroAcessoTreinamento
+│   ├── Video Tutorials: Sistema de tutoriais categorizados
+│   └── Separate Dashboard: Ambiente completamente isolado
+├── 🔐 Security Layer
+│   ├── Authentication: Sistema robusto de login/logout
+│   ├── Authorization: Middleware de controle de acesso
+│   └── Audit Trail: Logs completos de auditoria
+└── 🌐 Infrastructure
+    ├── Offline Support: Recursos locais para funcionamento sem internet
+    ├── Remote Access: Integração com Serveo para túneis
+    └── Auto-update: Scripts de atualização automática
+```
+
+---
 
 ## 🛠 Tecnologias
 
-- **Backend**
-  - Django 4.2+
-  - Python 3.9+
-  - SQLite (desenvolvimento) / PostgreSQL (produção opcional)
+### 💾 **Backend**
+- **Django 4.2+**: Framework web robusto e seguro
+- **Python 3.9+**: Linguagem de programação moderna
+- **SQLite**: Banco de dados embarcado para máxima portabilidade
+- **Django ORM**: Mapeamento objeto-relacional para consultas seguras
 
-- **Frontend**
-  - Bootstrap 5
-  - JavaScript
-  - jQuery
-  
-- **Ferramentas**
-  - Serveo (para acesso remoto)
-  - NSSM (para serviço Windows)
-  - Django ORM
-  - PowerShell (instalação e manutenção)
+### 🎨 **Frontend**
+- **Bootstrap 5**: Framework CSS moderno e responsivo
+- **JavaScript ES6+**: Interações dinâmicas e validações
+- **Bootstrap Icons**: Biblioteca completa de ícones
+- **CSS3 Custom**: Estilos personalizados para melhor UX
+
+### 📦 **Dependências Principais**
+```python
+Django>=4.2.0          # Framework web
+django-bootstrap5       # Integração Bootstrap
+pandas>=2.0.0          # Manipulação de dados
+reportlab>=4.0.4       # Geração de PDFs
+openpyxl>=3.1.0        # Manipulação de Excel
+python-dotenv>=1.0.0   # Gestão de variáveis de ambiente
+requests>=2.31.0       # Requisições HTTP
+```
+
+### 🔧 **Ferramentas de Desenvolvimento**
+- **UV**: Gerenciador moderno de dependências Python
+- **Git**: Controle de versão com atualizações automáticas
+- **Pytest**: Framework de testes com cobertura
+- **Black/Ruff**: Formatação e linting automático
+
+---
 
 ## 📦 Requisitos
 
-- Windows 10 ou superior
-- Pelo menos 1GB de espaço em disco
-- Mínimo de 2GB de RAM
-- Acesso de Administrador (para instalação)
+### 🖥️ **Sistema**
+- **Windows 10/11** ou **Linux** (Ubuntu 20.04+)
+- **2GB RAM** mínimo (4GB recomendado)
+- **1GB espaço livre** em disco
+- **Acesso Administrator** (apenas para instalação)
+
+### 🐍 **Python**
+- **Python 3.9+** com pip
+- **UV** (instalado automaticamente)
+- **Git** (para atualizações automáticas)
+
+---
 
 ## 💻 Instalação
 
-### Instalação Automática (Windows)
+### 🚀 **Instalação Automática (Windows)**
 
-O sistema possui um instalador PowerShell moderno e robusto para ambientes Windows:
-
-1. Abra o PowerShell como Administrador
-2. Execute o comando:
+1. **Abra o PowerShell como Administrador**
+2. **Execute o comando de instalação:**
 
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; ` [Net.ServicePointManager]::SecurityProtocol = ` [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; ` iex (iwr -UseBasicParsing ` https://raw.githubusercontent.com/A-Assuncao/controle-acesso-PAMC/main/install.ps1).Content
+Set-ExecutionPolicy Bypass -Scope Process -Force; `
+[Net.ServicePointManager]::SecurityProtocol = `
+[Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; `
+iex (iwr -UseBasicParsing `
+https://raw.githubusercontent.com/A-Assuncao/controle-acesso-PAMC/main/install.ps1).Content
 ```
 
-#### Vantagens do novo instalador PowerShell:
-- **Segurança aprimorada**: A senha do administrador é ocultada durante a digitação
-- **Logging detalhado**: Logs completos são salvos na pasta `install_logs` no mesmo diretório da instalação
-- **Tratamento de erros robusto**: Sistema de `try/catch` para cada etapa da instalação
-- **Diagnóstico simplificado**: Os arquivos de log contêm timestamps e níveis de severidade (INFO/WARN/ERROR)
-- **Recuperação automática**: Tenta resolver falhas comuns de instalação
+3. **Siga as instruções no terminal**
 
-O instalador irá:
-   - Instalar todas as dependências necessárias (Git, Python, NSSM, OpenSSH)
-   - Configurar o banco de dados
-   - Criar um usuário administrador
-   - Configurar o sistema como serviço do Windows
-   - Instalar recursos para funcionamento offline
-   - Criar atalhos e tarefas agendadas
+### ⚙️ **O que o instalador faz:**
+- ✅ Instala dependências (Python, Git, UV)
+- ✅ Configura ambiente virtual com UV
+- ✅ Instala o projeto em `%ProgramFiles%\ControleAcesso\`
+- ✅ Configura banco de dados SQLite
+- ✅ Cria usuário administrador
+- ✅ Instala recursos offline (Bootstrap, jQuery, etc.)
+- ✅ Configura serviço Windows para execução automática
+- ✅ Cria atalhos na área de trabalho
+- ✅ Agenda atualizações automáticas (18:00 diário)
+- ✅ Configura túnel Serveo para acesso remoto
 
-### Instalação Manual
+### 🛠️ **Instalação Manual (Desenvolvimento)**
 
-Para instalar manualmente em ambiente de desenvolvimento:
+```bash
+# Clone o repositório
+git clone https://github.com/A-Assuncao/controle-acesso-PAMC.git
+cd controle-acesso-PAMC
 
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/A-Assuncao/controle-acesso-PAMC.git
-   cd controle-acesso-PAMC
-   ```
+# Instale e configure UV
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-2. Crie e ative um ambiente virtual:
-   ```bash
-   # Windows
-   python -m venv venv
-   venv\Scripts\activate
+# Crie e ative ambiente virtual
+uv venv
+source .venv/bin/activate  # Linux/Mac
+# .venv\Scripts\activate   # Windows
 
-   # Linux/Mac
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
+# Instale dependências
+uv pip install -r requirements.txt
 
-3. Instale as dependências:
-   ```bash
-   pip install -r requirements.txt
-   ```
+# Configure banco de dados
+uv run python manage.py migrate
+uv run python manage.py collectstatic --noinput
 
-4. Configure as variáveis de ambiente:
-   - Crie um arquivo `.env` na raiz do projeto
-   - Adicione as configurações necessárias (veja a seção Configuração)
+# Crie superusuário
+uv run python manage.py createsuperuser
 
-5. Execute as migrações:
-   ```bash
-   python manage.py migrate
-   ```
+# Inicie o servidor
+uv run python manage.py runserver
+```
 
-6. Crie um superusuário:
-   ```bash
-   python manage.py createsuperuser
-   ```
-
-7. Inicie o servidor:
-   ```bash
-   python manage.py runserver
-   ```
+---
 
 ## ⚙️ Configuração
 
-O sistema utiliza variáveis de ambiente para configuração. Crie um arquivo `.env` na raiz do projeto com:
+### 🔐 **Variáveis de Ambiente**
 
-```
-DJANGO_SECRET_KEY=sua_chave_secreta
-DJANGO_DEBUG=True  # False em produção
-DATABASE_URL=sqlite:///db.sqlite3  # Ou PostgreSQL em produção
+Crie um arquivo `.env` na raiz do projeto:
+
+```env
+# Configurações do Django
+DJANGO_SECRET_KEY=sua_chave_secreta_super_segura
+DJANGO_DEBUG=False
+ALLOWED_HOSTS=localhost,127.0.0.1,seu_dominio.com
+
+# Banco de dados
+DATABASE_URL=sqlite:///db.sqlite3
+
+# Integração Discord (opcional)
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/seu_webhook
+
+# Configurações de segurança
+SESSION_COOKIE_AGE=7200
+SECURE_BROWSER_XSS_FILTER=True
 ```
 
-Para configurar o banco de dados PostgreSQL em produção, use:
+### 🗄️ **Configuração de Banco**
+
+Para **desenvolvimento** (padrão):
+```env
+DATABASE_URL=sqlite:///db.sqlite3
 ```
+
+Para **produção com PostgreSQL**:
+```env
 DATABASE_URL=postgresql://usuario:senha@host:porta/banco?sslmode=require
 ```
 
-## 📝 Uso
+---
 
-1. Acesse o sistema pelo navegador:
-   - Local: http://localhost:8000
-   - Produção: URL configurada ou IP do servidor
+## 📖 Guia de Uso
 
-2. Faça login com as credenciais de administrador
+### 🚪 **Primeiro Acesso**
 
-3. No painel principal:
-   - Gerencie usuários em "Usuários"
-   - Registre entradas e saídas em "Registro"
-   - Acesse relatórios na seção "Relatórios"
-   - Configure o sistema em "Configurações"
+1. **Acesse o sistema**: `http://localhost:8000`
+2. **Faça login** com as credenciais do administrador
+3. **Explore o Dashboard** principal
+4. **Configure usuários** em "Gestão de Usuários"
+5. **Importe servidores** via planilha Excel (opcional)
+
+### 📝 **Fluxo Principal de Trabalho**
+
+#### **1. Registro de Entrada**
+```
+Dashboard → Registrar Entrada → Buscar Servidor → Confirmar Dados → Salvar
+```
+
+#### **2. Registro de Saída**
+```
+Dashboard → Localizar Registro → Botão "Saída" → Confirmar → Finalizar
+```
+
+#### **3. Edição de Registros**
+```
+Dashboard → Registro → Editar → Inserir Justificativa → Salvar Alterações
+```
+
+#### **4. Relatórios**
+```
+Menu → Histórico → Aplicar Filtros → Exportar Excel/PDF
+```
+
+### 🎯 **Recursos Avançados**
+
+- **Busca Inteligente**: Digite nome, documento ou placa para busca automática
+- **Filtros Dinâmicos**: Combine múltiplos critérios para relatórios específicos
+- **Ações em Lote**: Selecione múltiplos registros para operações simultâneas
+- **Atalhos de Teclado**: Navegue rapidamente com teclas de atalho
+- **Auto-save**: Dados salvos automaticamente para evitar perdas
+
+---
+
+## 🎓 Ambiente de Treinamento
+
+O sistema inclui um **ambiente de treinamento completamente isolado** para capacitação de novos usuários.
+
+### 🌟 **Características**
+
+- **🔒 Isolamento Total**: Dados separados do sistema principal
+- **📚 Tutoriais Integrados**: Vídeos explicativos para cada funcionalidade
+- **🎯 Dados Realísticos**: Simulações próximas do ambiente real
+- **🔄 Reset Fácil**: Limpeza rápida para recomeçar treinamentos
+- **✅ Funcionalidades Completas**: Todas as operações disponíveis
+
+### 📺 **Tutoriais em Vídeo**
+
+Os tutoriais estão organizados por categoria:
+
+- **📥 Registro de Entrada**: Como registrar novos acessos
+- **📤 Registro de Saída**: Procedimentos de saída
+- **✏️ Edição de Registros**: Como editar e justificar alterações
+- **🗑️ Exclusão de Registros**: Processo seguro de exclusão
+- **📊 Gestão da Planilha**: Exportação e manipulação de dados
+- **⚙️ Funcionalidades Gerais**: Navegação e recursos do sistema
+
+### 🎯 **Como Usar o Treinamento**
+
+1. **Acesse**: Menu → Ambiente de Treinamento
+2. **Assista**: Tutoriais específicos para cada função
+3. **Pratique**: Use o dashboard de treinamento livremente
+4. **Reset**: Limpe os dados quando necessário
+5. **Repita**: Quantas vezes precisar até dominar
+
+---
+
+## 📊 Dashboard e Relatórios
+
+### 📈 **Dashboard Principal**
+
+O dashboard oferece visão completa e em tempo real:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🏠 Dashboard - Sistema de Controle de Acesso PAMC          │
+├─────────────────────────────────────────────────────────────┤
+│  📊 Cards de Status:                                        │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐           │
+│  │ 📥 Entradas │ │ 📤 Saídas   │ │ ⏳ Pendentes │           │
+│  │     125     │ │     118     │ │      7      │           │
+│  └─────────────┘ └─────────────┘ └─────────────┘           │
+│                                                              │
+│  🕒 Plantão Atual: ALFA | Hora: 14:30 | 👥 Operador: João  │
+│                                                              │
+│  📋 Lista de Registros Ativos:                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Nome           │ Entrada │ Status    │ Ações          │   │
+│  ├──────────────────────────────────────────────────────┤   │
+│  │ João Silva     │ 08:00   │ 🔴 Pendente│ [Saída][Edit] │   │
+│  │ Maria Santos   │ 08:15   │ ✅ Saiu    │ [View][Edit]  │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 📋 **Relatórios Disponíveis**
+
+#### **📊 Histórico Completo**
+- Todos os registros com filtros avançados
+- Exportação em Excel com formatação profissional
+- Busca por período, plantão, servidor ou status
+- Ordenação por múltiplos critérios
+
+#### **📈 Relatório de Plantão**
+- Dados específicos de cada turno
+- Estatísticas de entrada/saída
+- Identificação de pendências
+- Resumo executivo automático
+
+#### **🔍 Relatórios Personalizados**
+- Filtros combinados por múltiplos critérios
+- Exportação em diferentes formatos
+- Agendamento de relatórios automáticos
+- Compartilhamento via email/Discord
+
+---
+
+## 🔐 Segurança
+
+### 🛡️ **Camadas de Segurança**
+
+#### **🔑 Autenticação**
+- Sistema robusto de login/logout
+- Senhas com validação avançada (8+ caracteres, maiúscula, minúscula, número, especial)
+- Senhas temporárias para novos usuários
+- Controle de sessões com timeout automático
+
+#### **🚪 Autorização**
+- Middleware de controle de acesso
+- Níveis hierárquicos de permissão
+- Proteção de rotas sensíveis
+- Separação entre usuários comuns e administradores
+
+#### **📝 Auditoria**
+- Log completo de todas as ações
+- Rastreamento de alterações com justificativas
+- Histórico imutável de operações
+- Identificação de usuários responsáveis
+
+### 🔒 **Validações e Proteções**
+
+- **CSRF Protection**: Proteção contra ataques cross-site
+- **XSS Prevention**: Sanitização de entradas de usuário
+- **SQL Injection**: ORM Django para consultas seguras
+- **Rate Limiting**: Controle de tentativas de login
+- **Secure Headers**: Cabeçalhos de segurança configurados
+
+### 📊 **Monitoramento**
+
+- Logs detalhados em `%PROGRAMFILES%\ControleAcesso\logs\`
+- Alertas automáticos para ações críticas
+- Relatórios de segurança periódicos
+- Backup automático de logs de auditoria
+
+---
 
 ## 💾 Backup e Restauração
 
-### Backup Manual
-
-O banco de dados SQLite está localizado em `db.sqlite3`. Para realizar backup manualmente:
-
-1. Pare o serviço (se estiver em produção)
-2. Copie o arquivo `db.sqlite3` para local seguro
-3. Reinicie o serviço
-
-### Backup Automático
+### 🔄 **Backup Automático**
 
 O sistema realiza backups automáticos diários:
-- Os backups são armazenados em `%PROGRAMFILES%\ControleAcesso\backups\`
-- Formato: `backup_YYYY-MM-DD.json`
 
-### Restauração
+```powershell
+# Localização dos backups
+%PROGRAMFILES%\ControleAcesso\backups\
+
+# Formato dos arquivos
+backup_2024-01-15.json
+backup_2024-01-16.json
+backup_2024-01-17.json
+```
+
+### 💾 **Backup Manual**
+
+Para criar um backup manual:
+
+```bash
+# Via comando Django
+uv run python manage.py dumpdata --indent 2 > backup_manual.json
+
+# Via cópia direta do SQLite
+cp db.sqlite3 backup_db_$(date +%Y%m%d).sqlite3
+```
+
+### 🔄 **Restauração**
 
 Para restaurar um backup:
 
-```powershell
-cd "$env:ProgramFiles\ControleAcesso\app"
-& "$env:ProgramFiles\ControleAcesso\venv\Scripts\activate.ps1"
-python manage.py loaddata "$env:ProgramFiles\ControleAcesso\backups\backup_YYYY-MM-DD.json"
+```bash
+# Método 1: Via Django loaddata
+uv run python manage.py loaddata backup_2024-01-15.json
+
+# Método 2: Substituição direta do banco
+cp backup_db_20240115.sqlite3 db.sqlite3
 ```
 
-## 🌐 Ambiente de Produção
+### ☁️ **Backup em Nuvem**
 
-Para executar em produção:
+Configure backup automático para nuvem (opcional):
 
-1. Modifique as configurações em `.env`:
-   ```
-   DJANGO_DEBUG=False
-   ALLOWED_HOSTS=seu_dominio.com,localhost,127.0.0.1
-   ```
-
-2. Colete os arquivos estáticos:
-   ```
-   python manage.py collectstatic --noinput
-   ```
-
-3. Use o servidor web integrado (apenas para teste):
-   ```
-   python manage.py runserver 0.0.0.0:8000 --insecure
-   ```
-   
-4. Para produção real, use Nginx/Apache com Gunicorn/uWSGI
-
-## 🔌 Funcionamento Offline
-
-O sistema foi projetado para funcionar sem conexão à internet:
-
-- Recursos como Bootstrap, jQuery e ícones são armazenados localmente
-- O banco de dados SQLite funciona sem necessidade de servidor externo
-- Todas as funcionalidades principais estão disponíveis offline
-- O script de instalação configura automaticamente os recursos offline
-
-## 🔄 Atualização
-
-O sistema pode ser atualizado através do script de atualização PowerShell:
-
-```powershell
-& "$env:ProgramFiles\ControleAcesso\scripts\update.ps1"
+```env
+# No arquivo .env
+BACKUP_CLOUD_PROVIDER=aws_s3
+BACKUP_BUCKET=meu-bucket-backup
+AWS_ACCESS_KEY_ID=sua_chave
+AWS_SECRET_ACCESS_KEY=sua_chave_secreta
 ```
 
-Este script:
-- Realiza backup do banco de dados
-- Atualiza o código do repositório
-- Atualiza dependências
-- Aplica migrações
-- Reinicia os serviços
+---
 
-## ⚠️ Informações Importantes
+## 🌐 Acesso Remoto
 
-- **Segurança**: Mantenha o acesso ao sistema restrito apenas a usuários autorizados
-- **Backups**: Realize backups regulares para evitar perda de dados
-- **Atualizações**: Verifique regularmente por atualizações de segurança
-- **Logs**: Os logs do sistema são armazenados em `%PROGRAMFILES%\ControleAcesso\logs\`
-- **Diagnóstico**: Logs de instalação são armazenados em `install_logs\` no diretório onde o instalador foi executado
+### 🚇 **Túnel Serveo**
+
+O sistema inclui integração com Serveo para acesso remoto seguro:
+
+#### **🔧 Configuração Automática**
+- Script Python para estabelecer túnel
+- Reconexão automática em caso de queda
+- Envio automático de URL via Discord webhook
+- Logs detalhados de conexão
+
+#### **🔗 Como Funciona**
+```bash
+# O script automaticamente:
+1. Inicia servidor Django local (localhost:8000)
+2. Estabelece túnel SSH com Serveo
+3. Obtém URL público (ex: https://abcd1234.serveo.net)
+4. Envia URL para Discord/Telegram
+5. Monitora conexão e reconecta se necessário
+```
+
+#### **📱 Uso Prático**
+1. Execute o atalho "Controle de Acesso" na área de trabalho
+2. Aguarde a URL ser enviada no Discord
+3. Acesse de qualquer lugar com a URL recebida
+4. Login funciona normalmente
+
+### 🔐 **Segurança do Acesso Remoto**
+
+- **HTTPS Forçado**: Apenas conexões criptografadas
+- **Autenticação Obrigatória**: Login necessário para qualquer acesso
+- **Session Security**: Cookies seguros e timeout automático
+- **Rate Limiting**: Proteção contra ataques de força bruta
+
+---
+
+## 🔧 Desenvolvimento
+
+### 🛠️ **Configuração do Ambiente de Desenvolvimento**
+
+```bash
+# 1. Clone e configure
+git clone https://github.com/A-Assuncao/controle-acesso-PAMC.git
+cd controle-acesso-PAMC
+
+# 2. Configure UV (gerenciador moderno)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv
+
+# 3. Ative ambiente virtual
+source .venv/bin/activate  # Linux/Mac
+.venv\Scripts\activate     # Windows
+
+# 4. Instale dependências de desenvolvimento
+uv pip install -r requirements.txt
+uv pip install pytest pytest-django black ruff mypy
+
+# 5. Configure banco de desenvolvimento
+uv run python manage.py migrate
+uv run python manage.py loaddata fixtures/dev_data.json
+uv run python manage.py createsuperuser
+
+# 6. Execute testes
+uv run pytest
+
+# 7. Inicie servidor de desenvolvimento
+uv run python manage.py runserver
+```
+
+### 📋 **Comandos Úteis**
+
+```bash
+# Testes com cobertura
+uv run pytest --cov=core --cov-report=html
+
+# Formatação de código
+uv run black .
+uv run ruff check .
+
+# Verificação de tipos
+uv run mypy core/
+
+# Migrações
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+
+# Coleta de arquivos estáticos
+uv run python manage.py collectstatic
+```
+
+### 🏗️ **Estrutura do Projeto**
+
+```
+controle-acesso-PAMC/
+├── 📁 core/                    # Aplicação principal
+│   ├── 📁 models/             # Modelos de dados
+│   ├── 📁 views/              # Lógica de negócio
+│   ├── 📁 templates/          # Templates HTML
+│   ├── 📁 static/             # Arquivos estáticos
+│   ├── 📁 tests/              # Testes automatizados
+│   └── 📁 management/         # Comandos personalizados
+├── 📁 scripts/                # Scripts de automação
+├── 📁 static/                 # Recursos estáticos globais
+├── 📁 staticfiles/           # Arquivos coletados (produção)
+└── 📄 requirements.txt       # Dependências Python
+```
+
+### 🧪 **Testes**
+
+O projeto inclui cobertura abrangente de testes:
+
+```bash
+# Executar todos os testes
+uv run pytest
+
+# Testes com cobertura detalhada
+uv run pytest --cov=core --cov-report=term-missing
+
+# Testes específicos
+uv run pytest core/tests/test_models.py
+uv run pytest core/tests/test_views.py::TestDashboard
+```
+
+---
+
+## 📚 Documentação Técnica
+
+### 🗄️ **Modelos de Dados**
+
+#### **👤 Servidor**
+```python
+class Servidor(models.Model):
+    nome = CharField(max_length=100)
+    numero_documento = CharField(max_length=20)
+    tipo_funcionario = CharField(choices=TIPO_FUNCIONARIO_CHOICES)
+    plantao = CharField(choices=PLANTAO_CHOICES)
+    setor = CharField(max_length=100)
+    veiculo = CharField(validators=[PlacaValidator])
+    ativo = BooleanField(default=True)
+```
+
+#### **📝 RegistroAcesso**
+```python
+class RegistroAcesso(models.Model):
+    servidor = ForeignKey(Servidor)
+    operador = ForeignKey(User)
+    tipo_acesso = CharField(choices=['ENTRADA', 'SAIDA'])
+    data_hora = DateTimeField()
+    data_hora_saida = DateTimeField(null=True)
+    saida_pendente = BooleanField(default=True)
+    observacao = TextField(null=True)
+    # ... campos de auditoria
+```
+
+### 🔌 **APIs Internas**
+
+#### **📊 Dashboard API**
+```python
+# Endpoint: /dashboard/
+# Retorna: Dashboard com estatísticas em tempo real
+{
+    "total_entradas": 125,
+    "total_saidas": 118,
+    "pendentes": 7,
+    "plantao_atual": "ALFA",
+    "registros_ativos": [...]
+}
+```
+
+#### **🔍 Busca de Servidores**
+```python
+# Endpoint: /buscar-servidor/
+# Parâmetros: q (query string)
+# Retorna: Lista de servidores correspondentes
+[
+    {
+        "id": 1,
+        "nome": "João Silva",
+        "documento": "12345678900",
+        "plantao": "ALFA"
+    }
+]
+```
+
+### 🔧 **Middleware Personalizado**
+
+#### **🔐 TrocaSenhaMiddleware**
+- Força troca de senha para usuários com senhas temporárias
+- Redireciona automaticamente para página de troca
+- Permite acesso apenas a rotas essenciais
+
+#### **📝 AuditoriaMiddleware**
+- Registra automaticamente todas as ações dos usuários
+- Captura IPs, user agents e timestamps
+- Armazena em LogAuditoria para rastreabilidade
+
+---
+
+## 🐛 Troubleshooting
+
+### ❗ **Problemas Comuns**
+
+#### **🚫 Erro: "Python não encontrado"**
+```bash
+# Solução: Instalar Python 3.9+
+# Windows: https://python.org/downloads/
+# Linux: sudo apt install python3.9 python3.9-venv
+```
+
+#### **🔐 Erro: "Permissão negada" (Windows)**
+```powershell
+# Solução: Executar como Administrador
+# Botão direito → "Executar como administrador"
+```
+
+#### **🌐 Erro: "Serveo não conecta"**
+```bash
+# Soluções:
+1. Verificar conexão com internet
+2. Tentar porta diferente
+3. Reiniciar o script start_serveo.py
+4. Verificar logs em %PROGRAMFILES%\ControleAcesso\logs\
+```
+
+#### **💾 Erro: "Banco de dados bloqueado"**
+```bash
+# Soluções:
+1. Fechar todas as instâncias do sistema
+2. Reiniciar o computador
+3. Verificar processo Django em execução:
+   tasklist | findstr python
+   taskkill /PID [número_do_processo]
+```
+
+### 📋 **Logs de Diagnóstico**
+
+#### **📍 Localizações dos Logs**
+```
+Windows:
+%PROGRAMFILES%\ControleAcesso\logs\
+├── django.log          # Logs da aplicação
+├── serveo.log          # Logs do túnel
+├── update.log          # Logs de atualização
+└── install.log         # Logs de instalação
+
+Desenvolvimento:
+./logs/
+├── debug.log           # Logs de debug
+└── test.log           # Logs dos testes
+```
+
+#### **📊 Verificação de Status**
+
+```bash
+# Verificar se o Django está rodando
+curl http://localhost:8000/
+
+# Verificar túnel Serveo
+curl -I https://sua-url.serveo.net/
+
+# Verificar logs em tempo real
+tail -f %PROGRAMFILES%\ControleAcesso\logs\django.log
+```
+
+### 🔄 **Procedimentos de Recuperação**
+
+#### **🔧 Reset Completo**
+```bash
+# 1. Parar todos os serviços
+taskkill /IM python.exe /F
+
+# 2. Backup do banco atual
+copy db.sqlite3 db_backup.sqlite3
+
+# 3. Reset da aplicação
+uv run python manage.py migrate --fake-initial
+uv run python manage.py createsuperuser
+
+# 4. Reiniciar sistema
+python scripts/start_serveo.py
+```
+
+### 📞 **Suporte**
+
+Para problemas não resolvidos:
+
+1. **📖 Consulte a documentação**: README e código fonte
+2. **🔍 Verifique os logs**: Sempre olhar os arquivos de log primeiro
+3. **🧪 Teste em ambiente isolado**: Use o ambiente de treinamento
+4. **📧 Contate o desenvolvedor**: Com logs e descrição detalhada
+
+---
 
 ## 📄 Licença
 
-Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
+Este projeto está licenciado sob a **Licença MIT** - veja o arquivo [LICENSE](LICENSE) para detalhes completos.
+
+### 📋 **Resumo da Licença**
+
+```
+✅ Uso comercial      ✅ Modificação       ✅ Distribuição
+✅ Uso privado        ✅ Sublicenciamento  
+❌ Responsabilidade   ❌ Garantia
+```
+
+### 🤝 **Contribuições**
+
+Contribuições são bem-vindas! Por favor:
+
+1. **🍴 Fork** o projeto
+2. **🌿 Crie** uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. **📝 Commit** suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. **🚀 Push** para a branch (`git push origin feature/AmazingFeature`)
+5. **🔀 Abra** um Pull Request
 
 ---
 
 <div align="center">
-  <p>Desenvolvido por <a href="https://github.com/A-Assuncao">A-Assuncao</a></p>
-  <p>© 2023-2024 Sistema de Controle de Acesso PAMC. Todos os direitos reservados.</p>
+
+### 💫 **Desenvolvido com ❤️ por [A-Assuncao](https://github.com/A-Assuncao)**
+
+<p>
+  <a href="https://github.com/A-Assuncao/controle-acesso-PAMC">
+    <img src="https://img.shields.io/github/stars/A-Assuncao/controle-acesso-PAMC?style=social" alt="GitHub Stars">
+  </a>
+  <a href="https://github.com/A-Assuncao/controle-acesso-PAMC/network/members">
+    <img src="https://img.shields.io/github/forks/A-Assuncao/controle-acesso-PAMC?style=social" alt="GitHub Forks">
+  </a>
+</p>
+
+**© 2023-2024 Sistema de Controle de Acesso PAMC. Todos os direitos reservados.**
+
+---
+
+<sub>Este sistema foi desenvolvido especificamente para ambientes penitenciários, priorizando segurança, confiabilidade e facilidade de uso. Para suporte ou dúvidas, consulte a documentação ou entre em contato com o desenvolvedor.</sub>
+
 </div> 
