@@ -31,11 +31,7 @@ DEBUG = False
 SERVE_STATIC_FILES = True
 
 ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    '192.168.0.139',
-    '192.168.0.139:8000',
-    '.serveo.net',  # Permite todos os subdomínios do serveo.net
+    '*'
 ]
 
 # Application definition
@@ -136,10 +132,6 @@ X_FRAME_OPTIONS = 'DENY'
 # Configurações de cookie em desenvolvimento
 SESSION_COOKIE_SECURE = False  # Permite cookies em HTTP para desenvolvimento
 CSRF_COOKIE_SECURE = False    # Permite CSRF em HTTP para desenvolvimento
-
-# Em produção, descomente estas linhas:
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
 
 # Media files
 MEDIA_URL = 'media/'
