@@ -23,6 +23,7 @@
 - [🛠 Tecnologias](#-tecnologias)
 - [📦 Requisitos](#-requisitos)
 - [💻 Instalação](#-instalação)
+- [🚀 Tutorial: IIS + Localhost.run](#-tutorial-iis--localhostrun)
 - [⚙️ Configuração](#-configuração)
 - [📖 Guia de Uso](#-guia-de-uso)
 - [🎓 Ambiente de Treinamento](#-ambiente-de-treinamento)
@@ -230,6 +231,46 @@ uv run python manage.py createsuperuser
 # Inicie o servidor
 uv run python manage.py runserver
 ```
+
+---
+
+## 🚀 Tutorial: IIS + Localhost.run
+
+Para uma configuração completa do sistema usando **Internet Information Services (IIS)** do Windows e acesso externo via **localhost.run**, consulte nosso tutorial detalhado:
+
+### 📖 **[📋 Tutorial Completo: IIS + Localhost.run](TUTORIAL_IIS_LOCALHOST_RUN.md)**
+
+Este tutorial abrange:
+
+- ✅ **Instalação do Python** e configuração do ambiente
+- ✅ **Configuração do IIS** com todos os componentes necessários
+- ✅ **Instalação do HttpPlatformHandler** para Django
+- ✅ **Configuração do site** no Gerenciador do IIS
+- ✅ **Execução do Django** localmente via IIS
+- ✅ **Acesso via rede local** (IP da máquina)
+- ✅ **Configuração do localhost.run** para acesso externo
+- ✅ **Troubleshooting** e soluções para problemas comuns
+
+### 🎯 **Resumo Rápido**
+
+```bash
+# 1. Instalar Python e Git
+# 2. Ativar IIS com componentes necessários
+# 3. Instalar HttpPlatformHandler
+# 4. Clonar repositório em C:\inetpub\wwwroot\
+# 5. Configurar site no IIS
+# 6. Configurar ambiente Python
+# 7. Executar Django via IIS
+# 8. Configurar localhost.run (opcional)
+```
+
+### 🔗 **Acesso Resultante**
+
+- **Local**: `http://localhost` ou `http://127.0.0.1`
+- **Rede**: `http://192.168.0.10` (IP da máquina)
+- **Externo**: `https://gray-cloud.localhost.run` (via túnel)
+
+**📚 [Clique aqui para acessar o tutorial completo](TUTORIAL_IIS_LOCALHOST_RUN.md)**
 
 ---
 
@@ -712,117 +753,3 @@ class RegistroAcesso(models.Model):
 3. Reiniciar o script start_serveo.py
 4. Verificar logs em %PROGRAMFILES%\ControleAcesso\logs\
 ```
-
-#### **💾 Erro: "Banco de dados bloqueado"**
-```bash
-# Soluções:
-1. Fechar todas as instâncias do sistema
-2. Reiniciar o computador
-3. Verificar processo Django em execução:
-   tasklist | findstr python
-   taskkill /PID [número_do_processo]
-```
-
-### 📋 **Logs de Diagnóstico**
-
-#### **📍 Localizações dos Logs**
-```
-Windows:
-%PROGRAMFILES%\ControleAcesso\logs\
-├── django.log          # Logs da aplicação
-├── serveo.log          # Logs do túnel
-├── update.log          # Logs de atualização
-└── install.log         # Logs de instalação
-
-Desenvolvimento:
-./logs/
-├── debug.log           # Logs de debug
-└── test.log           # Logs dos testes
-```
-
-#### **📊 Verificação de Status**
-
-```bash
-# Verificar se o Django está rodando
-curl http://localhost:8000/
-
-# Verificar túnel Serveo
-curl -I https://sua-url.serveo.net/
-
-# Verificar logs em tempo real
-tail -f %PROGRAMFILES%\ControleAcesso\logs\django.log
-```
-
-### 🔄 **Procedimentos de Recuperação**
-
-#### **🔧 Reset Completo**
-```bash
-# 1. Parar todos os serviços
-taskkill /IM python.exe /F
-
-# 2. Backup do banco atual
-copy db.sqlite3 db_backup.sqlite3
-
-# 3. Reset da aplicação
-uv run python manage.py migrate --fake-initial
-uv run python manage.py createsuperuser
-
-# 4. Reiniciar sistema
-python scripts/start_serveo.py
-```
-
-### 📞 **Suporte**
-
-Para problemas não resolvidos:
-
-1. **📖 Consulte a documentação**: README e código fonte
-2. **🔍 Verifique os logs**: Sempre olhar os arquivos de log primeiro
-3. **🧪 Teste em ambiente isolado**: Use o ambiente de treinamento
-4. **📧 Contate o desenvolvedor**: Com logs e descrição detalhada
-
----
-
-## 📄 Licença
-
-Este projeto está licenciado sob a **Licença MIT** - veja o arquivo [LICENSE](LICENSE) para detalhes completos.
-
-### 📋 **Resumo da Licença**
-
-```
-✅ Uso comercial      ✅ Modificação       ✅ Distribuição
-✅ Uso privado        ✅ Sublicenciamento  
-❌ Responsabilidade   ❌ Garantia
-```
-
-### 🤝 **Contribuições**
-
-Contribuições são bem-vindas! Por favor:
-
-1. **🍴 Fork** o projeto
-2. **🌿 Crie** uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. **📝 Commit** suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. **🚀 Push** para a branch (`git push origin feature/AmazingFeature`)
-5. **🔀 Abra** um Pull Request
-
----
-
-<div align="center">
-
-### 💫 **Desenvolvido com ❤️ por [A-Assuncao](https://github.com/A-Assuncao)**
-
-<p>
-  <a href="https://github.com/A-Assuncao/controle-acesso-PAMC">
-    <img src="https://img.shields.io/github/stars/A-Assuncao/controle-acesso-PAMC?style=social" alt="GitHub Stars">
-  </a>
-  <a href="https://github.com/A-Assuncao/controle-acesso-PAMC/network/members">
-    <img src="https://img.shields.io/github/forks/A-Assuncao/controle-acesso-PAMC?style=social" alt="GitHub Forks">
-  </a>
-</p>
-
-**© 2023-2024 Sistema de Controle de Acesso PAMC. Todos os direitos reservados.**
-
----
-
-<sub>Este sistema foi desenvolvido especificamente para ambientes penitenciários, priorizando segurança, confiabilidade e facilidade de uso. Para suporte ou dúvidas, consulte a documentação ou entre em contato com o desenvolvedor.</sub>
-
-</div> 
