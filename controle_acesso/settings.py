@@ -53,7 +53,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'core.middleware.TrocaSenhaMiddleware',  # Middleware para forçar troca de senha
+    'core.middleware.TrocaSenhaMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'controle_acesso.urls'
@@ -139,3 +140,5 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Configurações para proxies
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
