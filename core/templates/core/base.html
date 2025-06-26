@@ -110,7 +110,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     {% if user.is_authenticated %}
-                    {% if user.perfil and user.perfil.pode_gerenciar_servidores or not user.perfil %}
+                    {% if not user.perfil or user.perfil.pode_gerenciar_servidores %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'servidor_list' %}">
                             <i class="bi bi-people"></i> Servidores
