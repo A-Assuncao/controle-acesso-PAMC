@@ -949,53 +949,7 @@ def verificar_entrada(request, servidor_id):
 def is_superuser(user):
     return user.is_superuser
 
-@login_required
-@user_passes_test(is_superuser)
-def limpar_historico(request):
-    # Verifica se o usuário tem permissão de superuser
-    if not request.user.is_superuser:
-        messages.error(request, 'Apenas superusuários podem limpar o histórico.')
-        return redirect('home')
-        
-    if request.method == 'POST':
-        try:
-            senha = request.POST.get('senha')
-            data_inicio = request.POST.get('data_inicio')
-            data_fim = request.POST.get('data_fim')
-            
-            # Verifica se a senha está correta
-            if not request.user.check_password(senha):
-                messages.error(request, 'Senha incorreta!')
-                return redirect('historico')
-            
-            # Verifica se as datas foram fornecidas
-            if not data_inicio or not data_fim:
-                messages.error(request, 'É necessário informar o período para limpeza do histórico!')
-                return redirect('historico')
-            
-            # Registra a ação no log de auditoria
-            LogAuditoria.objects.create(
-                usuario=request.user,
-                tipo_acao='EXCLUSAO',
-                modelo='RegistroAcesso',
-                objeto_id=None,
-                detalhes=f'Limpeza do histórico de registros entre {data_inicio} e {data_fim}'
-            )
-            
-            # Exclui os registros do período selecionado
-            RegistroAcesso.objects.filter(
-                data_hora__date__gte=data_inicio,
-                data_hora__date__lte=data_fim
-            ).delete()
-            
-            messages.success(request, 'Histórico limpo com sucesso!')
-            return redirect('historico')
-            
-        except Exception as e:
-            messages.error(request, f'Erro ao limpar histórico: {str(e)}')
-            return redirect('historico')
-    
-    return redirect('historico')
+
 
 @login_required
 @admin_required

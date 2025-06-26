@@ -89,18 +89,7 @@ def calcular_plantao_atual(data_hora: datetime = None) -> Dict[str, Any]:
         'fim': fim_plantao
     }
 
-def verificar_plantao_pessoa(plantao_pessoa: str) -> bool:
-    """
-    Verifica se o plantão da pessoa corresponde ao plantão atual.
-    
-    Args:
-        plantao_pessoa: Nome do plantão da pessoa (ALFA, BRAVO, CHARLIE ou DELTA)
-        
-    Returns:
-        bool: True se o plantão da pessoa é o atual, False caso contrário
-    """
-    plantao_atual = calcular_plantao_atual()
-    return plantao_pessoa == plantao_atual['nome']
+
 
 def verificar_plantao_servidor(servidor):
     """
