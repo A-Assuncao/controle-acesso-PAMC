@@ -1,0 +1,55 @@
+<!-- Busca e Registro -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card {% if ambiente_treinamento %}border-warning{% endif %}">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <h5 class="card-title mb-0">Buscar Servidor</h5>
+                    {% if ambiente_treinamento %}
+                    <span class="badge bg-warning text-dark ms-2">Treinamento</span>
+                    {% endif %}
+                </div>
+                <div class="input-group">
+                    <input type="text" id="busca-servidor" class="form-control" 
+                           placeholder="Digite o nome ou documento do servidor"
+                           autocomplete="off"
+                           oninput="buscarServidor(this.value, '{{ url_busca }}')">
+                    <button class="btn btn-primary" type="button" onclick="buscarServidor(document.getElementById('busca-servidor').value, '{{ url_busca }}')">
+                        <i class="bi bi-search"></i> Buscar
+                    </button>
+                </div>
+                <div id="resultados-busca" class="list-group mt-2 shadow-sm" style="display: none; position: absolute; z-index: 1000; width: 95%;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card {% if ambiente_treinamento %}border-warning{% endif %}">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <h5 class="card-title mb-0">Registrar Acesso</h5>
+                    <span class="badge {% if ambiente_treinamento %}bg-warning text-dark{% else %}bg-primary{% endif %} ms-2">{{ tipo_usuario }}</span>
+                </div>
+                
+                {% if pode_registrar_acesso %}
+                <button type="button" class="btn btn-success w-100 mb-2" onclick="abrirModalRegistro()">
+                    <i class="bi bi-box-arrow-in-right"></i> Registrar Acesso
+                </button>
+                {% else %}
+                <button type="button" class="btn btn-secondary w-100 mb-2" disabled>
+                    <i class="bi bi-eye"></i> Apenas Visualização
+                </button>
+                {% endif %}
+                
+                {% if pode_saida_definitiva %}
+                <button type="button" class="btn btn-outline-dark w-100" onclick="abrirModalSaidaDefinitiva()">
+                    <i class="bi bi-box-arrow-right"></i> Saída definitiva de interno
+                </button>
+                {% else %}
+                <button type="button" class="btn btn-outline-secondary w-100" disabled>
+                    <i class="bi bi-box-arrow-right"></i> Saída definitiva (Sem permissão)
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div> 

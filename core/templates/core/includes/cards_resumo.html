@@ -1,0 +1,47 @@
+<!-- Cards de resumo -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary bg-opacity-75 text-white">
+            <div class="card-body">
+                <h5 class="card-title">Plantão Atual</h5>
+                <h2 class="card-text">{{ plantao_atual.nome }}</h2>
+                {% if ambiente_treinamento %}
+                <small class="text-white-50">[TREINAMENTO]</small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success bg-opacity-75 text-white">
+            <div class="card-body">
+                <h5 class="card-title">Entradas</h5>
+                <h2 class="card-text" id="total-entradas">{{ total_entradas }}</h2>
+                {% if ambiente_treinamento %}
+                <small class="text-white-50">[TREINAMENTO]</small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger bg-opacity-75 text-white">
+            <div class="card-body">
+                <h5 class="card-title">Saídas</h5>
+                <h2 class="card-text" id="total-saidas">{{ total_saidas }}</h2>
+                {% if ambiente_treinamento %}
+                <small class="text-white-50">[TREINAMENTO]</small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning bg-opacity-75 text-white">
+            <div class="card-body">
+                <h5 class="card-title">Saídas Pendentes</h5>
+                <h2 class="card-text" id="total-pendentes">{{ total_pendentes }}</h2>
+                {% if ambiente_treinamento %}
+                <small class="text-white-50">[TREINAMENTO]</small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div> 

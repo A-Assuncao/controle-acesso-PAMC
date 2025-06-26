@@ -18,12 +18,12 @@
 ## 📋 Índice
 
 - [🔍 Visão Geral](#-visão-geral)
+- [🚀 Tutorial: IIS + Localhost.run](#-tutorial-iis--localhostrun)
 - [✨ Funcionalidades](#-funcionalidades)
 - [🏗️ Arquitetura](#-arquitetura)
 - [🛠 Tecnologias](#-tecnologias)
 - [📦 Requisitos](#-requisitos)
 - [💻 Instalação](#-instalação)
-- [🚀 Tutorial: IIS + Localhost.run](#-tutorial-iis--localhostrun)
 - [⚙️ Configuração](#-configuração)
 - [📖 Guia de Uso](#-guia-de-uso)
 - [🎓 Ambiente de Treinamento](#-ambiente-de-treinamento)
@@ -35,6 +35,7 @@
 - [🌐 Acesso Remoto](#-acesso-remoto)
 - [🔧 Desenvolvimento](#-desenvolvimento)
 - [📚 Documentação Técnica](#-documentação-técnica)
+
 - [🐛 Troubleshooting](#-troubleshooting)
 - [📄 Licença](#-licença)
 
@@ -53,6 +54,24 @@ O **Sistema de Controle de Acesso** é uma aplicação web robusta desenvolvida 
 - **📊 Relatórios Inteligentes**: Exportação em Excel/PDF e filtros avançados
 - **🌐 Acesso Remoto**: Integração com tunneling para acesso externo seguro
 - **🔍 Sistema de Debug**: Logging avançado com captura de erros detalhada
+
+---
+
+## 🚀 Tutorial: IIS + Localhost.run
+
+### 📝 **Configuração Completa para Produção**
+
+Para uma configuração detalhada do sistema em ambiente Windows com IIS e exposição via localhost.run, consulte nosso tutorial completo:
+
+📖 **[Tutorial Completo IIS + Localhost.run](docs/TUTORIAL_IIS_LOCALHOST_RUN.md)**
+
+Este tutorial aborda:
+- 🔧 Instalação e configuração do IIS
+- 🌐 Configuração do localhost.run para exposição externa
+- ⚙️ Configuração do Django para produção
+- 🔒 Configurações de segurança
+- 🚀 Deploy automatizado
+- 🐛 Troubleshooting comum
 
 ---
 
@@ -114,33 +133,90 @@ O **Sistema de Controle de Acesso** é uma aplicação web robusta desenvolvida 
 
 ## 🏗️ Arquitetura
 
-O sistema foi desenvolvido seguindo princípios de **arquitetura limpa** e boas práticas:
+O sistema segue princípios de **Clean Architecture**, **SOLID** e **modularização**:
+
+### 🎯 **Arquitetura Modular Completa**
 
 ```
-Sistema de Controle de Acesso/
-├── 🎯 Core Application (Django)
-│   ├── Models: Servidor, RegistroAcesso, PerfilUsuario, LogAuditoria
-│   ├── Views: Dashboard, Treinamento, Relatórios, Gestão de Usuários
-│   ├── Middleware: TrocaSenha, ErrorLogging, Security
-│   └── Templates: Interface responsiva com Bootstrap 5 + SweetAlert2
-├── 🎓 Training Environment
-│   ├── Isolated Models: ServidorTreinamento, RegistroAcessoTreinamento
-│   ├── Video Tutorials: Sistema de tutoriais categorizados
-│   └── Separate Dashboard: Ambiente completamente isolado
-├── 🔐 Security & Audit Layer
-│   ├── User Profiles: Sistema hierárquico de permissões
-│   ├── Security Alerts: Avisos contextuais para administradores
-│   ├── Advanced Logging: Captura detalhada de erros e ações
-│   └── Audit Trail: Logs imutáveis de auditoria
-├── 🐛 Debug & Monitoring
-│   ├── Error Pages: Páginas 500 personalizadas com traceback
-│   ├── Logging System: Arquivos de log estruturados
-│   └── Debug Tools: Ferramentas para troubleshooting
-└── 🌐 Infrastructure
-    ├── Offline Support: Recursos locais para funcionamento sem internet
-    ├── Remote Access: Integração com tunneling para acesso externo
-    ├── Auto-update: Scripts de atualização automática
-    └── Backup System: Rotinas automáticas de backup
+core/
+├── 📁 views/                    # ARQUITETURA MODULAR
+│   ├── __init__.py             # Hub central de compatibilidade
+│   ├── base_views.py           # 🏠 Views básicas (welcome, home)
+│   ├── servidor_views.py       # 👥 CRUD completo de servidores
+│   ├── registro_views.py       # 📝 Sistema de registros de produção
+│   ├── user_views.py          # 🔐 Gerenciamento de usuários
+│   ├── relatorio_views.py     # 📊 Histórico e relatórios
+│   └── treinamento_views.py   # 🎓 Ambiente de treinamento
+├── 📁 models.py                 # Modelos de dados organizados
+├── 📁 utils.py                  # Funções auxiliares centralizadas
+├── 📁 decorators.py            # Decoradores de permissão
+├── 📁 middleware.py            # Middleware de segurança
+├── 📁 forms.py                 # Formulários Django
+└── 📁 templates/               # Templates responsivos
+```
+
+### 🏗️ **Princípios Aplicados**
+
+#### ✅ **SOLID Principles**
+- **S** - Single Responsibility: Cada módulo tem responsabilidade única
+- **O** - Open/Closed: Extensível sem modificar código existente  
+- **L** - Liskov Substitution: Módulos intercambiáveis
+- **I** - Interface Segregation: Interfaces específicas por módulo
+- **D** - Dependency Inversion: Dependências abstraídas
+
+#### 🧩 **Clean Architecture**
+- **Separação de Responsabilidades**: Views organizadas por domínio
+- **Independência de Frameworks**: Lógica de negócio isolada
+- **Testabilidade**: Módulos independentes facilitam testes
+- **Manutenibilidade**: Código fácil de entender e modificar
+
+### 📊 **Estrutura de Views (44 views organizadas)**
+
+| Módulo | Views | Responsabilidade |
+|--------|-------|------------------|
+| `base_views.py` | 2 | Interface básica (welcome, home) |
+| `servidor_views.py` | 9 | CRUD servidores + importação |
+| `registro_views.py` | 12 | Sistema registros produção |
+| `user_views.py` | 6 | Gestão usuários e perfis |
+| `relatorio_views.py` | 1 | Histórico e relatórios |
+| `treinamento_views.py` | 14 | Ambiente treinamento + auxiliares |
+
+### 🔄 **Benefícios da Arquitetura**
+
+- **🔧 Manutenibilidade**: Código organizado e fácil de entender
+- **📈 Escalabilidade**: Fácil adicionar novas funcionalidades  
+- **🧪 Testabilidade**: Módulos independentes para testes unitários
+- **👥 Colaboração**: Equipes podem trabalhar em paralelo
+- **🔍 Debugabilidade**: Erros mais fáceis de localizar e corrigir
+- **📚 Legibilidade**: Estrutura clara e bem documentada
+
+### 🌐 **Camadas do Sistema**
+
+```
+🎯 Presentation Layer (Templates + Static)
+├── Bootstrap 5 + SweetAlert2 + JavaScript ES6+
+├── Templates responsivos e acessíveis
+└── Interface moderna e intuitiva
+
+🧠 Business Logic Layer (Views Modulares)
+├── base_views: Funcionalidades básicas
+├── servidor_views: Lógica de servidores  
+├── registro_views: Controle de acesso
+├── user_views: Gestão de usuários
+├── relatorio_views: Relatórios e histórico
+└── treinamento_views: Ambiente isolado
+
+🔧 Service Layer (Utils + Decorators)
+├── Funções auxiliares centralizadas
+├── Decoradores de permissão
+├── Middleware de segurança
+└── Validadores customizados
+
+💾 Data Layer (Models + Database)
+├── Models Django bem estruturados
+├── SQLite para portabilidade máxima
+├── Migrações versionadas
+└── Auditoria completa
 ```
 
 ---
@@ -246,25 +322,6 @@ uv run python manage.py runserver
 - ✅ Sistema de logging configurado
 - ✅ Middleware de segurança ativo
 - ✅ Páginas de erro personalizadas
-
----
-
-## 🚀 Tutorial: IIS + Localhost.run
-
-Para uma configuração completa do sistema usando **Internet Information Services (IIS)** do Windows e acesso externo, consulte nosso tutorial detalhado:
-
-### 📖 **[📋 Tutorial Completo: IIS + Localhost.run](docs/TUTORIAL_IIS_LOCALHOST_RUN.md)**
-
-Este tutorial abrange:
-
-- ✅ **Instalação do Python** e configuração do ambiente
-- ✅ **Configuração do IIS** com todos os componentes necessários
-- ✅ **Instalação do HttpPlatformHandler** para Django
-- ✅ **Configuração do site** no Gerenciador do IIS
-- ✅ **Execução do Django** localmente via IIS
-- ✅ **Acesso via rede local** (IP da máquina)
-- ✅ **Configuração de tunneling** para acesso externo
-- ✅ **Troubleshooting** e soluções para problemas comuns
 
 ---
 
@@ -958,7 +1015,7 @@ Este projeto está licenciado sob a **Licença MIT** - veja o arquivo [LICENSE](
   <h3>🚀 Sistema de Controle de Acesso PAMC</h3>
   <p><em>Desenvolvido com ❤️ para máxima segurança e eficiência</em></p>
   <p>
-    <strong>Versão Atual:</strong> 2.0.0 | 
+    <strong>Versão Atual:</strong> 3.0.0 (Arquitetura Modular) | 
     <strong>Última Atualização:</strong> Dezembro 2024
   </p>
 </div>
