@@ -49,4 +49,5 @@ urlpatterns = [
     path('limpar-dashboard/', views.limpar_dashboard, name='limpar_dashboard'),
     path('trocar-senha/', views.trocar_senha, name='trocar_senha'),
 
+
 ] 

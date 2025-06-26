@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-local-development-only'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Em ambiente de produção, defina DEBUG = False para ativar as páginas de erro personalizadas
-DEBUG = False
+DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ['true', '1', 'yes']
 
 # Quando DEBUG for False, ative esta configuração para servir arquivos estáticos
 SERVE_STATIC_FILES = True
@@ -55,7 +55,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.TrocaSenhaMiddleware',
     'core.middleware.ErrorLoggingMiddleware',  # Middleware para capturar erros
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    # 'whitenoise.middleware.WhiteNoiseMiddleware',  # Temporariamente desabilitado
 ]
 
 ROOT_URLCONF = 'controle_acesso.urls'
@@ -71,6 +71,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.user_permissions',
             ],
         },
     },
@@ -142,7 +143,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Configurações para proxies
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'  # Temporariamente desabilitado
 
 # Configuração de Logging
 LOGGING = {

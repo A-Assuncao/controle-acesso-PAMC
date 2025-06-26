@@ -44,6 +44,8 @@ def is_staff(user):
 
 @login_required
 def welcome(request):
+    return render(request, 'core/welcome.html')
+    
     # Se o usuário precisa trocar a senha, redireciona direto para a página de troca
     try:
         if request.user.perfil.precisa_trocar_senha:
@@ -117,7 +119,9 @@ def home(request):
         'pode_excluir_registros': pode_excluir,
         'pode_limpar_dashboard': pode_limpar,
         'pode_saida_definitiva': pode_saida_def,
-        'tipo_usuario': tipo_usuario
+        'tipo_usuario': tipo_usuario,
+        # DEBUG: informações temporárias para debug
+
     }
     return render(request, 'core/home.html', context)
 
@@ -934,11 +938,8 @@ def user_delete(request, pk):
 @login_required
 def verificar_entrada(request, servidor_id):
     """Verifica se existe uma entrada sem saída para o servidor."""
-    plantao_atual = calcular_plantao_atual()
-    tem_entrada = RegistroAcesso.objects.filter(
+    tem_entrada = RegistroDashboard.objects.filter(
         servidor_id=servidor_id,
-        data_hora__gte=plantao_atual['inicio'],
-        data_hora__lte=plantao_atual['fim'],
         tipo_acesso='ENTRADA',
         saida_pendente=True
     ).exists()
@@ -3223,6 +3224,8 @@ Data/Hora: {timezone.now()}
             '<h1>Erro Interno do Servidor</h1>'
             '<p>Ocorreu um erro interno. Contate o administrador.</p>'
         )
+
+
 
 
 

@@ -99,7 +99,7 @@
 <body>
     {% block navbar %}
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container">
             <a class="navbar-brand" href="{% url 'home' %}">
                 <i class="bi bi-shield-lock"></i> Controle de Acesso
@@ -110,7 +110,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     {% if user.is_authenticated %}
-                    {% if not user.perfil or user.perfil.pode_gerenciar_servidores %}
+                    {% if user_pode_gerenciar_servidores %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'servidor_list' %}">
                             <i class="bi bi-people"></i> Servidores

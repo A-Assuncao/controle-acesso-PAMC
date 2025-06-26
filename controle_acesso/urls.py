@@ -37,8 +37,8 @@ urlpatterns = [
     ), name='logout'),
     
     # Adicionando rota explícita para arquivos estáticos em produção local
-    path('static/<path:path>', serve, {'document_root': settings.STATIC_ROOT}),
-    path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
+    # path('static/<path:path>', serve, {'document_root': settings.STATIC_ROOT}),
+    # path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
 
 # Configuração para servir arquivos estáticos e de mídia em desenvolvimento

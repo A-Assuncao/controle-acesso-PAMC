@@ -5,6 +5,9 @@
 
 {% block content %}
 {% csrf_token %}
+
+
+
 <!-- Cards de resumo -->
 <div class="row mb-4">
     <div class="col-md-3">
@@ -92,7 +95,9 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="card-title mb-0">Registrar Acesso</h5>
-                    <span class="badge bg-info">{{ tipo_usuario }}</span>
+                    <div>
+                        <span class="badge bg-info">{{ tipo_usuario }}</span>
+                    </div>
                 </div>
                 
                 {% if pode_registrar_acesso %}
@@ -583,19 +588,31 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Configurar botão de scroll para o topo
-    document.getElementById('btnScrollTop').addEventListener('click', function() {
-        window.scrollTo({
-            top: 0,
-            behavior: 'auto'  // Alterado de 'smooth' para 'auto' para uma rolagem instantânea
+    const btnScrollTop = document.getElementById('btnScrollTop');
+    if (btnScrollTop) {
+        btnScrollTop.addEventListener('click', function() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'auto'  // Alterado de 'smooth' para 'auto' para uma rolagem instantânea
+            });
         });
-    });
+    }
     
     // Configurar filtros para aplicar ao digitar/selecionar
-    document.getElementById('filtroNome').addEventListener('input', aplicarFiltros);
-    document.getElementById('filtroDocumento').addEventListener('input', aplicarFiltros);
-    document.getElementById('filtroSetor').addEventListener('input', aplicarFiltros);
-    document.getElementById('filtroISV').addEventListener('change', aplicarFiltros);
-    document.getElementById('filtroSaida').addEventListener('change', aplicarFiltros);
+    const filtroNome = document.getElementById('filtroNome');
+    if (filtroNome) filtroNome.addEventListener('input', aplicarFiltros);
+    
+    const filtroDocumento = document.getElementById('filtroDocumento');
+    if (filtroDocumento) filtroDocumento.addEventListener('input', aplicarFiltros);
+    
+    const filtroSetor = document.getElementById('filtroSetor');
+    if (filtroSetor) filtroSetor.addEventListener('input', aplicarFiltros);
+    
+    const filtroISV = document.getElementById('filtroISV');
+    if (filtroISV) filtroISV.addEventListener('change', aplicarFiltros);
+    
+    const filtroSaida = document.getElementById('filtroSaida');
+    if (filtroSaida) filtroSaida.addEventListener('change', aplicarFiltros);
     
     // Adicionar listener para atualizar a tabela quando a janela recuperar o foco
     // Isso permite atualizar apenas quando o usuário voltar à aba
@@ -658,18 +675,27 @@ document.addEventListener('click', function(e) {
 
 function selecionarServidor(event, id, nome) {
     event.preventDefault();
-    document.getElementById('servidor_id').value = id;
-    document.getElementById('servidor_nome').value = nome;
-    document.getElementById('resultados-busca').style.display = 'none';
-    document.getElementById('busca-servidor').value = nome;
+    
+    const servidorIdEl = document.getElementById('servidor_id');
+    const servidorNomeEl = document.getElementById('servidor_nome');
+    const resultadosEl = document.getElementById('resultados-busca');
+    const buscaEl = document.getElementById('busca-servidor');
+    
+    if (servidorIdEl) servidorIdEl.value = id;
+    if (servidorNomeEl) servidorNomeEl.value = nome;
+    if (resultadosEl) resultadosEl.style.display = 'none';
+    if (buscaEl) buscaEl.value = nome;
+    
     registroModal.show();
 }
 
 function abrirModalRegistro() {
-    const servidorId = document.getElementById('servidor_id').value;
-    if (!servidorId) {
+    const servidorIdEl = document.getElementById('servidor_id');
+    const buscaEl = document.getElementById('busca-servidor');
+    
+    if (!servidorIdEl || !servidorIdEl.value) {
         alert('Por favor, selecione um servidor primeiro.');
-        document.getElementById('busca-servidor').focus();
+        if (buscaEl) buscaEl.focus();
         return;
     }
     
@@ -678,7 +704,8 @@ function abrirModalRegistro() {
 }
 
 function selecionarTipoAcesso(tipo) {
-    document.getElementById('tipo_acesso').value = tipo;
+    const tipoAcessoEl = document.getElementById('tipo_acesso');
+    if (tipoAcessoEl) tipoAcessoEl.value = tipo;
     
     // Atualiza visual dos botões
     const btnEntrada = document.querySelector('button[onclick="selecionarTipoAcesso(\'ENTRADA\')"]');
@@ -698,15 +725,28 @@ function selecionarTipoAcesso(tipo) {
 }
 
 // Inicializa o tipo de acesso como ENTRADA quando o modal abre
-document.getElementById('registroModal').addEventListener('show.bs.modal', function () {
-    selecionarTipoAcesso('ENTRADA');
-});
+const registroModalElement = document.getElementById('registroModal');
+if (registroModalElement) {
+    registroModalElement.addEventListener('show.bs.modal', function () {
+        selecionarTipoAcesso('ENTRADA');
+    });
+}
 
-document.getElementById('registroForm').addEventListener('submit', function(event) {
+const registroForm = document.getElementById('registroForm');
+if (registroForm) {
+    registroForm.addEventListener('submit', function(event) {
     event.preventDefault();
     
-    const tipoAcesso = document.getElementById('tipo_acesso').value;
-    const servidorId = document.getElementById('servidor_id').value;
+    const tipoAcessoEl = document.getElementById('tipo_acesso');
+    const servidorIdEl = document.getElementById('servidor_id');
+    
+    if (!tipoAcessoEl || !servidorIdEl) {
+        alert('Erro: elementos do formulário não encontrados.');
+        return;
+    }
+    
+    const tipoAcesso = tipoAcessoEl.value;
+    const servidorId = servidorIdEl.value;
     
     // Verifica se o usuário é administrador e mostra alerta
     {% if is_superuser %}
@@ -733,7 +773,8 @@ document.getElementById('registroForm').addEventListener('submit', function(even
                 this.submit();
             }
         });
-});
+    });
+}
 
 function atualizarRegistros() {
     // Evitar mostrar o indicador de carregamento para tornar a atualização menos perceptível
@@ -744,12 +785,18 @@ function atualizarRegistros() {
             renderizarTabela(data);
             
             // Reaplica os filtros existentes
+            const filtroNomeEl = document.getElementById('filtroNome');
+            const filtroDocumentoEl = document.getElementById('filtroDocumento');
+            const filtroSetorEl = document.getElementById('filtroSetor');
+            const filtroISVEl = document.getElementById('filtroISV');
+            const filtroSaidaEl = document.getElementById('filtroSaida');
+            
             const temFiltroAtivo = 
-                document.getElementById('filtroNome').value || 
-                document.getElementById('filtroDocumento').value || 
-                document.getElementById('filtroSetor').value || 
-                document.getElementById('filtroISV').value || 
-                document.getElementById('filtroSaida').value;
+                (filtroNomeEl && filtroNomeEl.value) || 
+                (filtroDocumentoEl && filtroDocumentoEl.value) || 
+                (filtroSetorEl && filtroSetorEl.value) || 
+                (filtroISVEl && filtroISVEl.value) || 
+                (filtroSaidaEl && filtroSaidaEl.value);
                 
             if (temFiltroAtivo) {
                 aplicarFiltros();
@@ -816,12 +863,18 @@ function exportarExcel() {
 }
 
 function confirmarLimparPlanilha() {
-    const modal = new bootstrap.Modal(document.getElementById('limparPlanilhaModal'));
-    modal.show();
-    // Foca no campo de senha após o modal ser completamente aberto
-    document.getElementById('limparPlanilhaModal').addEventListener('shown.bs.modal', function () {
-        document.getElementById('senhaLimpar').focus();
-    }, { once: true });
+    const modalElement = document.getElementById('limparPlanilhaModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+        // Foca no campo de senha após o modal ser completamente aberto
+        modalElement.addEventListener('shown.bs.modal', function () {
+            const senhaInput = document.getElementById('senhaLimpar');
+            if (senhaInput) {
+                senhaInput.focus();
+            }
+        }, { once: true });
+    }
 }
 
 function abrirModalSaidaDefinitiva() {
@@ -829,9 +882,18 @@ function abrirModalSaidaDefinitiva() {
 }
 
 function registrarSaidaDefinitiva() {
-    const nome = document.getElementById('nomePreso').value.trim();
-    const numeroDocumento = document.getElementById('numeroDocumentoPreso').value.trim();
-    const justificativa = document.getElementById('justificativaSaida').value.trim();
+    const nomeEl = document.getElementById('nomePreso');
+    const numeroDocumentoEl = document.getElementById('numeroDocumentoPreso');
+    const justificativaEl = document.getElementById('justificativaSaida');
+    
+    if (!nomeEl || !numeroDocumentoEl || !justificativaEl) {
+        alert('Erro: elementos do formulário não encontrados.');
+        return;
+    }
+    
+    const nome = nomeEl.value.trim();
+    const numeroDocumento = numeroDocumentoEl.value.trim();
+    const justificativa = justificativaEl.value.trim();
     
     if (!nome || !numeroDocumento || !justificativa) {
         alert('Por favor, preencha todos os campos obrigatórios.');
@@ -852,7 +914,8 @@ function registrarSaidaDefinitiva() {
     .then(data => {
         if (data.status === 'success') {
             saidaDefinitivaModal.hide();
-            document.getElementById('formSaidaDefinitiva').reset();
+            const formEl = document.getElementById('formSaidaDefinitiva');
+            if (formEl) formEl.reset();
             atualizarRegistros();
         } else {
             alert(data.message || 'Erro ao registrar saída definitiva');
@@ -860,8 +923,51 @@ function registrarSaidaDefinitiva() {
     });
 }
 
+function mostrarNotificacao(mensagem, tipo = 'info') {
+    // Cria toast notification
+    const toastContainer = document.querySelector('.position-fixed.bottom-0.end-0') || document.body;
+    const toast = document.createElement('div');
+    toast.className = 'toast align-items-center text-white border-0 mb-2';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    // Define cor baseada no tipo
+    const cores = {
+        'success': 'bg-success',
+        'danger': 'bg-danger', 
+        'warning': 'bg-warning text-dark',
+        'info': 'bg-info'
+    };
+    toast.className += ' ' + (cores[tipo] || cores['info']);
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                ${mensagem}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    // Remove o toast após ser escondido
+    toast.addEventListener('hidden.bs.toast', () => {
+        toast.remove();
+    });
+}
+
 function limparDashboard() {
-    const senha = document.getElementById('senhaLimpar').value;
+    const senhaEl = document.getElementById('senhaLimpar');
+    if (!senhaEl) {
+        mostrarNotificacao('Erro: campo de senha não encontrado.', 'danger');
+        return;
+    }
+    
+    const senha = senhaEl.value;
     
     if (!senha) {
         mostrarNotificacao('Por favor, digite sua senha para confirmar.', 'warning');
@@ -886,7 +992,8 @@ function limparDashboard() {
     .then(data => {
         if (data && data.status === 'success') {
             // Limpa o campo de senha e fecha o modal corretamente
-            document.getElementById('senhaLimpar').value = '';
+            const senhaLimparEl = document.getElementById('senhaLimpar');
+            if (senhaLimparEl) senhaLimparEl.value = '';
             
             // Obtém a instância do modal e fecha
             const modalElement = document.getElementById('limparPlanilhaModal');
@@ -910,7 +1017,8 @@ function limparDashboard() {
 
 function retirarFaltas() {
     // Obtém o valor do filtro
-    const filtro = document.getElementById('filtroFaltas').value;
+    const filtroFaltasEl = document.getElementById('filtroFaltas');
+    const filtro = filtroFaltasEl ? filtroFaltasEl.value : '';
     
     // Faz a requisição para o backend incluindo o filtro
     fetch(`/retirar-faltas/?nome=${encodeURIComponent(filtro)}`, {
@@ -930,7 +1038,8 @@ function retirarFaltas() {
         })
         .then(data => {
             // Atualiza o título do modal com o plantão atual
-            document.getElementById('plantaoFaltas').textContent = data.plantao_atual;
+            const plantaoFaltasEl = document.getElementById('plantaoFaltas');
+            if (plantaoFaltasEl) plantaoFaltasEl.textContent = data.plantao_atual;
             
             const faltasTableBody = document.getElementById('faltasTableBody');
             const isvsTableBody = document.getElementById('isvsTableBody');
@@ -938,6 +1047,12 @@ function retirarFaltas() {
             const semFaltas = document.getElementById('semFaltas');
             const semISVs = document.getElementById('semISVs');
             const semPermutas = document.getElementById('semPermutas');
+            
+            // Verifica se os elementos necessários existem
+            if (!faltasTableBody || !isvsTableBody || !permutasTableBody) {
+                console.error('Elementos necessários para o modal de faltas não encontrados');
+                return;
+            }
             
             // Limpa as tabelas
             faltasTableBody.innerHTML = '';
@@ -947,8 +1062,12 @@ function retirarFaltas() {
             // Processa faltas
             if (data.faltosos && data.faltosos.length > 0) {
                 // Mostra a tabela e esconde a mensagem de sem faltas
-                faltasTableBody.closest('.table-responsive').style.display = '';
-                semFaltas.style.display = 'none';
+                if (faltasTableBody && faltasTableBody.closest('.table-responsive')) {
+                    faltasTableBody.closest('.table-responsive').style.display = '';
+                }
+                if (semFaltas) {
+                    semFaltas.style.display = 'none';
+                }
                 
                 // Preenche a tabela com os dados
                 data.faltosos.forEach(faltoso => {
@@ -963,15 +1082,23 @@ function retirarFaltas() {
                 });
             } else {
                 // Esconde a tabela e mostra a mensagem de sem faltas
-                faltasTableBody.closest('.table-responsive').style.display = 'none';
-                semFaltas.style.display = '';
+                if (faltasTableBody && faltasTableBody.closest('.table-responsive')) {
+                    faltasTableBody.closest('.table-responsive').style.display = 'none';
+                }
+                if (semFaltas) {
+                    semFaltas.style.display = '';
+                }
             }
             
             // Processa ISVs
             if (data.isvs_presentes && data.isvs_presentes.length > 0) {
                 // Mostra a tabela e esconde a mensagem de sem ISVs
-                isvsTableBody.closest('.table-responsive').style.display = '';
-                semISVs.style.display = 'none';
+                if (isvsTableBody && isvsTableBody.closest('.table-responsive')) {
+                    isvsTableBody.closest('.table-responsive').style.display = '';
+                }
+                if (semISVs) {
+                    semISVs.style.display = 'none';
+                }
                 
                 // Preenche a tabela com os dados
                 data.isvs_presentes.forEach(isv => {
@@ -986,15 +1113,23 @@ function retirarFaltas() {
                 });
             } else {
                 // Esconde a tabela e mostra a mensagem de sem ISVs
-                isvsTableBody.closest('.table-responsive').style.display = 'none';
-                semISVs.style.display = '';
+                if (isvsTableBody && isvsTableBody.closest('.table-responsive')) {
+                    isvsTableBody.closest('.table-responsive').style.display = 'none';
+                }
+                if (semISVs) {
+                    semISVs.style.display = '';
+                }
             }
             
             // Processa Permutas/Reposição de hora
             if (data.permutas_reposicao && data.permutas_reposicao.length > 0) {
                 // Mostra a tabela e esconde a mensagem de sem permutas
-                permutasTableBody.closest('.table-responsive').style.display = '';
-                semPermutas.style.display = 'none';
+                if (permutasTableBody && permutasTableBody.closest('.table-responsive')) {
+                    permutasTableBody.closest('.table-responsive').style.display = '';
+                }
+                if (semPermutas) {
+                    semPermutas.style.display = 'none';
+                }
                 
                 // Preenche a tabela com os dados
                 data.permutas_reposicao.forEach(permuta => {
@@ -1014,13 +1149,20 @@ function retirarFaltas() {
                 });
             } else {
                 // Esconde a tabela e mostra a mensagem de sem permutas
-                permutasTableBody.closest('.table-responsive').style.display = 'none';
-                semPermutas.style.display = '';
+                if (permutasTableBody && permutasTableBody.closest('.table-responsive')) {
+                    permutasTableBody.closest('.table-responsive').style.display = 'none';
+                }
+                if (semPermutas) {
+                    semPermutas.style.display = '';
+                }
             }
             
             // Abre o modal
-            const modal = new bootstrap.Modal(document.getElementById('faltasModal'));
-            modal.show();
+            const faltasModalEl = document.getElementById('faltasModal');
+            if (faltasModalEl) {
+                const modal = new bootstrap.Modal(faltasModalEl);
+                modal.show();
+            }
         })
         .catch(error => {
             console.error('Erro ao buscar faltas:', error);
@@ -1033,13 +1175,16 @@ function baixarPDFFaltas() {
 }
 
 // Adiciona evento de input no campo de filtro
-document.getElementById('filtroFaltas').addEventListener('input', function() {
+const filtroFaltas = document.getElementById('filtroFaltas');
+if (filtroFaltas) {
+    filtroFaltas.addEventListener('input', function() {
     // Chama retirarFaltas() após um pequeno delay para evitar muitas requisições
     clearTimeout(this.timeoutId);
     this.timeoutId = setTimeout(() => {
         retirarFaltas();
     }, 300);
-});
+    });
+}
 
 // Função para obter o token CSRF
 function getCookie(name) {
@@ -1060,17 +1205,27 @@ function getCookie(name) {
 // Gerenciamento do menu de contexto
 document.addEventListener('contextmenu', function(e) {
     const tr = e.target.closest('tr');
+    console.log('Clique direito detectado - TR:', tr);
+    console.log('Dataset:', tr ? tr.dataset : 'Nenhum TR');
     if (tr && tr.dataset.registroId) {
         e.preventDefault();
         registroSelecionado = tr.dataset.registroId;
+        console.log('Registro selecionado:', registroSelecionado);
         
         // Verifica se o registro tem saída pendente
         const saidaCell = tr.querySelector('td:nth-child(8)'); // Coluna de saída
         const isPendente = saidaCell.textContent.includes('Pendente');
         
         // Mostra/esconde opções do menu conforme o estado
-        document.getElementById('menuRegistrarSaida').style.display = isPendente ? 'block' : 'none';
-        document.getElementById('menuEditar').style.display = isPendente ? 'none' : 'block';
+        const menuRegistrarSaida = document.getElementById('menuRegistrarSaida');
+        const menuEditar = document.getElementById('menuEditar');
+        
+        if (menuRegistrarSaida) {
+            menuRegistrarSaida.style.display = isPendente ? 'block' : 'none';
+        }
+        if (menuEditar) {
+            menuEditar.style.display = isPendente ? 'none' : 'block';
+        }
         
         // Posiciona o menu no local do clique
         const menu = document.getElementById('contextMenu');
@@ -1109,39 +1264,60 @@ document.addEventListener('contextmenu', function(e) {
         y = Math.max(scrollTop, y);
         
         // Aplica a posição
-        menu.style.display = 'block';
-        menu.style.left = x + 'px';
-        menu.style.top = y + 'px';
+        if (menu) {
+            menu.style.display = 'block';
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+        }
     }
 });
 
 // Fecha o menu de contexto ao clicar fora ou ao rolar a página
 document.addEventListener('click', function() {
-    document.getElementById('contextMenu').style.display = 'none';
+    const contextMenu = document.getElementById('contextMenu');
+    if (contextMenu) {
+        contextMenu.style.display = 'none';
+    }
 });
 
 document.addEventListener('scroll', function() {
-    document.getElementById('contextMenu').style.display = 'none';
+    const contextMenu = document.getElementById('contextMenu');
+    if (contextMenu) {
+        contextMenu.style.display = 'none';
+    }
 });
 
 // Ações do menu de contexto
-document.getElementById('menuEditar').addEventListener('click', function() {
-    if (registroSelecionado) {
-        editarRegistro(registroSelecionado);
-    }
-});
+const menuEditar = document.getElementById('menuEditar');
+if (menuEditar) {
+    menuEditar.addEventListener('click', function() {
+        if (registroSelecionado) {
+            editarRegistro(registroSelecionado);
+        }
+    });
+}
 
-document.getElementById('menuExcluir').addEventListener('click', function() {
-    if (registroSelecionado) {
-        excluirRegistro(registroSelecionado);
-    }
-});
+const menuExcluir = document.getElementById('menuExcluir');
+if (menuExcluir) {
+    menuExcluir.addEventListener('click', function() {
+        if (registroSelecionado) {
+            excluirRegistro(registroSelecionado);
+        }
+    });
+}
 
-document.getElementById('menuRegistrarSaida').addEventListener('click', function() {
-    if (registroSelecionado) {
-        registrarSaida(registroSelecionado);
-    }
-});
+const menuRegistrarSaida = document.getElementById('menuRegistrarSaida');
+if (menuRegistrarSaida) {
+    menuRegistrarSaida.addEventListener('click', function() {
+        if (registroSelecionado) {
+            console.log('Registrando saída para ID:', registroSelecionado);
+            registrarSaida(registroSelecionado);
+        } else {
+            console.log('Nenhum registro selecionado');
+            alert('Nenhum registro selecionado');
+        }
+    });
+}
 
 function registrarSaida(id) {
     const formData = new FormData();
@@ -1167,11 +1343,18 @@ function registrarSaida(id) {
 
 // Aplica todos os filtros
 function aplicarFiltros() {
-    const filtroNome = document.getElementById('filtroNome').value.toLowerCase();
-    const filtroDocumento = document.getElementById('filtroDocumento').value.toLowerCase();
-    const filtroSetor = document.getElementById('filtroSetor').value.toLowerCase();
-    const filtroISV = document.getElementById('filtroISV').value;
-    const filtroSaida = document.getElementById('filtroSaida').value;
+    const filtroNomeEl = document.getElementById('filtroNome');
+    const filtroDocumentoEl = document.getElementById('filtroDocumento');
+    const filtroSetorEl = document.getElementById('filtroSetor');
+    const filtroISVEl = document.getElementById('filtroISV');
+    const filtroSaidaEl = document.getElementById('filtroSaida');
+    
+    // Verifica se os elementos existem antes de acessar seus valores
+    const filtroNome = filtroNomeEl ? filtroNomeEl.value.toLowerCase() : '';
+    const filtroDocumento = filtroDocumentoEl ? filtroDocumentoEl.value.toLowerCase() : '';
+    const filtroSetor = filtroSetorEl ? filtroSetorEl.value.toLowerCase() : '';
+    const filtroISV = filtroISVEl ? filtroISVEl.value : '';
+    const filtroSaida = filtroSaidaEl ? filtroSaidaEl.value : '';
     
     const tbody = document.getElementById('registros-tbody');
     if (!tbody) return; // Proteção contra tbody não encontrado
@@ -1330,11 +1513,17 @@ function renderizarTabela(data) {
 
 // Limpa todos os filtros
 function limparFiltros() {
-    document.getElementById('filtroNome').value = '';
-    document.getElementById('filtroDocumento').value = '';
-    document.getElementById('filtroSetor').value = '';
-    document.getElementById('filtroISV').value = '';
-    document.getElementById('filtroSaida').value = '';
+    const filtroNome = document.getElementById('filtroNome');
+    const filtroDocumento = document.getElementById('filtroDocumento');
+    const filtroSetor = document.getElementById('filtroSetor');
+    const filtroISV = document.getElementById('filtroISV');
+    const filtroSaida = document.getElementById('filtroSaida');
+    
+    if (filtroNome) filtroNome.value = '';
+    if (filtroDocumento) filtroDocumento.value = '';
+    if (filtroSetor) filtroSetor.value = '';
+    if (filtroISV) filtroISV.value = '';
+    if (filtroSaida) filtroSaida.value = '';
     
     // Atualiza os registros para mostrar todos novamente
     atualizarRegistros();

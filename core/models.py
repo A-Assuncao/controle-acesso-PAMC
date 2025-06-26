@@ -302,7 +302,7 @@ class PerfilUsuario(models.Model):
     
     def pode_limpar_dashboard(self):
         """Verifica se o usuário pode limpar o dashboard."""
-        return self.tipo_usuario in ['STAFF', 'ADMIN']
+        return self.tipo_usuario in ['OPERADOR', 'STAFF', 'ADMIN']
     
     def pode_saida_definitiva(self):
         """Verifica se o usuário pode registrar saída definitiva."""

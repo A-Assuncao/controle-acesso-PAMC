@@ -1,4 +1,4 @@
-# Sistema de Controle de Acesso PAMC
+# Sistema de Controle de Acesso
 
 ![Django](https://img.shields.io/badge/Django-4.2%2B-092E20?style=for-the-badge&logo=django)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
@@ -42,7 +42,7 @@
 
 ## 🔍 Visão Geral
 
-O **Sistema de Controle de Acesso PAMC** é uma aplicação web robusta desenvolvida especificamente para o controle de acesso em ambientes penitenciários. O sistema oferece gestão completa de servidores, registros de entrada/saída, relatórios detalhados, sistema avançado de perfis de usuário e um ambiente de treinamento separado para capacitação.
+O **Sistema de Controle de Acesso** é uma aplicação web robusta desenvolvida especificamente para o controle de acesso em ambientes penitenciários. O sistema oferece gestão completa de servidores, registros de entrada/saída, relatórios detalhados, sistema avançado de perfis de usuário e um ambiente de treinamento separado para capacitação.
 
 ### 🎯 Principais Características
 
@@ -117,7 +117,7 @@ O **Sistema de Controle de Acesso PAMC** é uma aplicação web robusta desenvol
 O sistema foi desenvolvido seguindo princípios de **arquitetura limpa** e boas práticas:
 
 ```
-Sistema de Controle de Acesso PAMC/
+Sistema de Controle de Acesso/
 ├── 🎯 Core Application (Django)
 │   ├── Models: Servidor, RegistroAcesso, PerfilUsuario, LogAuditoria
 │   ├── Views: Dashboard, Treinamento, Relatórios, Gestão de Usuários
