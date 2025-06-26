@@ -1,0 +1,9 @@
+# Pasta para arquivos de log do sistema
+# 
+# Esta pasta é criada automaticamente pelo Django quando necessário.
+# Os arquivos de log não são versionados (.gitignore), mas a pasta
+# precisa existir para evitar erros durante migrations e operações do sistema.
+# 
+# Arquivos gerados automaticamente:
+# - django_errors.log (erros do sistema)
+# - debug.log (logs de debug detalhados) 
