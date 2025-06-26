@@ -23,7 +23,7 @@
                         </div>
                         <div class="form-text">
                             O nome de usuário será usado para fazer login no sistema.
-                            Após criar o usuário, uma senha temporária será gerada automaticamente.
+                            A senha temporária será gerada no formato: <strong>usuario@1234</strong> (números aleatórios).
                         </div>
                     </div>
                     {% endif %}
@@ -88,14 +88,32 @@
                     </div>
                     
                     <div class="mb-4">
+                        <label class="form-label">Tipo de Usuário*</label>
                         <div class="form-check">
-                            <input type="checkbox" name="is_staff" class="form-check-input" id="is_staff" {% if usuario.is_staff %}checked{% endif %}>
-                            <label class="form-check-label" for="is_staff">
-                                Usuário é Staff (acesso administrativo)
+                            <input type="radio" name="tipo_usuario" value="OPERADOR" class="form-check-input" id="tipo_operador" 
+                                   {% if not usuario or usuario.perfil.tipo_usuario == 'OPERADOR' %}checked{% endif %}>
+                            <label class="form-check-label" for="tipo_operador">
+                                <strong>🔧 Operador</strong> - Acesso completo em ambos os ambientes
                             </label>
-                            <div class="form-text">
-                                Usuários staff podem acessar o histórico e gerenciar outros usuários.
-                            </div>
+                        </div>
+                        <div class="form-check">
+                            <input type="radio" name="tipo_usuario" value="VISUALIZACAO" class="form-check-input" id="tipo_visualizacao"
+                                   {% if usuario and usuario.perfil.tipo_usuario == 'VISUALIZACAO' %}checked{% endif %}>
+                            <label class="form-check-label" for="tipo_visualizacao">
+                                <strong>👁️ Visualização</strong> - Apenas visualizar, retirar faltas e exportar no ambiente de produção
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input type="radio" name="tipo_usuario" value="STAFF" class="form-check-input" id="tipo_staff"
+                                   {% if usuario and usuario.perfil.tipo_usuario == 'STAFF' or usuario.is_staff %}checked{% endif %}>
+                            <label class="form-check-label" for="tipo_staff">
+                                <strong>👤 Staff</strong> - Acesso administrativo + permissões de operador
+                            </label>
+                        </div>
+                        <div class="form-text">
+                            <strong>Operador:</strong> Pode registrar acessos, excluir, limpar dashboard em ambos ambientes.<br>
+                            <strong>Visualização:</strong> No ambiente de produção apenas visualiza, retira faltas e exporta Excel. No treinamento tem acesso completo.<br>
+                            <strong>Staff:</strong> Pode gerenciar usuários, acessar histórico e tem todas as permissões de operador.
                         </div>
                     </div>
                     

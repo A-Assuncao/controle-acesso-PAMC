@@ -1,32 +1,111 @@
 {% extends 'core/base.html' %}
 
-{% block title %}Erro interno do servidor{% endblock %}
+{% block title %}Erro Interno do Servidor - Controle de Acesso{% endblock %}
 
 {% block content %}
-<div class="container py-5">
+<div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-8 text-center">
-            <div class="error-page mb-5">
-                <h1 class="display-1 text-danger">500</h1>
-                <h2 class="display-4 mb-4">Erro interno do servidor</h2>
-                <div class="alert alert-danger mb-4">
-                    <i class="bi bi-x-octagon-fill me-2"></i>
-                    Ocorreu um erro interno no servidor.
+        <div class="col-md-8">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Erro Interno do Servidor (500)
+                    </h4>
                 </div>
-                <p class="lead mb-5">
-                    Nossos técnicos foram notificados e estão trabalhando para resolver o problema.
-                    Por favor, tente novamente mais tarde ou use os links abaixo para voltar.
-                </p>
-                <div class="d-flex justify-content-center gap-3">
-                    <a href="{% url 'home' %}" class="btn btn-primary">
-                        <i class="bi bi-house-fill me-2"></i>Ir para Dashboard
-                    </a>
-                    <a href="javascript:history.back()" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left me-2"></i>Voltar
-                    </a>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <h5>Ops! Algo deu errado...</h5>
+                        <p class="mb-0">Ocorreu um erro interno no servidor. Nossa equipe técnica foi notificada automaticamente.</p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6>O que você pode fazer:</h6>
+                        <ul>
+                            <li>Tente recarregar a página</li>
+                            <li>Volte à página anterior e tente novamente</li>
+                            <li>Se o problema persistir, entre em contato com o suporte técnico</li>
+                        </ul>
+                    </div>
+                    
+                    {% if debug and exception %}
+                    <div class="alert alert-warning">
+                        <h6><i class="bi bi-tools me-2"></i>Informações Técnicas (Modo Debug)</h6>
+                        <p><strong>Erro:</strong> {{ exception }}</p>
+                        
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#traceback" aria-expanded="false">
+                                <i class="bi bi-code-slash me-1"></i>Ver Traceback Completo
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary ms-2" onclick="copiarTraceback()">
+                                <i class="bi bi-clipboard me-1"></i>Copiar para Área de Transferência
+                            </button>
+                        </div>
+                        
+                        <div class="collapse mt-3" id="traceback">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6>Traceback Completo:</h6>
+                                    <pre id="traceback-content" class="bg-dark text-light p-3 rounded" style="font-size: 12px; max-height: 400px; overflow-y: auto;">{{ traceback|default:"Traceback não disponível" }}</pre>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% if request_info %}
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#request-info" aria-expanded="false">
+                                <i class="bi bi-info-circle me-1"></i>Informações da Requisição
+                            </button>
+                        </div>
+                        
+                        <div class="collapse mt-3" id="request-info">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6>Detalhes da Requisição:</h6>
+                                    <pre class="bg-light p-3 rounded" style="font-size: 12px;">{{ request_info }}</pre>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex gap-2 mt-4">
+                        <a href="javascript:history.back()" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Voltar
+                        </a>
+                        <a href="{% url 'home' %}" class="btn btn-primary">
+                            <i class="bi bi-house me-2"></i>Ir para o Dashboard
+                        </a>
+                        <button class="btn btn-outline-primary" onclick="location.reload()">
+                            <i class="bi bi-arrow-clockwise me-2"></i>Recarregar Página
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function copiarTraceback() {
+    const traceback = document.getElementById('traceback-content').textContent;
+    navigator.clipboard.writeText(traceback).then(() => {
+        // Mostra feedback visual
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check me-1"></i>Copiado!';
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 2000);
+    }).catch(() => {
+        alert('Erro ao copiar. Selecione e copie manualmente o texto do traceback.');
+    });
+}
+</script>
 {% endblock %} 

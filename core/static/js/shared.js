@@ -1122,46 +1122,72 @@ function submeterFormulario(e, form) {
         return false;
     }
     
-    const formData = new FormData(form);
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    
-    fetch(form.action, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': csrfToken
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            const modalElement = document.getElementById('registroModal');
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            modal.hide();
-            
-            form.reset();
-            document.getElementById('busca-servidor').value = '';
-            carregarRegistros();
-            
-            Swal.fire({
-                icon: 'success',
-                title: 'Sucesso!',
-                text: data.message,
-                timer: 2000,
-                showConfirmButton: false
-            });
-        } else {
-            throw new Error(data.message || 'Erro ao processar a requisição');
-        }
-    })
-    .catch(error => {
-        console.error('Erro:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Erro!',
-            text: error.message
+    // Verifica se o usuário é administrador e mostra alerta
+    if (typeof isAdministrator !== 'undefined' && isAdministrator) {
+        return Swal.fire({
+            icon: 'warning',
+            title: '⚠️ ATENÇÃO ADMINISTRADOR!',
+            html: 'Você está logado como <strong>administrador do sistema</strong>.<br><br>Não é recomendável que administradores façam inclusões no dashboard operacional.<br><br><strong>Deseja continuar mesmo assim?</strong>',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, continuar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Se confirmou, executa o resto da função
+                executarSubmissao(form);
+            }
+            // Se cancelou, não faz nada
         });
-    });
+    }
+    
+    // Se não é administrador, executa normalmente
+    executarSubmissao(form);
+    
+    function executarSubmissao(form) {
+        const formData = new FormData(form);
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const modalElement = document.getElementById('registroModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                modal.hide();
+                
+                form.reset();
+                document.getElementById('busca-servidor').value = '';
+                carregarRegistros();
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Sucesso!',
+                    text: data.message,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                throw new Error(data.message || 'Erro ao processar a requisição');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro!',
+                text: error.message
+            });
+        });
+    }
     
     return false;
 }
@@ -1183,46 +1209,72 @@ function submeterFormularioSaida(e, form) {
         return false;
     }
     
-    const formData = new FormData(form);
-    formData.append('setor', justificativa); // A justificativa é armazenada no campo setor
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    
-    fetch(form.action, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': csrfToken
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            const modalElement = document.getElementById('saidaDefinitivaModal');
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            modal.hide();
-            
-            form.reset();
-            carregarRegistros();
-            
-            Swal.fire({
-                icon: 'success',
-                title: 'Sucesso!',
-                text: data.message || 'Saída definitiva registrada com sucesso!',
-                timer: 2000,
-                showConfirmButton: false
-            });
-        } else {
-            throw new Error(data.message || 'Erro ao registrar saída definitiva');
-        }
-    })
-    .catch(error => {
-        console.error('Erro:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Erro!',
-            text: error.message
+    // Verifica se o usuário é administrador e mostra alerta
+    if (typeof isAdministrator !== 'undefined' && isAdministrator) {
+        return Swal.fire({
+            icon: 'warning',
+            title: '⚠️ ATENÇÃO ADMINISTRADOR!',
+            html: 'Você está logado como <strong>administrador do sistema</strong>.<br><br>Não é recomendável que administradores façam inclusões no dashboard operacional.<br><br><strong>Deseja continuar mesmo assim?</strong>',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, continuar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Se confirmou, executa o resto da função
+                executarSaidaDefinitiva(form, nome, numeroDocumento, justificativa);
+            }
+            // Se cancelou, não faz nada
         });
-    });
+    }
+    
+    // Se não é administrador, executa normalmente
+    executarSaidaDefinitiva(form, nome, numeroDocumento, justificativa);
+    
+    function executarSaidaDefinitiva(form, nome, numeroDocumento, justificativa) {
+        const formData = new FormData(form);
+        formData.append('setor', justificativa); // A justificativa é armazenada no campo setor
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const modalElement = document.getElementById('saidaDefinitivaModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                modal.hide();
+                
+                form.reset();
+                carregarRegistros();
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Sucesso!',
+                    text: data.message || 'Saída definitiva registrada com sucesso!',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                throw new Error(data.message || 'Erro ao registrar saída definitiva');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro!',
+                text: error.message
+            });
+        });
+    }
     
     return false;
 }

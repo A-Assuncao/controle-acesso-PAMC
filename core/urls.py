@@ -17,6 +17,7 @@ urlpatterns = [
     path('treinamento/registro/<int:registro_id>/saida/', views.registrar_saida_treinamento, name='registrar_saida_treinamento'),
     path('treinamento/buscar-servidor/', views.buscar_servidor_treinamento, name='buscar_servidor_treinamento'),
     path('treinamento/exportar-excel/', views.exportar_excel_treinamento, name='exportar_excel_treinamento'),
+    path('treinamento/retirar-faltas/', views.retirar_faltas_treinamento, name='retirar_faltas_treinamento'),
     path('treinamento/tutoriais/', views.tutoriais_treinamento, name='tutoriais_treinamento'),
     path('logout/', LogoutView.as_view(next_page='login'), name='logout'),
     path('servidor/', views.servidor_list, name='servidor_list'),

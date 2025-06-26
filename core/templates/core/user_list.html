@@ -6,9 +6,9 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Usuários do Sistema</h5>
-        <a href="{% url 'user_create' %}" class="btn btn-primary">
-            <i class="bi bi-person-plus"></i> Novo Usuário
-        </a>
+                        <a href="{% url 'user_create' %}" class="btn btn-primary">
+                    <i class="bi bi-person-plus"></i> Novo Usuário
+                </a>
     </div>
     <div class="card-body">
         {% csrf_token %}
@@ -20,7 +20,7 @@
                         <th>Nome</th>
                         <th>Tipo</th>
                         <th>Status da Senha</th>
-                        <th>Senha Temporária</th>
+                        <th>Senha Atual</th>
                         <th>Último Acesso</th>
                         <th>Ações</th>
                     </tr>
@@ -32,15 +32,25 @@
                         <td>{{ data.user.get_full_name }}</td>
                         <td>
                             {% if data.user.is_superuser %}
-                            <span class="badge bg-danger">Administrador</span>
-                            {% elif data.user.is_staff %}
-                            <span class="badge bg-warning">Staff</span>
+                            <span class="badge bg-danger">🔑 Administrador</span>
+                            {% elif data.perfil.tipo_usuario == 'STAFF' %}
+                            <span class="badge bg-warning text-dark">👤 Staff</span>
+                            {% elif data.perfil.tipo_usuario == 'VISUALIZACAO' %}
+                            <span class="badge bg-info">👁️ Visualização</span>
                             {% else %}
-                            <span class="badge bg-info">Operador</span>
+                            <span class="badge bg-primary">🔧 Operador</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if data.perfil.precisa_trocar_senha %}
+                            {% if data.perfil.tipo_usuario == 'VISUALIZACAO' %}
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-info me-2">
+                                    <i class="bi bi-eye me-1"></i>
+                                    Sempre Visível
+                                </span>
+                                <small class="text-muted">Visualização</small>
+                            </div>
+                            {% elif data.perfil.precisa_trocar_senha %}
                             <div class="d-flex align-items-center">
                                 <span class="badge bg-warning text-dark me-2">
                                     <i class="bi bi-exclamation-triangle me-1"></i>
@@ -59,7 +69,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if data.perfil.precisa_trocar_senha and data.senha_temporaria %}
+                            {% if data.senha_temporaria %}
                             <div class="d-flex align-items-center">
                                 <code class="me-2">{{ data.senha_temporaria }}</code>
                                 <button class="btn btn-sm btn-outline-secondary" 
@@ -67,6 +77,11 @@
                                         title="Copiar senha">
                                     <i class="bi bi-clipboard"></i>
                                 </button>
+                                {% if data.perfil.tipo_usuario == 'VISUALIZACAO' %}
+                                <small class="text-info ms-2">
+                                    <i class="bi bi-eye" title="Senha sempre visível para usuários de visualização"></i>
+                                </small>
+                                {% endif %}
                             </div>
                             {% else %}
                             <span class="text-muted">-</span>
@@ -156,16 +171,28 @@ function excluirUsuario(userId, username) {
 }
 
 function redefinirSenha(userId, username, senhaSugerida) {
+    // Verifica se é um usuário de visualização pela presença do ícone de olho
+    const row = document.querySelector(`button[onclick*="redefinirSenha(${userId}"]`).closest('tr');
+    const isVisualizacao = row.querySelector('.bi-eye[title*="visualização"]') !== null;
+    
+    const titulo = isVisualizacao ? 
+        `Gerar nova senha para "${username}"` : 
+        `Redefinir senha de "${username}"`;
+        
+    const texto = isVisualizacao ?
+        `<p>Você deseja gerar uma nova senha para este usuário de visualização?</p>
+         <p>A nova senha será: <strong>${senhaSugerida}</strong></p>
+         <p class="text-info">A senha ficará sempre visível na lista de usuários.</p>` :
+        `<p>Você deseja redefinir a senha deste usuário?</p>
+         <p>A senha temporária será: <strong>${senhaSugerida}</strong></p>
+         <p class="text-warning">O usuário precisará trocar esta senha no próximo login.</p>`;
+    
     Swal.fire({
-        title: `Redefinir senha de "${username}"`,
-        html: `
-            <p>Você deseja redefinir a senha deste usuário?</p>
-            <p>A senha temporária será: <strong>${senhaSugerida}</strong></p>
-            <p class="text-warning">O usuário precisará trocar esta senha no próximo login.</p>
-        `,
-        icon: 'warning',
+        title: titulo,
+        html: texto,
+        icon: isVisualizacao ? 'info' : 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Redefinir',
+        confirmButtonText: isVisualizacao ? 'Gerar Nova Senha' : 'Redefinir',
         cancelButtonText: 'Cancelar',
     }).then((result) => {
         if (result.isConfirmed) {

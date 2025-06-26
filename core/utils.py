@@ -3,6 +3,25 @@ from django.utils import timezone
 import pytz
 from typing import Dict, Any
 
+def extrair_plantao_do_setor(setor):
+    """
+    Extrai o nome do plantão do campo setor.
+    
+    Args:
+        setor: String contendo o setor do servidor
+        
+    Returns:
+        String com o nome do plantão (ALFA, BRAVO, CHARLIE, DELTA) ou None
+    """
+    if not setor:
+        return None
+    setor_upper = setor.upper()
+    plantoes = ['ALFA', 'BRAVO', 'CHARLIE', 'DELTA']
+    for plantao in plantoes:
+        if plantao in setor_upper:
+            return plantao
+    return None
+
 def calcular_plantao_atual(data_hora: datetime = None) -> Dict[str, Any]:
     """
     Calcula o plantão baseado na data/hora fornecida ou atual.
@@ -90,8 +109,20 @@ def verificar_plantao_servidor(servidor):
     if servidor.tipo_funcionario != 'PLANTONISTA':
         return True
     
+    # Função para extrair o nome do plantão do setor
+    def extrair_plantao_do_setor(setor):
+        if not setor:
+            return None
+        setor_upper = setor.upper()
+        plantoes = ['ALFA', 'BRAVO', 'CHARLIE', 'DELTA']
+        for plantao in plantoes:
+            if plantao in setor_upper:
+                return plantao
+        return None
+    
     plantao_atual = calcular_plantao_atual()
-    return servidor.plantao == plantao_atual['nome']
+    plantao_servidor = extrair_plantao_do_setor(servidor.setor)
+    return plantao_servidor == plantao_atual['nome']
 
 def verificar_saida_pendente(servidor):
     """

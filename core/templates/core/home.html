@@ -54,9 +54,11 @@
             </p>
             <hr>
             <div class="d-flex gap-2">
+                {% if pode_limpar_dashboard %}
                 <button class="btn btn-warning" onclick="confirmarLimparPlanilha()">
                     <i class="bi bi-trash"></i> Limpar Planilha
                 </button>
+                {% endif %}
                 <button type="button" class="btn btn-outline-dark" data-bs-dismiss="alert">
                     Ignorar Aviso
                 </button>
@@ -88,13 +90,30 @@
     <div class="col-md-4">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Registrar Acesso</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0">Registrar Acesso</h5>
+                    <span class="badge bg-info">{{ tipo_usuario }}</span>
+                </div>
+                
+                {% if pode_registrar_acesso %}
                 <button type="button" class="btn btn-success w-100 mb-2" onclick="abrirModalRegistro()">
                     <i class="bi bi-box-arrow-in-right"></i> Registrar Acesso
                 </button>
+                {% else %}
+                <button type="button" class="btn btn-secondary w-100 mb-2" disabled>
+                    <i class="bi bi-eye"></i> Apenas Visualização
+                </button>
+                {% endif %}
+                
+                {% if pode_saida_definitiva %}
                 <button type="button" class="btn btn-outline-dark w-100" onclick="abrirModalSaidaDefinitiva()">
                     <i class="bi bi-box-arrow-right"></i> Saída definitiva de interno
                 </button>
+                {% else %}
+                <button type="button" class="btn btn-outline-secondary w-100" disabled>
+                    <i class="bi bi-box-arrow-right"></i> Saída definitiva (Sem permissão)
+                </button>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -111,9 +130,11 @@
             <button class="btn btn-sm btn-warning me-2" onclick="retirarFaltas()">
                 <i class="bi bi-person-check"></i> Retirar Faltas
             </button>
+            {% if pode_limpar_dashboard %}
             <button class="btn btn-sm btn-danger" onclick="confirmarLimparPlanilha()">
                 <i class="bi bi-trash"></i> Limpar Planilha
             </button>
+            {% endif %}
         </div>
     </div>
     <div class="card-body">
@@ -192,15 +213,21 @@
 
 <!-- Menu de Contexto -->
 <div class="dropdown-menu context-menu" id="contextMenu">
+    {% if pode_registrar_acesso %}
     <button class="dropdown-item" type="button" id="menuEditar">
         <i class="bi bi-pencil"></i> Editar
     </button>
+    {% endif %}
+    {% if pode_excluir_registros %}
     <button class="dropdown-item" type="button" id="menuExcluir">
         <i class="bi bi-trash"></i> Excluir
     </button>
+    {% endif %}
+    {% if pode_registrar_acesso %}
     <button class="dropdown-item" type="button" id="menuRegistrarSaida">
         <i class="bi bi-box-arrow-right"></i> Registrar Saída
     </button>
+    {% endif %}
 </div>
 
 <!-- Modal de Registro -->
@@ -462,6 +489,31 @@
                     <i class="bi bi-info-circle-fill me-2"></i>
                     Não há ISVs registrados no plantão atual.
                 </div>
+
+                <!-- Seção de Permutas/Reposição de hora -->
+                <h5 class="border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-arrow-left-right text-warning me-2"></i>
+                    Permutas/Reposição de Hora
+                </h5>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th class="text-center">ORD</th>
+                                <th>Nome</th>
+                                <th>Documento</th>
+                                <th>Plantão</th>
+                                <th>Hora</th>
+                            </tr>
+                        </thead>
+                        <tbody id="permutasTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="semPermutas" class="alert alert-info" style="display: none;">
+                    <i class="bi bi-info-circle-fill me-2"></i>
+                    Não há permutas/reposições registradas no plantão atual.
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-primary" onclick="baixarPDFFaltas()">
@@ -494,6 +546,9 @@
 <script src="{% static 'js/shared.js' %}"></script>
 
 <script>
+// Variável global para verificar se o usuário é administrador
+const isAdministrator = {% if is_superuser %}true{% else %}false{% endif %};
+
 let registroParaExcluir = null;
 let timeoutBusca = null;
 const registroModal = new bootstrap.Modal(document.getElementById('registroModal'));
@@ -652,6 +707,13 @@ document.getElementById('registroForm').addEventListener('submit', function(even
     
     const tipoAcesso = document.getElementById('tipo_acesso').value;
     const servidorId = document.getElementById('servidor_id').value;
+    
+    // Verifica se o usuário é administrador e mostra alerta
+    {% if is_superuser %}
+    if (!confirm('⚠️ ATENÇÃO ADMINISTRADOR!\n\nVocê está logado como administrador do sistema. Não é recomendável que administradores façam inclusões no dashboard operacional.\n\nDeseja continuar mesmo assim?')) {
+        return; // Cancela a operação se o usuário não confirmar
+    }
+    {% endif %}
     
     // Verifica se existe entrada sem saída para este servidor
     fetch(`/verificar-entrada/${servidorId}/`)
@@ -872,12 +934,15 @@ function retirarFaltas() {
             
             const faltasTableBody = document.getElementById('faltasTableBody');
             const isvsTableBody = document.getElementById('isvsTableBody');
+            const permutasTableBody = document.getElementById('permutasTableBody');
             const semFaltas = document.getElementById('semFaltas');
             const semISVs = document.getElementById('semISVs');
+            const semPermutas = document.getElementById('semPermutas');
             
             // Limpa as tabelas
             faltasTableBody.innerHTML = '';
             isvsTableBody.innerHTML = '';
+            permutasTableBody.innerHTML = '';
             
             // Processa faltas
             if (data.faltosos && data.faltosos.length > 0) {
@@ -923,6 +988,34 @@ function retirarFaltas() {
                 // Esconde a tabela e mostra a mensagem de sem ISVs
                 isvsTableBody.closest('.table-responsive').style.display = 'none';
                 semISVs.style.display = '';
+            }
+            
+            // Processa Permutas/Reposição de hora
+            if (data.permutas_reposicao && data.permutas_reposicao.length > 0) {
+                // Mostra a tabela e esconde a mensagem de sem permutas
+                permutasTableBody.closest('.table-responsive').style.display = '';
+                semPermutas.style.display = 'none';
+                
+                // Preenche a tabela com os dados
+                data.permutas_reposicao.forEach(permuta => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="text-center">${permuta.ord}</td>
+                        <td>${permuta.nome}</td>
+                        <td>${permuta.documento}</td>
+                        <td class="text-center">
+                            <span class="badge bg-warning text-dark">${permuta.plantao_servidor}</span>
+                            <i class="bi bi-arrow-right mx-1"></i>
+                            <span class="badge bg-primary">${permuta.plantao_atual}</span>
+                        </td>
+                        <td class="text-center">${permuta.hora_entrada}</td>
+                    `;
+                    permutasTableBody.appendChild(tr);
+                });
+            } else {
+                // Esconde a tabela e mostra a mensagem de sem permutas
+                permutasTableBody.closest('.table-responsive').style.display = 'none';
+                semPermutas.style.display = '';
             }
             
             // Abre o modal

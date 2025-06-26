@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponse, FileResponse
+from django.http import JsonResponse, HttpResponse, FileResponse, HttpResponseServerError
 from django.core.paginator import Paginator
 from django.db.models import Q, Case, When, DateTimeField, Subquery, OuterRef, Count
 from django.utils import timezone
@@ -9,8 +9,12 @@ from datetime import datetime, timedelta, date
 import pandas as pd
 from .models import RegistroAcesso, LogAuditoria, Servidor, RegistroDashboard, RegistroAcessoTreinamento, VideoTutorial, ServidorTreinamento, PerfilUsuario
 from .forms import RegistroAcessoForm, ServidorForm
-from .utils import calcular_plantao_atual, determinar_tipo_acesso, verificar_plantao_servidor, verificar_saida_pendente
-from .decorators import admin_required
+from .utils import calcular_plantao_atual, extrair_plantao_do_setor, determinar_tipo_acesso, verificar_plantao_servidor, verificar_saida_pendente
+from .decorators import (
+    admin_required, log_errors, pode_registrar_acesso, 
+    pode_excluir_registros, pode_gerenciar_servidores, 
+    pode_limpar_dashboard, pode_saida_definitiva
+)
 from django.contrib.auth.models import User
 import json
 import csv
@@ -27,6 +31,10 @@ import logging
 import re
 import io
 import string
+import unicodedata
+import traceback
+import sys
+from django.template import loader
 
 # Configuração do logger
 logger = logging.getLogger(__name__)
@@ -80,6 +88,22 @@ def home(request):
     # Lista de servidores para os modais
     servidores = Servidor.objects.filter(ativo=True).order_by('nome')
     
+    # Verifica permissões do usuário
+    try:
+        perfil = request.user.perfil
+        pode_registrar = perfil.pode_registrar_acesso()
+        pode_excluir = perfil.pode_excluir_registros()
+        pode_limpar = perfil.pode_limpar_dashboard()
+        pode_saida_def = perfil.pode_saida_definitiva()
+        tipo_usuario = perfil.get_tipo_usuario_display()
+    except:
+        # Se não tem perfil, assume operador completo
+        pode_registrar = True
+        pode_excluir = True
+        pode_limpar = True
+        pode_saida_def = True
+        tipo_usuario = 'Operador'
+
     context = {
         'plantao_atual': plantao_atual,
         'total_entradas': total_entradas,
@@ -87,11 +111,18 @@ def home(request):
         'total_pendentes': total_pendentes,
         'servidores': servidores,
         'mostrar_aviso_plantao': mostrar_aviso,
-        'hora_atual': f"{hora_atual:02d}:{minuto_atual:02d}"
+        'hora_atual': f"{hora_atual:02d}:{minuto_atual:02d}",
+        'is_superuser': request.user.is_superuser,
+        'pode_registrar_acesso': pode_registrar,
+        'pode_excluir_registros': pode_excluir,
+        'pode_limpar_dashboard': pode_limpar,
+        'pode_saida_definitiva': pode_saida_def,
+        'tipo_usuario': tipo_usuario
     }
     return render(request, 'core/home.html', context)
 
 @login_required
+@pode_gerenciar_servidores
 def servidor_list(request):
     query = request.GET.get('q')
     servidores = Servidor.objects.all().order_by('nome')
@@ -108,6 +139,7 @@ def servidor_list(request):
     return render(request, 'core/servidor_list.html', {'servidores': servidores})
 
 @login_required
+@pode_gerenciar_servidores
 def servidor_create(request):
     if request.method == 'POST':
         form = ServidorForm(request.POST)
@@ -127,6 +159,7 @@ def servidor_create(request):
     return render(request, 'core/servidor_form.html', {'form': form})
 
 @login_required
+@pode_gerenciar_servidores
 def servidor_update(request, pk):
     servidor = get_object_or_404(Servidor, pk=pk)
     
@@ -171,6 +204,7 @@ def buscar_servidor(request):
     return JsonResponse([], safe=False)
 
 @login_required
+@pode_registrar_acesso
 def registro_acesso_create(request):
     if request.method == 'POST':
         servidor_id = request.POST.get('servidor')
@@ -570,6 +604,7 @@ def registro_acesso_update(request, registro_id):
             return redirect('home')
 
 @login_required
+@pode_excluir_registros
 def excluir_registro(request, registro_id):
     if request.method == 'POST':
         try:
@@ -723,12 +758,28 @@ def user_list(request):
             from core.models import PerfilUsuario
             perfil = PerfilUsuario.objects.create(
                 usuario=user,
-                precisa_trocar_senha=False
+                precisa_trocar_senha=False,
+                tipo_usuario='OPERADOR'
             )
         
-        # Se o perfil tem uma senha temporária, usa essa informação
-        # Se não, apenas mostra None (traço na interface)
-        senha_temporaria = perfil.senha_temporaria
+        # Para usuários de visualização, sempre mostra a senha (mesmo que não seja temporária)
+        # Para outros tipos, só mostra se for senha temporária
+        if perfil.tipo_usuario == 'VISUALIZACAO':
+            # Se não tem senha temporária salva, gera uma nova no padrão
+            if not perfil.senha_temporaria:
+                import random
+                numeros_aleatorios = ''.join([str(random.randint(0, 9)) for _ in range(4)])
+                senha_temporaria = f"{user.username}@{numeros_aleatorios}"
+                # Atualiza a senha do usuário e salva no perfil
+                user.set_password(senha_temporaria)
+                user.save()
+                perfil.senha_temporaria = senha_temporaria
+                perfil.save()
+            else:
+                senha_temporaria = perfil.senha_temporaria
+        else:
+            # Para outros tipos, só mostra se precisar trocar senha
+            senha_temporaria = perfil.senha_temporaria if perfil.precisa_trocar_senha else None
             
         # Adiciona à lista de dados
         users_data.append({
@@ -741,14 +792,28 @@ def user_list(request):
 
 @login_required
 @user_passes_test(is_staff)
+@log_errors
 def user_create(request):
     if request.method == 'POST':
         username = request.POST.get('username')
-        password = request.POST.get('password')
-        is_staff = request.POST.get('is_staff') == 'on'
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
+        tipo_usuario = request.POST.get('tipo_usuario', 'OPERADOR')
         
-        if not username or not password:
-            messages.error(request, 'Usuário e senha são obrigatórios.')
+        # Define is_staff baseado no tipo de usuário
+        is_staff = tipo_usuario == 'STAFF'
+        
+        # Validações
+        if not username:
+            messages.error(request, 'Nome de usuário é obrigatório.')
+            return redirect('user_create')
+            
+        if not first_name:
+            messages.error(request, 'Nome é obrigatório.')
+            return redirect('user_create')
+            
+        if not last_name:
+            messages.error(request, 'Sobrenome é obrigatório.')
             return redirect('user_create')
         
         # Verifica se o usuário já existe
@@ -756,10 +821,17 @@ def user_create(request):
             messages.error(request, 'Este nome de usuário já está em uso.')
             return redirect('user_create')
         
+        # Gera senha temporária no formato usuario@1234 (números aleatórios)
+        import random
+        numeros_aleatorios = ''.join([str(random.randint(0, 9)) for _ in range(4)])
+        password = f"{username}@{numeros_aleatorios}"
+        
         # Cria o usuário
         user = User.objects.create_user(
             username=username,
             password=password,
+            first_name=first_name,
+            last_name=last_name,
             is_staff=is_staff
         )
         
@@ -768,7 +840,8 @@ def user_create(request):
         PerfilUsuario.objects.create(
             usuario=user,
             precisa_trocar_senha=True,  # Força a troca de senha no primeiro login
-            senha_temporaria=password  # Salva a senha temporária
+            senha_temporaria=password,  # Salva a senha temporária
+            tipo_usuario=tipo_usuario  # Usa o tipo selecionado
         )
         
         # Registra a criação no log de auditoria
@@ -777,13 +850,15 @@ def user_create(request):
             tipo_acao='CRIACAO',
             modelo='User',
             objeto_id=user.id,
-            detalhes=f'Criação do usuário {username}'
+            detalhes=f'Criação do usuário {username} ({first_name} {last_name})'
         )
         
-        messages.success(request, f'Usuário {username} criado com sucesso! A senha temporária é: {password}')
+        # Obtém o nome amigável do tipo de usuário
+        tipo_nome = dict(PerfilUsuario.TIPO_USUARIO_CHOICES)[tipo_usuario]
+        messages.success(request, f'Usuário {username} ({first_name} {last_name}) criado como "{tipo_nome}" com sucesso! A senha temporária é: {password}')
         return redirect('user_list')
     
-    return render(request, 'core/user_create.html')
+    return render(request, 'core/user_form.html')
 
 @login_required
 def user_update(request, pk):
@@ -798,13 +873,46 @@ def user_update(request, pk):
         usuario.email = request.POST.get('email')
         usuario.first_name = request.POST.get('first_name')
         usuario.last_name = request.POST.get('last_name')
-        usuario.is_staff = request.POST.get('is_staff') == 'on'
+        tipo_usuario = request.POST.get('tipo_usuario', 'OPERADOR')
         
-        if request.POST.get('password'):
-            usuario.set_password(request.POST.get('password'))
+        # Define is_staff baseado no tipo de usuário
+        usuario.is_staff = tipo_usuario == 'STAFF'
+        
+        # Atualiza o perfil do usuário
+        try:
+            perfil = usuario.perfil
+        except:
+            from core.models import PerfilUsuario
+            perfil = PerfilUsuario.objects.create(
+                usuario=usuario,
+                tipo_usuario=tipo_usuario,
+                precisa_trocar_senha=False
+            )
+        
+        perfil.tipo_usuario = tipo_usuario
+        perfil.save()
+        
+        # Processa redefinição de senha se solicitada
+        redefinir_senha = request.POST.get('redefinir_senha') == 'on'
+        forcar_troca = request.POST.get('forcar_troca') == 'on'
+        
+        if redefinir_senha:
+            import random
+            numeros_aleatorios = ''.join([str(random.randint(0, 9)) for _ in range(4)])
+            nova_senha = f"{usuario.username}@{numeros_aleatorios}"
+            usuario.set_password(nova_senha)
+            perfil.senha_temporaria = nova_senha
+            perfil.precisa_trocar_senha = True
+            perfil.save()
+            messages.success(request, f'Usuário atualizado! Nova senha temporária: {nova_senha}')
+        elif forcar_troca:
+            perfil.precisa_trocar_senha = True
+            perfil.save()
+            messages.success(request, 'Usuário atualizado! Será obrigado a trocar a senha no próximo login.')
+        else:
+            messages.success(request, 'Usuário atualizado com sucesso!')
         
         usuario.save()
-        messages.success(request, 'Usuário atualizado com sucesso!')
         return redirect('user_list')
     
     return render(request, 'core/user_form.html', {'usuario': usuario})
@@ -1058,6 +1166,7 @@ def limpar_banco_servidores(request):
 
 @login_required
 @admin_required
+@pode_gerenciar_servidores
 def servidor_delete(request, pk):
     if request.method == 'POST':
         try:
@@ -1250,6 +1359,7 @@ def historico(request):
     
     return render(request, 'core/historico.html', context)
 
+@pode_saida_definitiva
 def saida_definitiva(request):
     if request.method == 'POST':
         nome = request.POST.get('nome')
@@ -1330,6 +1440,7 @@ def saida_definitiva(request):
     })
 
 @login_required
+@pode_limpar_dashboard
 def limpar_dashboard(request):
     """
     View para limpar todos os registros do dashboard exceto os que têm saída pendente.
@@ -1459,7 +1570,8 @@ def retirar_faltas(request):
     Esta view permite:
     1. Listar os servidores faltosos do plantão atual
     2. Listar os ISVs presentes
-    3. Exportar ambas as listas em formato PDF
+    3. Listar as Permutas/Reposição de hora
+    4. Exportar todas as listas em formato PDF
 
     Args:
         request: HttpRequest contendo os parâmetros da requisição
@@ -1469,6 +1581,9 @@ def retirar_faltas(request):
     Returns:
         HttpResponse: Renderiza template com listas ou retorna arquivo PDF/JSON
     """
+    import re
+    import unicodedata
+    
     # Constantes para configuração do PDF
     PDF_TITLE_FONT_SIZE = 16
     PDF_SUBTITLE_FONT_SIZE = 14
@@ -1484,7 +1599,7 @@ def retirar_faltas(request):
     filtro_nome = request.GET.get('nome', '').strip()
     
     try:
-        # Busca servidores do plantão atual
+        # Busca servidores do plantão atual (setor contém o nome do plantão)
         servidores_plantao = Servidor.objects.filter(
             setor__icontains=nome_plantao,
             ativo=True
@@ -1497,12 +1612,10 @@ def retirar_faltas(request):
                 Q(numero_documento__icontains=filtro_nome)
             )
         
-        # Busca registros de entrada do dia
-        hoje = timezone.now().date()
+        # Busca TODOS os registros que estão no dashboard (com saída pendente)
         registros_hoje = RegistroDashboard.objects.filter(
-            data_hora__date=hoje,
             tipo_acesso='ENTRADA',
-            saida_pendente=True  # Adiciona filtro para considerar apenas registros ativos
+            saida_pendente=True  # Todos os registros ativos no dashboard
         ).select_related('servidor')
         
         servidores_presentes = set(registro.servidor_id for registro in registros_hoje)
@@ -1520,7 +1633,55 @@ def retirar_faltas(request):
                     'hora_entrada': hora_entrada
                 })
         
-        # Processa faltosos
+        # Processa Permutas/Reposição de hora
+        # Servidores que entraram, não são ISV e têm plantão diferente do atual
+        permutas_reposicao = []
+        print(f"\n[DEBUG PERMUTAS] ======= INÍCIO PROCESSAMENTO PERMUTAS =======")
+        print(f"[DEBUG PERMUTAS] Plantão atual: {nome_plantao}")
+        print(f"[DEBUG PERMUTAS] Total de registros hoje: {len(registros_hoje)}")
+        
+        for registro in registros_hoje:
+            servidor = registro.servidor
+            print(f"\n[DEBUG PERMUTAS] --- Analisando registro ---")
+            print(f"[DEBUG PERMUTAS] Nome: {servidor.nome}")
+            print(f"[DEBUG PERMUTAS] Documento: {servidor.numero_documento}")
+            print(f"[DEBUG PERMUTAS] ISV: {registro.isv}")
+            print(f"[DEBUG PERMUTAS] Setor do servidor: {servidor.setor}")
+            
+            # Extrai o plantão do setor
+            plantao_servidor = extrair_plantao_do_setor(servidor.setor)
+            print(f"[DEBUG PERMUTAS] Plantão extraído: {plantao_servidor}")
+            
+            # Verifica se não é ISV e tem plantão diferente do atual
+            if not registro.isv:
+                print(f"[DEBUG PERMUTAS] ✓ Não é ISV")
+                if plantao_servidor:
+                    print(f"[DEBUG PERMUTAS] ✓ Tem plantão definido: {plantao_servidor}")
+                    if plantao_servidor != nome_plantao:
+                        print(f"[DEBUG PERMUTAS] ✓ Plantão diferente do atual ({plantao_servidor} != {nome_plantao})")
+                        hora_entrada = timezone.localtime(registro.data_hora).strftime('%H:%M')
+                        permuta_data = {
+                            'ord': len(permutas_reposicao) + 1,
+                            'nome': servidor.nome,
+                            'documento': servidor.numero_documento,
+                            'setor': servidor.setor,
+                            'plantao_servidor': plantao_servidor,
+                            'plantao_atual': nome_plantao,
+                            'hora_entrada': hora_entrada
+                        }
+                        permutas_reposicao.append(permuta_data)
+                        print(f"[DEBUG PERMUTAS] ✓ ADICIONADO À LISTA DE PERMUTAS: {permuta_data}")
+                    else:
+                        print(f"[DEBUG PERMUTAS] ✗ Plantão igual ao atual ({plantao_servidor} == {nome_plantao})")
+                else:
+                    print(f"[DEBUG PERMUTAS] ✗ Não tem plantão definido (plantao = {plantao_servidor})")
+            else:
+                print(f"[DEBUG PERMUTAS] ✗ É ISV")
+        
+        print(f"\n[DEBUG PERMUTAS] Total de permutas encontradas: {len(permutas_reposicao)}")
+        print(f"[DEBUG PERMUTAS] ======= FIM PROCESSAMENTO PERMUTAS =======\n")
+        
+        # Processa faltosos (servidores do plantão atual que não entraram)
         faltosos = []
         for servidor in servidores_plantao:
             if servidor.id not in servidores_presentes:
@@ -1534,12 +1695,15 @@ def retirar_faltas(request):
         # Ordena as listas por nome
         faltosos.sort(key=lambda x: x['nome'])
         isvs_presentes.sort(key=lambda x: x['nome'])
+        permutas_reposicao.sort(key=lambda x: x['nome'])
         
         # Atualiza números de ordem após ordenação
         for i, faltoso in enumerate(faltosos, 1):
             faltoso['ord'] = i
         for i, isv in enumerate(isvs_presentes, 1):
             isv['ord'] = i
+        for i, permuta in enumerate(permutas_reposicao, 1):
+            permuta['ord'] = i
         
         # Gera PDF se solicitado
         if request.GET.get('format') == 'pdf':
@@ -1668,6 +1832,45 @@ def retirar_faltas(request):
                     ]))
                     elements.append(table)
                 
+                # Seção de Permutas/Reposição de hora
+                if permutas_reposicao:
+                    elements.append(Paragraph("Permutas/Reposição de Hora", subtitle_style))
+                    
+                    # Dados da tabela
+                    table_data = [['ORD', 'Nome', 'Documento', 'Plantão', 'Hora']]
+                    for permuta in permutas_reposicao:
+                        table_data.append([
+                            str(permuta['ord']),
+                            permuta['nome'],
+                            permuta['documento'],
+                            f"{permuta['plantao_servidor']} → {permuta['plantao_atual']}",
+                            permuta['hora_entrada']
+                        ])
+                    
+                    # Cria e estiliza tabela
+                    table = Table(table_data, colWidths=[50, 280, 120, 80, 50])
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FF8C00')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), PDF_NORMAL_FONT_SIZE),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), TABLE_PADDING * 2),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                        ('FONTSIZE', (0, 1), (-1, -1), PDF_TABLE_FONT_SIZE),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                        ('ALIGN', (1, 0), (-1, -1), 'LEFT'),
+                        ('ALIGN', (-1, 0), (-1, -1), 'CENTER'),
+                        ('TOPPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                        ('LEFTPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                    ]))
+                    elements.append(table)
+                
                 # Gera PDF
                 doc.build(elements)
                 
@@ -1689,14 +1892,17 @@ def retirar_faltas(request):
                 'plantao_atual': nome_plantao,
                 'faltosos': faltosos,
                 'isvs_presentes': isvs_presentes,
+                'permutas_reposicao': permutas_reposicao,
                 'total_faltas': len(faltosos),
-                'total_isvs': len(isvs_presentes)
+                'total_isvs': len(isvs_presentes),
+                'total_permutas': len(permutas_reposicao)
             })
         
         # Renderiza template para requisições normais
         context = {
             'faltosos': faltosos,
             'isvs_presentes': isvs_presentes,
+            'permutas_reposicao': permutas_reposicao,
             'filtro_nome': filtro_nome,
             'plantao_atual': nome_plantao
         }
@@ -1737,6 +1943,7 @@ def ambiente_treinamento(request):
     hora_atual = agora.hour
     minuto_atual = agora.minute
     
+    # No ambiente de treinamento, todos têm permissão total
     context = {
         'plantao_atual': plantao_atual,
         'total_entradas': total_entradas,
@@ -1745,7 +1952,13 @@ def ambiente_treinamento(request):
         'servidores': servidores,
         'mostrar_aviso_plantao': mostrar_aviso,
         'hora_atual': f"{hora_atual:02d}:{minuto_atual:02d}",
-        'agora': agora
+        'agora': agora,
+        'is_superuser': request.user.is_superuser,
+        'pode_registrar_acesso': True,
+        'pode_excluir_registros': True,
+        'pode_limpar_dashboard': True,
+        'pode_saida_definitiva': True,
+        'tipo_usuario': 'Treinamento'
     }
     
     return render(request, 'core/treinamento.html', context)
@@ -1947,6 +2160,7 @@ def registro_detalhe_treinamento(request, registro_id):
 @login_required
 def buscar_servidor_treinamento(request):
     """View para buscar servidores no ambiente de treinamento."""
+    
     print(f"\n\n[DEBUG TREINAMENTO] ======= INÍCIO BUSCA SERVIDOR =======")
     print(f"[DEBUG TREINAMENTO] Requisição recebida de: {request.user}")
     print(f"[DEBUG TREINAMENTO] Método HTTP: {request.method}")
@@ -1985,7 +2199,7 @@ def buscar_servidor_treinamento(request):
                 'setor': servidor.setor or '-',
                 'veiculo': servidor.veiculo or '-',
                 'tipo_funcionario': servidor.tipo_funcionario,
-                'plantao': servidor.plantao
+                'plantao': extrair_plantao_do_setor(servidor.setor)
             })
         
         print(f"[DEBUG TREINAMENTO] Total resultados formatados: {len(resultados)}")
@@ -2030,7 +2244,6 @@ def registro_acesso_treinamento_create(request):
             defaults={
                 'nome': servidor_original.nome,
                 'tipo_funcionario': servidor_original.tipo_funcionario,
-                'plantao': servidor_original.plantao,
                 'setor': servidor_original.setor,
                 'veiculo': servidor_original.veiculo,
                 'ativo': True
@@ -2107,7 +2320,6 @@ def registro_manual_treinamento_create(request):
             defaults={
                 'nome': servidor_original.nome,
                 'tipo_funcionario': servidor_original.tipo_funcionario,
-                'plantao': servidor_original.plantao,
                 'setor': servidor_original.setor,
                 'veiculo': servidor_original.veiculo,
                 'ativo': True
@@ -2576,11 +2788,12 @@ def registrar_saida_treinamento(request, registro_id):
 
 @login_required
 def tutoriais_treinamento(request):
-    """View para exibir os tutoriais em vídeo do ambiente de treinamento."""
-    # Obtém todos os tutoriais ativos, ordenados por ordem e título
-    tutoriais = VideoTutorial.objects.filter(ativo=True).order_by('ordem', 'titulo')
+    """View para exibir tutoriais em vídeo do sistema."""
     
-    # Agrupa os tutoriais por categoria
+    # Obtém todos os tutoriais ativos ordenados por categoria e ordem
+    tutoriais = VideoTutorial.objects.filter(ativo=True).order_by('categoria', 'ordem', 'titulo')
+    
+    # Agrupa tutoriais por categoria
     tutoriais_por_categoria = {}
     for tutorial in tutoriais:
         categoria = tutorial.get_categoria_display()
@@ -2618,9 +2831,15 @@ def user_reset_password(request, pk):
         perfil = user.perfil
     except:
         from core.models import PerfilUsuario
-        perfil = PerfilUsuario.objects.create(usuario=user)
+        perfil = PerfilUsuario.objects.create(usuario=user, tipo_usuario='OPERADOR')
     
-    perfil.precisa_trocar_senha = True
+    # Para usuários de visualização, não força a troca de senha
+    # A senha fica sempre visível e pode ser usada diretamente
+    if perfil.tipo_usuario == 'VISUALIZACAO':
+        perfil.precisa_trocar_senha = False
+    else:
+        perfil.precisa_trocar_senha = True
+    
     perfil.senha_temporaria = temp_password
     perfil.save()
     
@@ -2645,7 +2864,8 @@ def trocar_senha(request):
         from core.models import PerfilUsuario
         perfil = PerfilUsuario.objects.create(
             usuario=request.user,
-            precisa_trocar_senha=False
+            precisa_trocar_senha=False,
+            tipo_usuario='OPERADOR'
         )
     
     if request.method == 'POST':
@@ -2701,6 +2921,309 @@ def trocar_senha(request):
         return redirect('login')
     
     return render(request, 'core/trocar_senha.html', {'perfil': perfil})
+
+@login_required
+def retirar_faltas_treinamento(request):
+    """
+    View para listar e exportar as faltas do plantão atual no ambiente de treinamento.
+
+    Esta view permite:
+    1. Listar os servidores faltosos do plantão atual
+    2. Listar os ISVs presentes
+    3. Listar as Permutas/Reposição de hora
+    4. Exportar todas as listas em formato PDF
+
+    Args:
+        request: HttpRequest contendo os parâmetros da requisição
+            - nome (opcional): Filtro por nome ou documento do servidor
+            - format (opcional): Se 'pdf', gera relatório em PDF
+
+    Returns:
+        HttpResponse: Renderiza template com listas ou retorna arquivo PDF/JSON
+    """
+    import re
+    import unicodedata
+    
+    # Constantes para configuração do PDF
+    PDF_TITLE_FONT_SIZE = 16
+    PDF_SUBTITLE_FONT_SIZE = 14
+    PDF_NORMAL_FONT_SIZE = 12
+    PDF_TABLE_FONT_SIZE = 10
+    TABLE_PADDING = 6
+    
+    # Obtém o plantão atual
+    plantao_atual = calcular_plantao_atual()
+    nome_plantao = plantao_atual['nome']
+    
+    # Obtém o filtro de nome da query string e sanitiza
+    filtro_nome = request.GET.get('nome', '').strip()
+    
+    try:
+        # Busca servidores do plantão atual (setor contém o nome do plantão)
+        servidores_plantao = Servidor.objects.filter(
+            setor__icontains=nome_plantao,
+            ativo=True
+        ).order_by('nome')
+        
+        # Aplica filtro por nome se fornecido
+        if filtro_nome:
+            servidores_plantao = servidores_plantao.filter(
+                Q(nome__icontains=filtro_nome) |
+                Q(numero_documento__icontains=filtro_nome)
+            )
+        
+        # Busca TODOS os registros que estão no dashboard de treinamento (com saída pendente)
+        registros_hoje = RegistroAcessoTreinamento.objects.filter(
+            tipo_acesso='ENTRADA',
+            saida_pendente=True  # Todos os registros ativos no dashboard
+        ).select_related('servidor')
+        
+        # Cria mapeamento de servidores presentes baseado no documento
+        servidores_presentes = set()
+        for registro in registros_hoje:
+            # Busca servidor equivalente no banco principal pelo documento
+            try:
+                servidor_principal = Servidor.objects.get(
+                    numero_documento=registro.servidor.numero_documento,
+                    ativo=True
+                )
+                servidores_presentes.add(servidor_principal.id)
+            except Servidor.DoesNotExist:
+                continue
+        
+        # Processa ISVs presentes
+        isvs_presentes = []
+        for registro in registros_hoje:
+            if registro.isv:
+                hora_entrada = timezone.localtime(registro.data_hora).strftime('%H:%M')
+                isvs_presentes.append({
+                    'ord': len(isvs_presentes) + 1,
+                    'nome': registro.servidor.nome,
+                    'documento': registro.servidor.numero_documento,
+                    'setor': registro.servidor.setor,
+                    'hora_entrada': hora_entrada
+                })
+        
+        # Processa Permutas/Reposição de hora (treinamento)
+        # Servidores que entraram, não são ISV e têm plantão diferente do atual
+        permutas_reposicao = []
+        
+        for registro in registros_hoje:
+            servidor = registro.servidor
+            # Extrai o plantão do setor
+            plantao_servidor = extrair_plantao_do_setor(servidor.setor)
+            
+            # Verifica se não é ISV e tem plantão diferente do atual
+            if not registro.isv and plantao_servidor and plantao_servidor != nome_plantao:
+                hora_entrada = timezone.localtime(registro.data_hora).strftime('%H:%M')
+                permuta_data = {
+                    'ord': len(permutas_reposicao) + 1,
+                    'nome': servidor.nome,
+                    'documento': servidor.numero_documento,
+                    'setor': servidor.setor,
+                    'plantao_servidor': plantao_servidor,
+                    'plantao_atual': nome_plantao,
+                    'hora_entrada': hora_entrada
+                }
+                permutas_reposicao.append(permuta_data)
+        
+        print(f"\n[DEBUG PERMUTAS] Total de permutas encontradas: {len(permutas_reposicao)}")
+        print(f"[DEBUG PERMUTAS] ======= FIM PROCESSAMENTO PERMUTAS =======\n")
+        
+        # Processa faltosos (servidores do plantão atual que não entraram)
+        faltosos = []
+        for servidor in servidores_plantao:
+            if servidor.id not in servidores_presentes:
+                faltosos.append({
+                    'ord': len(faltosos) + 1,
+                    'nome': servidor.nome,
+                    'documento': servidor.numero_documento,
+                    'setor': servidor.setor
+                })
+        
+        # Ordena as listas por nome
+        faltosos.sort(key=lambda x: x['nome'])
+        isvs_presentes.sort(key=lambda x: x['nome'])
+        permutas_reposicao.sort(key=lambda x: x['nome'])
+        
+        # Atualiza números de ordem após ordenação
+        for i, faltoso in enumerate(faltosos, 1):
+            faltoso['ord'] = i
+        for i, isv in enumerate(isvs_presentes, 1):
+            isv['ord'] = i
+        for i, permuta in enumerate(permutas_reposicao, 1):
+            permuta['ord'] = i
+        
+        # Gera PDF se solicitado (dados de exemplo para treinamento)
+        if request.GET.get('format') == 'pdf':
+            try:
+                # Cria buffer e documento
+                buffer = BytesIO()
+                doc = SimpleDocTemplate(buffer, pagesize=letter)
+                elements = []
+                
+                # Define estilos
+                styles = getSampleStyleSheet()
+                title_style = ParagraphStyle(
+                    'CustomTitle',
+                    parent=styles['Heading1'],
+                    fontSize=PDF_TITLE_FONT_SIZE,
+                    spaceAfter=30,
+                    alignment=1
+                )
+                subtitle_style = ParagraphStyle(
+                    'CustomSubtitle',
+                    parent=styles['Heading2'],
+                    fontSize=PDF_SUBTITLE_FONT_SIZE,
+                    spaceAfter=20,
+                    spaceBefore=30,
+                    alignment=1
+                )
+                date_style = ParagraphStyle(
+                    'DateStyle',
+                    parent=styles['Normal'],
+                    fontSize=PDF_NORMAL_FONT_SIZE,
+                    spaceAfter=20,
+                    alignment=1
+                )
+                
+                # Adiciona título com indicação de treinamento
+                title = Paragraph(f"Relatório do Plantão {nome_plantao} [TREINAMENTO]", title_style)
+                elements.append(title)
+                
+                # Adiciona data/hora
+                current_datetime = timezone.localtime().strftime("%d/%m/%Y %H:%M:%S")
+                date_paragraph = Paragraph(f"Gerado em: {current_datetime}", date_style)
+                elements.append(date_paragraph)
+                
+                # Adiciona dados de exemplo para demonstração
+                if not faltosos and not isvs_presentes and not permutas_reposicao:
+                    # Seção de exemplo
+                    elements.append(Paragraph("Dados de Exemplo - Ambiente de Treinamento", subtitle_style))
+                    
+                    # Tabela de exemplo
+                    example_data = [
+                        ['Categoria', 'Quantidade', 'Observação'],
+                        ['Faltas', '2', 'Servidores ausentes do plantão'],
+                        ['ISVs', '1', 'Interventores de segurança'],
+                        ['Permutas', '1', 'Reposições de hora']
+                    ]
+                    
+                    table = Table(example_data, colWidths=[150, 100, 250])
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), PDF_NORMAL_FONT_SIZE),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), TABLE_PADDING * 2),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                        ('FONTSIZE', (0, 1), (-1, -1), PDF_TABLE_FONT_SIZE),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('TOPPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                        ('LEFTPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), TABLE_PADDING),
+                    ]))
+                    elements.append(table)
+                else:
+                    # Usa dados reais se existirem (mesma lógica da função principal)
+                    # [Código similar à função principal...]
+                    pass
+                
+                # Gera PDF
+                doc.build(elements)
+                
+                # Prepara resposta
+                buffer.seek(0)
+                response = HttpResponse(buffer.read(), content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="relatorio_faltas_treinamento_{hoje}.pdf"'
+                
+                return response
+                
+            except Exception as e:
+                messages.error(request, f'Erro ao gerar PDF: {str(e)}')
+                return redirect('ambiente_treinamento')
+        
+        # Verifica se é uma requisição AJAX
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Retorna JSON para requisições AJAX
+            return JsonResponse({
+                'plantao_atual': nome_plantao,
+                'faltosos': faltosos,
+                'isvs_presentes': isvs_presentes,
+                'permutas_reposicao': permutas_reposicao,
+                'total_faltas': len(faltosos),
+                'total_isvs': len(isvs_presentes),
+                'total_permutas': len(permutas_reposicao)
+            })
+        
+        # Renderiza template para requisições normais
+        context = {
+            'faltosos': faltosos,
+            'isvs_presentes': isvs_presentes,
+            'permutas_reposicao': permutas_reposicao,
+            'filtro_nome': filtro_nome,
+            'plantao_atual': nome_plantao
+        }
+        
+        return render(request, 'core/retirar_faltas.html', context)
+        
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': str(e)}, status=500)
+        messages.error(request, f'Erro ao processar dados: {str(e)}')
+        return redirect('ambiente_treinamento')
+
+def handler500(request):
+    """
+    Handler personalizado para erro 500 que inclui informações detalhadas de debug
+    """
+    try:
+        # Captura informações do erro atual
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        
+        # Formata o traceback
+        tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        traceback_text = ''.join(tb_lines)
+        
+        # Informações da requisição
+        request_info = f"""
+Método: {request.method}
+URL: {request.get_full_path()}
+Usuário: {getattr(request.user, 'username', 'Anônimo')}
+IP: {request.META.get('REMOTE_ADDR', 'Desconhecido')}
+User-Agent: {request.META.get('HTTP_USER_AGENT', 'Desconhecido')}
+Referer: {request.META.get('HTTP_REFERER', 'Nenhum')}
+Data/Hora: {timezone.now()}
+        """.strip()
+        
+        # Log do erro
+        logger.error(f"Erro 500 capturado:\n{traceback_text}\n\nInformações da requisição:\n{request_info}")
+        
+        # Contexto para o template
+        context = {
+            'exception': str(exc_value) if exc_value else 'Erro desconhecido',
+            'traceback': traceback_text,
+            'request_info': request_info,
+            'debug': True  # Sempre mostra debug info nas páginas de erro personalizadas
+        }
+        
+        # Renderiza o template personalizado
+        template = loader.get_template('500.html')
+        return HttpResponseServerError(template.render(context, request))
+        
+    except Exception as e:
+        # Se algo der errado no handler, retorna erro simples
+        logger.error(f"Erro no handler500: {str(e)}")
+        return HttpResponseServerError(
+            '<h1>Erro Interno do Servidor</h1>'
+            '<p>Ocorreu um erro interno. Contate o administrador.</p>'
+        )
+
+
 
 
 

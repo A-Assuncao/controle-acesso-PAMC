@@ -271,14 +271,42 @@ class PerfilUsuario(models.Model):
     """
     Modelo para armazenar informações adicionais de usuários.
     """
+    TIPO_USUARIO_CHOICES = [
+        ('OPERADOR', 'Operador'),
+        ('VISUALIZACAO', 'Visualização'),
+        ('STAFF', 'Staff'),
+        ('ADMIN', 'Administrador'),
+    ]
+    
     usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='perfil')
     precisa_trocar_senha = models.BooleanField(default=False)
     senha_temporaria = models.CharField(max_length=50, blank=True, null=True)
+    tipo_usuario = models.CharField(max_length=15, choices=TIPO_USUARIO_CHOICES, default='OPERADOR')
     data_criacao = models.DateTimeField(auto_now_add=True)
     data_atualizacao = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"Perfil de {self.usuario.username}"
+        return f"Perfil de {self.usuario.username} ({self.get_tipo_usuario_display()})"
+    
+    def pode_registrar_acesso(self):
+        """Verifica se o usuário pode registrar acessos no ambiente de produção."""
+        return self.tipo_usuario in ['OPERADOR', 'STAFF', 'ADMIN']
+    
+    def pode_excluir_registros(self):
+        """Verifica se o usuário pode excluir registros."""
+        return self.tipo_usuario in ['STAFF', 'ADMIN']
+    
+    def pode_gerenciar_servidores(self):
+        """Verifica se o usuário pode gerenciar servidores."""
+        return self.tipo_usuario in ['STAFF', 'ADMIN']
+    
+    def pode_limpar_dashboard(self):
+        """Verifica se o usuário pode limpar o dashboard."""
+        return self.tipo_usuario in ['STAFF', 'ADMIN']
+    
+    def pode_saida_definitiva(self):
+        """Verifica se o usuário pode registrar saída definitiva."""
+        return self.tipo_usuario in ['OPERADOR', 'STAFF', 'ADMIN']
     
     class Meta:
         verbose_name = 'Perfil de Usuário'
