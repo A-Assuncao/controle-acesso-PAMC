@@ -1359,6 +1359,7 @@ def historico(request):
     
     return render(request, 'core/historico.html', context)
 
+@login_required
 @pode_saida_definitiva
 def saida_definitiva(request):
     if request.method == 'POST':
