@@ -1,0 +1,192 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Retirar Faltas - Controle de Acesso{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Relatório do Plantão {{ plantao_atual }}</h2>
+        <div>
+            <button type="button" class="btn btn-success me-2" onclick="exportarPDF()">
+                <i class="fas fa-file-pdf"></i> Exportar PDF
+            </button>
+            <a href="{% url 'home' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtro por nome -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" action="{% url 'retirar_faltas' %}" class="row g-3">
+                <div class="col-md-6">
+                    <label for="nome" class="form-label">Filtrar por nome ou documento</label>
+                    <input type="text" class="form-control" id="nome" name="nome" value="{{ filtro_nome }}" placeholder="Digite o nome ou documento">
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="fas fa-search"></i> Filtrar
+                    </button>
+                    <a href="{% url 'retirar_faltas' %}" class="btn btn-secondary">
+                        <i class="fas fa-eraser"></i> Limpar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resumo -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-danger">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Faltas</h5>
+                    <h2 class="card-text">{{ faltosos|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success">
+                <div class="card-body text-center">
+                    <h5 class="card-title">ISVs Presentes</h5>
+                    <h2 class="card-text">{{ isvs_presentes|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-warning">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Permutas/Reposição</h5>
+                    <h2 class="card-text">{{ permutas_reposicao|length }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Faltas -->
+    {% if faltosos %}
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="fas fa-user-times"></i> Lista de Faltas</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>ORD</th>
+                            <th>Nome</th>
+                            <th>Documento</th>
+                            <th>Setor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for faltoso in faltosos %}
+                        <tr>
+                            <td>{{ faltoso.ord }}</td>
+                            <td>{{ faltoso.nome }}</td>
+                            <td>{{ faltoso.documento }}</td>
+                            <td>{{ faltoso.setor }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i> Não há faltas registradas para o plantão atual!
+    </div>
+    {% endif %}
+
+    <!-- Lista de ISVs Presentes -->
+    {% if isvs_presentes %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="fas fa-user-shield"></i> Lista de ISVs Presentes</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>ORD</th>
+                            <th>Nome</th>
+                            <th>Documento</th>
+                            <th>Setor</th>
+                            <th>Hora Entrada</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for isv in isvs_presentes %}
+                        <tr>
+                            <td>{{ isv.ord }}</td>
+                            <td>{{ isv.nome }}</td>
+                            <td>{{ isv.documento }}</td>
+                            <td>{{ isv.setor }}</td>
+                            <td><span class="badge bg-success">{{ isv.hora_entrada }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Lista de Permutas/Reposição de Hora -->
+    {% if permutas_reposicao %}
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="fas fa-exchange-alt"></i> Permutas/Reposição de Hora</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>ORD</th>
+                            <th>Nome</th>
+                            <th>Documento</th>
+                            <th>Setor</th>
+                            <th>Plantão</th>
+                            <th>Hora Entrada</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for permuta in permutas_reposicao %}
+                        <tr>
+                            <td>{{ permuta.ord }}</td>
+                            <td>{{ permuta.nome }}</td>
+                            <td>{{ permuta.documento }}</td>
+                            <td>{{ permuta.setor }}</td>
+                            <td><span class="badge bg-warning">{{ permuta.plantao_servidor }} -> {{ permuta.plantao_atual }}</span></td>
+                            <td><span class="badge bg-success">{{ permuta.hora_entrada }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Mensagem quando não há dados -->
+    {% if not faltosos and not isvs_presentes and not permutas_reposicao %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> Nenhum dado encontrado para o plantão atual.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function exportarPDF() {
+    const url = new URL(window.location);
+    url.searchParams.set('format', 'pdf');
+    window.open(url.toString(), '_blank');
+}
+</script>
+{% endblock %} 

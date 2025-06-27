@@ -1551,6 +1551,9 @@ def retirar_faltas(request):
     plantao_atual = calcular_plantao_atual()
     nome_plantao = plantao_atual['nome']
     
+    # Obtém a data atual para o nome do arquivo
+    hoje = timezone.localtime().strftime('%Y%m%d')
+    
     # Obtém o filtro de nome da query string e sanitiza
     filtro_nome = request.GET.get('nome', '').strip()
     
@@ -1610,11 +1613,11 @@ def retirar_faltas(request):
             
             # Verifica se não é ISV e tem plantão diferente do atual
             if not registro.isv:
-                print(f"[DEBUG PERMUTAS] ✓ Não é ISV")
+                print(f"[DEBUG PERMUTAS] OK - Não é ISV")
                 if plantao_servidor:
-                    print(f"[DEBUG PERMUTAS] ✓ Tem plantão definido: {plantao_servidor}")
+                    print(f"[DEBUG PERMUTAS] OK - Tem plantão definido: {plantao_servidor}")
                     if plantao_servidor != nome_plantao:
-                        print(f"[DEBUG PERMUTAS] ✓ Plantão diferente do atual ({plantao_servidor} != {nome_plantao})")
+                        print(f"[DEBUG PERMUTAS] OK - Plantão diferente do atual ({plantao_servidor} != {nome_plantao})")
                         hora_entrada = timezone.localtime(registro.data_hora).strftime('%H:%M')
                         permuta_data = {
                             'ord': len(permutas_reposicao) + 1,
@@ -1626,13 +1629,13 @@ def retirar_faltas(request):
                             'hora_entrada': hora_entrada
                         }
                         permutas_reposicao.append(permuta_data)
-                        print(f"[DEBUG PERMUTAS] ✓ ADICIONADO À LISTA DE PERMUTAS: {permuta_data}")
+                        print(f"[DEBUG PERMUTAS] OK - ADICIONADO À LISTA DE PERMUTAS: {permuta_data}")
                     else:
-                        print(f"[DEBUG PERMUTAS] ✗ Plantão igual ao atual ({plantao_servidor} == {nome_plantao})")
+                        print(f"[DEBUG PERMUTAS] X - Plantão igual ao atual ({plantao_servidor} == {nome_plantao})")
                 else:
-                    print(f"[DEBUG PERMUTAS] ✗ Não tem plantão definido (plantao = {plantao_servidor})")
+                    print(f"[DEBUG PERMUTAS] X - Não tem plantão definido (plantao = {plantao_servidor})")
             else:
-                print(f"[DEBUG PERMUTAS] ✗ É ISV")
+                print(f"[DEBUG PERMUTAS] X - É ISV")
         
         print(f"\n[DEBUG PERMUTAS] Total de permutas encontradas: {len(permutas_reposicao)}")
         print(f"[DEBUG PERMUTAS] ======= FIM PROCESSAMENTO PERMUTAS =======\n")
@@ -1799,7 +1802,7 @@ def retirar_faltas(request):
                             str(permuta['ord']),
                             permuta['nome'],
                             permuta['documento'],
-                            f"{permuta['plantao_servidor']} → {permuta['plantao_atual']}",
+                            f"{permuta['plantao_servidor']} -> {permuta['plantao_atual']}",
                             permuta['hora_entrada']
                         ])
                     
@@ -2910,6 +2913,9 @@ def retirar_faltas_treinamento(request):
     # Obtém o plantão atual
     plantao_atual = calcular_plantao_atual()
     nome_plantao = plantao_atual['nome']
+    
+    # Obtém a data atual para o nome do arquivo
+    hoje = timezone.localtime().strftime('%Y%m%d')
     
     # Obtém o filtro de nome da query string e sanitiza
     filtro_nome = request.GET.get('nome', '').strip()
