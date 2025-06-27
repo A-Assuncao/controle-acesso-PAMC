@@ -77,6 +77,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.user_permissions',
             ],
+            'string_if_invalid': 'INVALID EXPRESSION: %s',
         },
     },
 ]
@@ -112,6 +113,10 @@ LANGUAGE_CODE = 'pt-br'
 TIME_ZONE = 'America/Manaus'  # UTC-4
 USE_I18N = True
 USE_TZ = True
+
+# Configurações de codificação UTF-8
+DEFAULT_CHARSET = 'utf-8'
+FILE_CHARSET = 'utf-8'
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'

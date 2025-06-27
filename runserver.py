@@ -1,5 +1,11 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
+
+# Configurações de codificação UTF-8
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+os.environ['PYTHONUTF8'] = '1'
+
 from django.core.management import execute_from_command_line
 
 if __name__ == "__main__":
