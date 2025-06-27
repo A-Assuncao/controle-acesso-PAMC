@@ -20,6 +20,7 @@ from django.contrib.auth import views as auth_views
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve
+from core.views.base_views import login_view, logout_view
 
 # Handlers de erro personalizados
 handler500 = 'core.views.handler500'
@@ -27,14 +28,8 @@ handler500 = 'core.views.handler500'
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('core.urls')),
-    path('login/', auth_views.LoginView.as_view(
-        template_name='core/login.html',
-        redirect_authenticated_user=True
-    ), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(
-        template_name='core/logout.html',
-        next_page='login'
-    ), name='logout'),
+    path('login/', login_view, name='login'),
+    path('logout/', logout_view, name='logout'),
     
     # Adicionando rota explícita para arquivos estáticos em produção local
     # path('static/<path:path>', serve, {'document_root': settings.STATIC_ROOT}),

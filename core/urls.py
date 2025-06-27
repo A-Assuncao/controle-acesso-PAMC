@@ -1,6 +1,5 @@
 from django.urls import path
 from . import views
-from django.contrib.auth.views import LogoutView
 
 urlpatterns = [
     path('', views.welcome, name='welcome'),
@@ -19,7 +18,6 @@ urlpatterns = [
     path('treinamento/exportar-excel/', views.exportar_excel_treinamento, name='exportar_excel_treinamento'),
     path('treinamento/retirar-faltas/', views.retirar_faltas_treinamento, name='retirar_faltas_treinamento'),
     path('treinamento/tutoriais/', views.tutoriais_treinamento, name='tutoriais_treinamento'),
-    path('logout/', LogoutView.as_view(next_page='login'), name='logout'),
     path('servidor/', views.servidor_list, name='servidor_list'),
     path('servidor/novo/', views.servidor_create, name='servidor_create'),
     path('servidor/<int:pk>/editar/', views.servidor_update, name='servidor_update'),
@@ -48,6 +46,10 @@ urlpatterns = [
     path('verificar-entrada/<int:servidor_id>/', views.verificar_entrada, name='verificar_entrada'),
     path('limpar-dashboard/', views.limpar_dashboard, name='limpar_dashboard'),
     path('trocar-senha/', views.trocar_senha, name='trocar_senha'),
+    
+    # URLs Canaimé (integradas ao login principal)
+    path('canaime/test-connection/', views.test_canaime_connection, name='test_canaime_connection'),
+    path('canaime/user-info/', views.canaime_user_info, name='canaime_user_info'),
 
 
 ] 

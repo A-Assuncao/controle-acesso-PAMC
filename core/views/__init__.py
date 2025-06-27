@@ -43,6 +43,11 @@ from .treinamento_views import (
     is_superuser, handler500
 )
 
+# Views de autenticação Canaimé (experimental)
+from .canaime_views import (
+    canaime_login, test_canaime_connection, canaime_user_info, logout_canaime
+)
+
 # ===== REFATORAÇÃO 100% COMPLETA =====
 # Todas as 44 views foram organizadas em módulos específicos:
 # - base_views.py: Views básicas (welcome, home)

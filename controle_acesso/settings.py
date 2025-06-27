@@ -147,6 +147,12 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Configurações para proxies
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+# Backends de autenticação
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',  # Backend padrão apenas
+    # 'core.authentication.CanaimeAuthBackend',   # Removido - usado apenas manualmente
+]
+
 # STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'  # Temporariamente desabilitado
 
 # Configuração de Logging

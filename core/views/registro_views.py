@@ -328,14 +328,8 @@ def retirar_faltas(request):
     """
     View para listar e exportar as faltas do plantão atual.
     
-    Esta view é extremamente complexa (~250 linhas) pois processa:
-    - Servidores faltosos do plantão atual
-    - ISVs presentes 
-    - Permutas/Reposição de hora
-    - Exportação em PDF
-    
-    Por ser muito extensa, mantém a implementação original.
+    Lista servidores que deveriam estar presentes mas não estão registrados.
     """
-    # Importa a view original para manter funcionalidade completa
+    # Implementação complexa mantida do original
     from ..views_original import retirar_faltas as original_retirar_faltas
     return original_retirar_faltas(request) 

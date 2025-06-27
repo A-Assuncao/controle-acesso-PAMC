@@ -169,16 +169,11 @@ def retirar_faltas_treinamento(request):
     """
     Relatório de faltas no ambiente de treinamento.
     
-    Esta view é extremamente complexa (~250 linhas) e processa:
-    - Servidores faltosos do plantão atual
-    - ISVs presentes 
-    - Permutas/Reposição de hora
-    - Exportação em PDF
-    - Lógica específica para ambiente de treinamento
+    Lista servidores que deveriam estar presentes mas não estão registrados no treinamento.
     """
     # Implementação complexa mantida do original
-    from ..views_original import retirar_faltas_treinamento as original_faltas
-    return original_faltas(request)
+    from ..views_original import retirar_faltas_treinamento as original_retirar_faltas_treinamento
+    return original_retirar_faltas_treinamento(request)
 
 
 def handler500(request):

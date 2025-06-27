@@ -282,6 +282,7 @@ class PerfilUsuario(models.Model):
     precisa_trocar_senha = models.BooleanField(default=False)
     senha_temporaria = models.CharField(max_length=50, blank=True, null=True)
     tipo_usuario = models.CharField(max_length=15, choices=TIPO_USUARIO_CHOICES, default='OPERADOR')
+    foto_sgp2rr = models.URLField(blank=True, null=True, help_text="URL da foto obtida do SGP2RR")
     data_criacao = models.DateTimeField(auto_now_add=True)
     data_atualizacao = models.DateTimeField(auto_now=True)
     

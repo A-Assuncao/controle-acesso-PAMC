@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Sistema de Controle de Acesso</title>
+    <title>Login Canaimé - Sistema de Controle de Acesso</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -14,51 +14,38 @@
 
         body {
             font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #003366 0%, #2c3e50 100%);
-            height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .login-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #003366 0%, #2c3e50 50%, #003366 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
+            padding: 20px;
+            position: relative;
         }
 
-        /* Background animado com rotação */
-        .animated-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #003366 0%, #2c3e50 100%);
-            z-index: -2;
-        }
-
-        .animated-bg::before {
+        /* Partículas flutuantes animadas */
+        .login-container::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%);
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 1px, transparent 1px),
+                radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 1px, transparent 1px),
+                radial-gradient(circle at 40% 40%, rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 100px 100px, 150px 150px, 200px 200px;
             animation: float 20s ease-in-out infinite;
         }
 
         @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(180deg); }
-        }
-
-        .login-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100vh;
-            position: relative;
-            padding: 20px;
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
         }
 
         .login-card {
@@ -220,33 +207,21 @@
 
         .btn-login.loading {
             pointer-events: none;
-            opacity: 0.9;
+            position: relative;
         }
 
-        .btn-login.loading .button-text::after {
+        .btn-login.loading::after {
             content: '';
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            margin-left: 10px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
             border: 2px solid transparent;
-            border-top-color: #ffffff;
+            border-top: 2px solid rgba(255,255,255,0.8);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            vertical-align: middle;
-        }
-
-        .btn.loading .button-text::after {
-            content: '';
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            margin-left: 10px;
-            border: 2px solid transparent;
-            border-top-color: #ffffff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            vertical-align: middle;
         }
 
         @keyframes spin {
@@ -460,41 +435,35 @@
             color: #155724;
         }
 
-        .alert-info {
-            background: rgba(13,202,240,0.1);
-            border: 1px solid rgba(13,202,240,0.2);
-            color: #055160;
+        /* Link para voltar */
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e6ed;
         }
 
-        /* Info box para explicar o sistema */
-        .system-info {
-            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-            border-left: 4px solid #2196f3;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 25px;
+        .back-link a {
+            color: #003366;
+            text-decoration: none;
             font-size: 14px;
-            color: #0d47a1;
+            font-weight: 500;
+        }
+
+        .back-link a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-    <div class="animated-bg"></div>
-    
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
                 <div class="logo-container">
-                    <div class="logo">📋</div>
+                    <div class="logo">C</div>
                 </div>
-                <h2>Controle de Acesso</h2>
-                <p>Sistema integrado de autenticação</p>
-            </div>
-
-            <!-- Info sobre o sistema -->
-            <div class="system-info">
-                <strong>💡 Como funciona:</strong><br>
-                Use o mesmo login e senha do Sistema Canaimé, sua conta será criada automaticamente.
+                <h2>Login Canaimé</h2>
+                <p>Acesso experimental via sistema Canaimé</p>
             </div>
 
             <!-- Mensagens de erro/sucesso -->
@@ -532,13 +501,18 @@
                 </div>
                 
                 <button type="submit" class="btn-login" id="loginBtn">
-                    <span class="button-text">ENTRAR NO SISTEMA</span>
+                    Entrar via Canaimé
                 </button>
             </form>
+
+            <!-- Link para voltar ao login normal -->
+            <div class="back-link">
+                <a href="{% url 'login' %}">← Voltar ao login normal</a>
+            </div>
         </div>
     </div>
 
-    <!-- Modal de confirmação Canaimé -->
+    <!-- Modal de confirmação -->
     <div class="modal-backdrop" id="modalBackdrop"></div>
     <div class="modal-container" id="modalContainer">
         <div class="modal-card">
@@ -546,13 +520,12 @@
             
             <div class="modal-header">
                 <div id="userPhotoContainer"></div>
-                <h2>🎯 Primeira Vez no Sistema</h2>
-                <p>Seus dados foram encontrados no Canaimé. Confirme as informações abaixo:</p>
+                <h2>✨ Confirmar Dados</h2>
+                <p>Verifique e edite seus dados antes de prosseguir</p>
             </div>
             
             <div class="info-box">
                 <p><strong>👤 Login:</strong> <span id="modalUsername"></span></p>
-                <p><strong>🌐 Origem:</strong> Sistema Canaimé</p>
             </div>
             
             <form id="confirmForm">
@@ -580,10 +553,10 @@
                 
                 <div class="btn-group">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">
-                        ← Cancelar
+                        ← Voltar
                     </button>
                     <button type="submit" class="btn btn-primary" id="confirmBtn">
-                        <span class="button-text">CRIAR CONTA E ENTRAR →</span>
+                        Confirmar e Entrar →
                     </button>
                 </div>
             </form>
@@ -593,26 +566,14 @@
     <script>
         // Função para mostrar/esconder loading
         function setLoading(button, loading) {
-            const buttonText = button.querySelector('.button-text');
-            
             if (loading) {
                 button.classList.add('loading');
+                button.innerHTML = 'Processando...';
                 button.disabled = true;
-                
-                if (button.id === 'loginBtn') {
-                    buttonText.textContent = 'ENTRANDO';
-                } else {
-                    buttonText.textContent = 'CRIANDO CONTA';
-                }
             } else {
                 button.classList.remove('loading');
+                button.innerHTML = button.id === 'loginBtn' ? 'Entrar via Canaimé' : 'Confirmar e Entrar →';
                 button.disabled = false;
-                
-                if (button.id === 'loginBtn') {
-                    buttonText.textContent = 'ENTRAR NO SISTEMA';
-                } else {
-                    buttonText.textContent = 'CRIAR CONTA E ENTRAR →';
-                }
             }
         }
 
@@ -686,42 +647,30 @@
             
             const formData = new FormData(this);
             
-            // Delay mínimo para mostrar o loading (igual ao login antigo)
-            setTimeout(() => {
-                fetch('', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        if (data.show_modal) {
-                            // Usuário não existe localmente, mostra modal Canaimé
-                            showModal(data.data);
-                        } else if (data.redirect) {
-                            // Login local bem-sucedido, redireciona
-                            showAlert(data.message, 'success');
-                            setTimeout(() => {
-                                window.location.href = data.redirect_url;
-                            }, 1000);
-                        }
-                    } else {
-                        setLoading(loginBtn, false);
-                        showAlert(data.message || 'Erro desconhecido');
-                    }
-                })
-                .catch(error => {
+            fetch('', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.show_modal) {
+                    showModal(data.data);
+                } else {
                     setLoading(loginBtn, false);
-                    showAlert('Erro de conexão. Tente novamente.');
-                    console.error('Error:', error);
-                });
-            }, 500);
+                    showAlert(data.message || 'Erro desconhecido');
+                }
+            })
+            .catch(error => {
+                setLoading(loginBtn, false);
+                showAlert('Erro de conexão. Tente novamente.');
+                console.error('Error:', error);
+            });
         });
 
-        // Event listener para o formulário de confirmação Canaimé
+        // Event listener para o formulário de confirmação
         document.getElementById('confirmForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
@@ -730,33 +679,30 @@
             
             const formData = new FormData(this);
             
-            // Delay mínimo para mostrar o loading
-            setTimeout(() => {
-                fetch('/canaime/user-info/', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success && data.redirect) {
-                        showAlert(data.message, 'success');
-                        setTimeout(() => {
-                            window.location.href = data.redirect_url;
-                        }, 1500);
-                    } else {
-                        setLoading(confirmBtn, false);
-                        showAlert(data.message || 'Erro desconhecido');
-                    }
-                })
-                .catch(error => {
+            fetch('{% url "canaime_user_info" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.redirect) {
+                    showAlert(data.message, 'success');
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url;
+                    }, 1500);
+                } else {
                     setLoading(confirmBtn, false);
-                    showAlert('Erro de conexão. Tente novamente.');
-                    console.error('Error:', error);
-                });
-            }, 500);
+                    showAlert(data.message || 'Erro desconhecido');
+                }
+            })
+            .catch(error => {
+                setLoading(confirmBtn, false);
+                showAlert('Erro de conexão. Tente novamente.');
+                console.error('Error:', error);
+            });
         });
 
         // Fecha modal com ESC
