@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from django.core.management.utils import get_random_secret_key
 
 # Carrega variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -25,18 +26,22 @@ LOGS_DIR = os.path.join(BASE_DIR, 'logs')
 os.makedirs(LOGS_DIR, exist_ok=True)
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-local-development-only'
+# Usa a chave do .env se definida, senão gera uma automaticamente
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY') or get_random_secret_key()
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Em ambiente de produção, defina DEBUG = False para ativar as páginas de erro personalizadas
 DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ['true', '1', 'yes']
 
 # Quando DEBUG for False, ative esta configuração para servir arquivos estáticos
-SERVE_STATIC_FILES = True
+SERVE_STATIC_FILES = os.getenv('SERVE_STATIC_FILES', 'True').lower() in ['true', '1', 'yes']
 
-ALLOWED_HOSTS = [
-    '*'
-]
+# Configuração de hosts permitidos
+allowed_hosts_env = os.getenv('DJANGO_ALLOWED_HOSTS', '*')
+if allowed_hosts_env == '*':
+    ALLOWED_HOSTS = ['*']
+else:
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',')]
 
 # Application definition
 INSTALLED_APPS = [
@@ -76,6 +81,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.user_permissions',
+                'core.context_processors.unidade_prisional',
             ],
             'string_if_invalid': 'INVALID EXPRESSION: %s',
         },
@@ -109,8 +115,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalization
-LANGUAGE_CODE = 'pt-br'
-TIME_ZONE = 'America/Manaus'  # UTC-4
+LANGUAGE_CODE = os.getenv('LANGUAGE_CODE', 'pt-br')
+TIME_ZONE = os.getenv('TIME_ZONE', 'America/Manaus')  # UTC-4
 USE_I18N = True
 USE_TZ = True
 
@@ -132,9 +138,9 @@ LOGIN_REDIRECT_URL = 'welcome'
 LOGOUT_REDIRECT_URL = 'login'
 
 # Configurações de sessão
-SESSION_COOKIE_AGE = 7200  # 2 horas em segundos
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Força o logout quando o navegador é fechado
-SESSION_SAVE_EVERY_REQUEST = True
+SESSION_COOKIE_AGE = int(os.getenv('SESSION_COOKIE_AGE', '7200'))  # 2 horas em segundos
+SESSION_EXPIRE_AT_BROWSER_CLOSE = os.getenv('SESSION_EXPIRE_AT_BROWSER_CLOSE', 'True').lower() in ['true', '1', 'yes']  # Força o logout quando o navegador é fechado
+SESSION_SAVE_EVERY_REQUEST = os.getenv('SESSION_SAVE_EVERY_REQUEST', 'True').lower() in ['true', '1', 'yes']
 
 # Configurações de segurança
 SECURE_BROWSER_XSS_FILTER = True
@@ -142,8 +148,8 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
 # Configurações de cookie em desenvolvimento
-SESSION_COOKIE_SECURE = False  # Permite cookies em HTTP para desenvolvimento
-CSRF_COOKIE_SECURE = False    # Permite CSRF em HTTP para desenvolvimento
+SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() in ['true', '1', 'yes']  # Permite cookies em HTTP para desenvolvimento
+CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False').lower() in ['true', '1', 'yes']    # Permite CSRF em HTTP para desenvolvimento
 
 # Media files
 MEDIA_URL = 'media/'
@@ -159,6 +165,10 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'  # Temporariamente desabilitado
+
+# Configurações para evitar erro de muitos campos no admin
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 4000  # Padrão é 1000 - aumentado para suportar mais registros
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB - Padrão é 2.5MB
 
 # Configuração de Logging
 LOGGING = {

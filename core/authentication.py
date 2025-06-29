@@ -6,6 +6,7 @@ extraindo informações do usuário e criando/autenticando localmente.
 """
 
 import logging
+import os
 import requests
 from django.contrib.auth.backends import BaseBackend
 from django.contrib.auth.models import User
@@ -71,7 +72,7 @@ class CanaimeAuthBackend(BaseBackend):
             dict com dados do usuário ou None se falhar
         """
         # URL de login alternativa sem reCAPTCHA
-        login_url = "https://canaime.com.br/sgp2rr/login/login_principal.php"
+        login_url = os.getenv('CANAIME_LOGIN_URL', "https://canaime.com.br/sgp2rr/login/login_principal.php")
         
         # Headers de navegador sem JavaScript para evitar reCAPTCHA
         headers = {
@@ -98,7 +99,7 @@ class CanaimeAuthBackend(BaseBackend):
             # Primeiro, pega a página de login para obter cookies de sessão
             logger.info("Obtendo página de login para cookies de sessão...")
             login_page = session.get(
-                "https://canaime.com.br/sgp2rr/login/login_principal.php",
+                login_url,
                 verify=False,
                 timeout=30
             )
@@ -124,8 +125,9 @@ class CanaimeAuthBackend(BaseBackend):
             
             # Agora precisa buscar os dados do usuário na página de áreas
             logger.info("Buscando dados do usuário na página de áreas...")
+            areas_url = os.getenv('CANAIME_AREAS_URL', "https://canaime.com.br/sgp2rr/areas/unidades/index.php")
             areas_response = session.get(
-                "https://canaime.com.br/sgp2rr/areas/unidades/index.php",
+                areas_url,
                 verify=False,
                 timeout=30
             )

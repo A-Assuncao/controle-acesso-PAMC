@@ -8,7 +8,7 @@
 ![Status](https://img.shields.io/badge/Status-Production-success?style=for-the-badge)
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/django/django/main/docs/images/django-logo-negative.svg" alt="Django Logo" width="300"/>
+  <img src="https://static.djangoproject.com/img/logos/django-logo-negative.svg" alt="Django Logo" width="300"/>
   <h3>Sistema completo de gestão e controle de acesso para servidores penitenciários</h3>
   <p><em>Desenvolvido com Django, Bootstrap e tecnologias modernas para máxima confiabilidade</em></p>
 </div>
@@ -35,8 +35,8 @@
 - [🌐 Acesso Remoto](#-acesso-remoto)
 - [🔧 Desenvolvimento](#-desenvolvimento)
 - [📚 Documentação Técnica](#-documentação-técnica)
-
 - [🐛 Troubleshooting](#-troubleshooting)
+- [📋 Changelog](#-changelog)
 - [📄 Licença](#-licença)
 
 ---
@@ -54,6 +54,9 @@ O **Sistema de Controle de Acesso** é uma aplicação web robusta desenvolvida 
 - **📊 Relatórios Inteligentes**: Exportação em Excel/PDF e filtros avançados
 - **🌐 Acesso Remoto**: Integração com tunneling para acesso externo seguro
 - **🔍 Sistema de Debug**: Logging avançado com captura de erros detalhada
+- **⚙️ Configuração Inteligente**: SECRET_KEY automática, configuração via .env e comandos personalizados
+
+> 📋 **[Ver Histórico Completo de Mudanças](docs/CHANGELOG.md)** - Todas as versões, melhorias e novidades detalhadas
 
 ---
 
@@ -327,23 +330,66 @@ uv run python manage.py runserver
 
 ## ⚙️ Configuração
 
-### 🔐 **Variáveis de Ambiente**
+### 🔐 **Configuração de Ambiente Inteligente**
 
-Crie um arquivo `.env` na raiz do projeto:
+O sistema possui **configuração automática** de ambiente com fallback inteligente:
 
-```env
-# Configurações do Django
-DJANGO_SECRET_KEY=sua_chave_secreta_super_segura
-DJANGO_DEBUG=False
-ALLOWED_HOSTS=localhost,127.0.0.1,seu_dominio.com
+#### **📋 Configuração Rápida (Opcional)**
+```bash
+# 1. Copie o arquivo de exemplo
+copy .env.example .env
 
-# Banco de dados
-DATABASE_URL=sqlite:///db.sqlite3
-
-# Configurações de segurança
-SESSION_COOKIE_AGE=7200
-SECURE_BROWSER_XSS_FILTER=True
+# 2. Para desenvolvimento: funciona sem configuração!
+# Para produção: configure as variáveis críticas
 ```
+
+#### **⚡ SECRET_KEY Automática**
+- **🚀 Desenvolvimento:** Gera automaticamente via `get_random_secret_key()`  
+- **🔒 Produção:** Use chave fixa no `.env` para persistência de sessions
+
+#### **🛠️ Comando de Gerenciamento da SECRET_KEY**
+```bash
+# Verificar status atual
+python manage.py check_secret_key
+
+# Ver informações detalhadas
+python manage.py check_secret_key --show-current
+
+# Gerar nova chave para produção
+python manage.py check_secret_key --generate
+```
+
+#### **📝 Arquivo .env Completo (Produção)**
+```env
+# SEGURANÇA
+DJANGO_SECRET_KEY=sua-chave-gerada-pelo-comando
+DJANGO_DEBUG=False
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,seu-dominio.com
+
+# SESSÃO (14400 = 4 horas)
+SESSION_COOKIE_AGE=14400
+SESSION_COOKIE_SECURE=True
+CSRF_COOKIE_SECURE=True
+
+# LOCALIZAÇÃO
+TIME_ZONE=America/Manaus
+LANGUAGE_CODE=pt-br
+
+# INTEGRAÇÃO CANAIMÉ
+CANAIME_LOGIN_URL=https://canaime.com.br/sgp2rr/login/login_principal.php
+CANAIME_AREAS_URL=https://canaime.com.br/sgp2rr/areas/unidades/index.php
+
+# LOGS E MONITORAMENTO
+LOGS_DIR=logs
+LOG_LEVEL=INFO
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/seu-webhook
+
+# APLICAÇÃO
+UNIDADE_PRISIONAL=Centro de Detenção Provisória de Manaus
+HTTP_PLATFORM_PORT=8000
+```
+
+> 📖 **Guia Detalhado:** Consulte [`CONFIGURACAO_AMBIENTE.md`](docs/CONFIGURACAO_AMBIENTE.md) para configuração completa
 
 ### 📁 **Estrutura de Diretórios**
 
@@ -354,7 +400,7 @@ controle-acesso-PAMC/
 ├── 📁 logs/                   # Arquivos de log
 │   ├── django_errors.log     # Erros do sistema
 │   └── debug.log             # Logs de debug
-├── 📁 docs/                  # Documentação
+├── 📁 docs/                  # Documentação (CHANGELOG, guias, tutoriais)
 │   └── 📄 TUTORIAL_IIS_LOCALHOST_RUN.md
 ├── 📁 update/                # Scripts de atualização
 │   ├── 📄 update.bat         # Script Windows
@@ -759,6 +805,20 @@ uv run python manage.py runserver
 
 ### 📋 **Comandos Úteis**
 
+#### **🔐 Comandos de Gerenciamento Personalizados**
+
+```bash
+# 🔑 SECRET_KEY - Comando personalizado para gerenciar chaves
+python manage.py check_secret_key              # Status atual
+python manage.py check_secret_key --show-current  # Informações detalhadas
+python manage.py check_secret_key --generate    # Gerar nova chave para produção
+
+# 👥 GRUPOS - Configurar grupos e permissões
+python manage.py setup_groups                   # Criar grupos de administradores
+```
+
+#### **🧪 Desenvolvimento e Testes**
+
 ```bash
 # Testes com cobertura
 uv run pytest --cov=core --cov-report=html
@@ -791,7 +851,11 @@ controle-acesso-PAMC/
 │   ├── 📁 static/             # JS com funcionalidades avançadas
 │   └── 📁 management/         # Comandos personalizados
 ├── 📁 docs/                   # Documentação
-│   └── 📄 TUTORIAL_IIS_LOCALHOST_RUN.md
+│   ├── 📄 TUTORIAL_IIS_LOCALHOST_RUN.md
+│   ├── 📄 CONFIGURACAO_AMBIENTE.md    # Guia completo de configuração
+│   ├── 📄 CHANGELOG.md              # Histórico de mudanças e versões
+│   ├── 📄 ADMIN_MELHORIAS.md        # Melhorias do admin
+│   └── 📄 GUIA_INSTALACAO_ADMIN.md  # Guia de instalação do admin
 ├── 📁 update/                 # Scripts de atualização
 │   ├── 📄 update.bat         # Script Windows
 │   └── 📄 AtualizarControleAcesso.xml
@@ -953,6 +1017,21 @@ for user in User.objects.filter(perfil__isnull=True):
 "
 ```
 
+#### **🔑 Problemas com SECRET_KEY**
+```bash
+# ✅ SECRET_KEY sendo regenerada a cada restart (desenvolvimento)
+# Isso é normal! Para fixar uma chave:
+python manage.py check_secret_key --generate
+# Copie a chave gerada para o .env
+
+# ❌ Sessions invalidadas após restart
+# Solução: Defina DJANGO_SECRET_KEY no .env
+echo "DJANGO_SECRET_KEY=sua-chave-aqui" >> .env
+
+# 🔍 Verificar se a chave está sendo lida do .env
+python manage.py check_secret_key --show-current
+```
+
 #### **🌐 Erro: "Tunneling não conecta"**
 ```bash
 # Soluções:
@@ -986,22 +1065,49 @@ grep "usuario_teste" logs/debug.log
 ### 🛠️ **Comandos de Diagnóstico**
 
 ```bash
-# Verificar integridade do banco
+# 🔑 Verificar configuração de SECRET_KEY
+python manage.py check_secret_key
+python manage.py check_secret_key --show-current
+
+# 🔧 Verificar integridade do sistema
 uv run python manage.py check
 
-# Verificar migrações pendentes
+# 📊 Verificar migrações pendentes
 uv run python manage.py showmigrations
 
-# Testar configurações
-uv run python manage.py shell -c "from django.conf import settings; print(settings.DEBUG)"
+# ⚙️ Testar configurações
+uv run python manage.py shell -c "from django.conf import settings; print(f'DEBUG: {settings.DEBUG}')"
 
-# Verificar permissões de usuários
+# 👥 Verificar permissões de usuários
 uv run python manage.py shell -c "
 from core.models import PerfilUsuario
 for p in PerfilUsuario.objects.all():
     print(f'{p.usuario.username}: {p.tipo_usuario}')
 "
+
+# 🌍 Verificar variáveis de ambiente
+uv run python manage.py shell -c "
+import os
+vars_importantes = ['DJANGO_SECRET_KEY', 'DJANGO_DEBUG', 'TIME_ZONE']
+for var in vars_importantes:
+    valor = os.getenv(var, 'NÃO DEFINIDA')
+    print(f'{var}: {valor}')
+"
 ```
+
+---
+
+## 📋 Changelog
+
+Para ver todas as mudanças, melhorias e novidades de cada versão, consulte o arquivo **[CHANGELOG.md](docs/CHANGELOG.md)**.
+
+### 🔗 **Versões Recentes**
+
+- **[v3.1.0](docs/CHANGELOG.md#310---2025-01-xx---configuração-inteligente)** - Configuração Inteligente
+- **[v3.0.0](docs/CHANGELOG.md#300---2024-12-xx---arquitetura-modular)** - Arquitetura Modular
+- **[v2.0.0](docs/CHANGELOG.md#200---2024-11-xx---sistema-avançado)** - Sistema Avançado
+
+> 📖 **Histórico Completo**: O CHANGELOG contém todas as 6 versões principais com mais de 54 commits organizados por funcionalidade.
 
 ---
 
@@ -1015,7 +1121,8 @@ Este projeto está licenciado sob a **Licença MIT** - veja o arquivo [LICENSE](
   <h3>🚀 Sistema de Controle de Acesso PAMC</h3>
   <p><em>Desenvolvido com ❤️ para máxima segurança e eficiência</em></p>
   <p>
-    <strong>Versão Atual:</strong> 3.0.0 (Arquitetura Modular) | 
-    <strong>Última Atualização:</strong> Dezembro 2024
+    <strong>Versão Atual:</strong> 3.1.0 (Configuração Inteligente) | 
+    <strong>Última Atualização:</strong> Janeiro 2025 |
+    <strong>Changelog:</strong> <a href="docs/CHANGELOG.md">📋 Ver Mudanças</a>
   </p>
 </div>

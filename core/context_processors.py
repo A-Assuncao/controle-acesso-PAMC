@@ -1,4 +1,5 @@
 from .models import PerfilUsuario
+from .utils import get_unidade_prisional
 
 def user_permissions(request):
     """
@@ -33,4 +34,12 @@ def user_permissions(request):
         'user_pode_limpar_dashboard': False,
         'user_pode_saida_definitiva': False,
         'user_tipo_usuario': 'Anônimo',
-    } 
+    }
+
+def unidade_prisional(request):
+    """
+    Context processor para adicionar a UNIDADE_PRISIONAL a todos os templates
+    """
+    return {
+        'UNIDADE_PRISIONAL': get_unidade_prisional()
+    }

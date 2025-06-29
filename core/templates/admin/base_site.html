@@ -1,0 +1,298 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | Sistema de Controle de Acesso {{ UNIDADE_PRISIONAL|default:"PAMC" }}{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    
+    {# CSS Customizado #}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/admin_custom.css' %}">
+    
+    {# Meta tags adicionais #}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema de Controle de Acesso {{ UNIDADE_PRISIONAL|default:"PAMC" }} - Administração">
+    
+    {# Favicon customizado #}
+    <link rel="icon" type="image/png" href="{% static 'images/canaime_logo.png' %}">
+    
+    <style>
+        /* 🎨 Estilos inline adicionais para garantir compatibilidade */
+        .admin-enhanced {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+        
+        /* Loading overlay para ações */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
+        }
+        
+        .toast {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            margin-bottom: 10px;
+            padding: 12px 16px;
+            min-width: 250px;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        }
+        
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .toast.success { border-left: 4px solid #28a745; }
+        .toast.warning { border-left: 4px solid #ffc107; }
+        .toast.error { border-left: 4px solid #dc3545; }
+        .toast.info { border-left: 4px solid #17a2b8; }
+        
+        /* Melhorias nos formulários */
+        .form-row.errors input,
+        .form-row.errors select,
+        .form-row.errors textarea {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+        }
+        
+        .errorlist {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            border-left: 4px solid #dc3545;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin: 5px 0;
+            color: #721c24;
+            font-size: 13px;
+        }
+        
+        /* Melhorias na navegação */
+        #nav-sidebar {
+            background: linear-gradient(180deg, #343a40 0%, #495057 100%);
+        }
+        
+        #nav-sidebar a {
+            transition: all 0.2s ease;
+        }
+        
+        #nav-sidebar a:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+        
+        /* Indicadores de performance */
+        .performance-indicator {
+            position: fixed;
+            bottom: 60px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            display: none;
+            z-index: 1000;
+        }
+    </style>
+{% endblock %}
+
+{% block branding %}
+    <div id="site-name">
+        <a href="{% url 'admin:index' %}" style="display: flex; align-items: center; text-decoration: none; color: inherit;">
+            <img src="{% static 'images/canaime_logo.png' %}" alt="{{ UNIDADE_PRISIONAL|default:"PAMC" }} Logo" style="height: 32px; margin-right: 12px; opacity: 0.9;">
+            <span style="font-weight: 700; background: linear-gradient(45deg, #ffffff, #e3f2fd); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">
+                🚀 Sistema {{ UNIDADE_PRISIONAL|default:"PAMC" }}
+            </span>
+        </a>
+    </div>
+{% endblock %}
+
+{% block footer %}
+    <div id="footer" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-top: 2px solid #dee2e6; padding: 15px 20px; margin-top: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <div style="color: #6c757d; font-size: 13px;">
+                <strong>Sistema de Controle de Acesso {{ UNIDADE_PRISIONAL|default:"PAMC" }}</strong><br>
+                <small>Versão 3.1.0 - Admin Avançado | Desenvolvido com ❤️ em Django</small>
+            </div>
+            
+            <div style="display: flex; gap: 15px; align-items: center; font-size: 12px; color: #6c757d;">
+                <div class="performance-stats" style="display: flex; gap: 10px;">
+                    <span title="Tempo de carregamento">⚡ <span id="load-time">-</span>ms</span>
+                    <span title="Itens na página">📊 <span id="page-items">-</span></span>
+                    <span title="Status do sistema">🔄 <span id="system-status">Online</span></span>
+                </div>
+                
+                <div style="border-left: 1px solid #dee2e6; padding-left: 15px;">
+                    <strong>Atalhos:</strong>
+                    <kbd style="background: #e9ecef; padding: 2px 4px; border-radius: 3px; font-size: 11px;">Ctrl+Alt+N</kbd> Novo
+                    <kbd style="background: #e9ecef; padding: 2px 4px; border-radius: 3px; font-size: 11px;">Ctrl+Alt+S</kbd> Buscar
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block content %}
+    {{ block.super }}
+    
+    {# Overlay de loading #}
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+    
+    {# Container para toast notifications #}
+    <div class="toast-container" id="toast-container"></div>
+    
+    {# Indicador de performance #}
+    <div class="performance-indicator" id="performance-indicator">
+        Performance: <span id="perf-score">-</span>
+    </div>
+{% endblock %}
+
+{% block extrajs %}
+    {{ block.super }}
+    
+    {# JavaScript Customizado #}
+    <script src="{% static 'js/admin_custom.js' %}"></script>
+    
+    <script>
+        // 🎯 Scripts inline para funcionalidades específicas
+        (function() {
+            'use strict';
+            
+            // Medir tempo de carregamento
+            window.addEventListener('load', function() {
+                const loadTime = performance.now();
+                const loadTimeElement = document.getElementById('load-time');
+                if (loadTimeElement) {
+                    loadTimeElement.textContent = Math.round(loadTime);
+                }
+            });
+            
+            // Contar items na página
+            document.addEventListener('DOMContentLoaded', function() {
+                const itemsElement = document.getElementById('page-items');
+                if (itemsElement) {
+                    const items = document.querySelectorAll('.results tbody tr, .admin-index .module').length;
+                    itemsElement.textContent = items;
+                }
+            });
+            
+            // 🍞 Sistema de Toast Notifications
+            window.showToast = function(message, type = 'info', duration = 5000) {
+                const container = document.getElementById('toast-container');
+                if (!container) return;
+                
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>${message}</span>
+                        <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; font-size: 16px; cursor: pointer; margin-left: 10px;">&times;</button>
+                    </div>
+                `;
+                
+                container.appendChild(toast);
+                
+                // Mostrar toast
+                setTimeout(() => toast.classList.add('show'), 100);
+                
+                // Remover após duração especificada
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 300);
+                }, duration);
+                
+                return toast;
+            };
+            
+            // 📊 Monitor de Performance
+            function updatePerformanceIndicator() {
+                const perfElement = document.getElementById('perf-score');
+                if (perfElement && 'performance' in window) {
+                    const navigation = performance.getEntriesByType('navigation')[0];
+                    if (navigation) {
+                        const score = Math.round(100 - (navigation.loadEventEnd / 100));
+                        perfElement.textContent = Math.max(score, 0) + '%';
+                        
+                        // Mostrar indicador se performance for baixa
+                        const indicator = document.getElementById('performance-indicator');
+                        if (score < 70 && indicator) {
+                            indicator.style.display = 'block';
+                            setTimeout(() => indicator.style.display = 'none', 5000);
+                        }
+                    }
+                }
+            }
+            
+            // Executar após carregamento completo
+            window.addEventListener('load', updatePerformanceIndicator);
+            
+            // 🔄 Auto-refresh para estatísticas (opcional)
+            {% if request.resolver_match.url_name == 'admin:index' %}
+            setInterval(function() {
+                // Atualizar apenas os cards de estatísticas sem recarregar a página
+                if (typeof loadRealtimeStats === 'function') {
+                    loadRealtimeStats();
+                }
+            }, 60000); // A cada minuto
+            {% endif %}
+            
+            // 📱 Detecção de dispositivo móvel
+            function isMobileDevice() {
+                return window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            }
+            
+            if (isMobileDevice()) {
+                document.body.classList.add('mobile-device');
+                
+                // Melhorar experiência em dispositivos móveis
+                const tables = document.querySelectorAll('.results table');
+                tables.forEach(table => {
+                    if (!table.parentElement.classList.contains('table-responsive')) {
+                        const wrapper = document.createElement('div');
+                        wrapper.style.overflowX = 'auto';
+                        wrapper.style.webkitOverflowScrolling = 'touch';
+                        table.parentNode.insertBefore(wrapper, table);
+                        wrapper.appendChild(table);
+                    }
+                });
+            }
+            
+            console.log('🎯 Template admin customizado carregado!');
+            
+        })();
+    </script>
+{% endblock %} 

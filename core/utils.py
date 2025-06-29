@@ -1,5 +1,6 @@
 from datetime import datetime, date, time, timedelta
 from django.utils import timezone
+import os
 import pytz
 from typing import Dict, Any
 
@@ -408,10 +409,10 @@ def registrar_entrada_helper(servidor, operador, observacao, isv, is_treinamento
     from django.utils import timezone
     
     if is_treinamento:
-        from .models import RegistroAcessoTreinamento
+        from .models import Servidor, ServidorTreinamento
         
         # Verifica se já existe uma entrada sem saída
-        entrada_pendente = RegistroAcessoTreinamento.objects.filter(
+        entrada_pendente = ServidorTreinamento.objects.filter(
             servidor=servidor,
             saida_pendente=True
         ).exists()
@@ -420,7 +421,7 @@ def registrar_entrada_helper(servidor, operador, observacao, isv, is_treinamento
             return False, 'Este servidor já possui uma entrada sem saída registrada. Registre a saída antes de fazer uma nova entrada.'
         
         # Cria o registro de entrada
-        RegistroAcessoTreinamento.objects.create(
+        ServidorTreinamento.objects.create(
             servidor=servidor,
             operador=operador,
             tipo_acesso='ENTRADA',
@@ -492,10 +493,10 @@ def registrar_saida_helper(servidor, operador, observacao, is_treinamento=False)
     from django.utils import timezone
     
     if is_treinamento:
-        from .models import RegistroAcessoTreinamento
+        from .models import ServidorTreinamento
         
         # Verifica se existe entrada pendente
-        entrada_pendente = RegistroAcessoTreinamento.objects.filter(
+        entrada_pendente = ServidorTreinamento.objects.filter(
             servidor=servidor,
             saida_pendente=True
         ).first()
@@ -790,4 +791,11 @@ def limpar_dashboard_helper(request, is_treinamento=False):
         return {
             'status': 'error',
             'message': f'Erro inesperado: {str(e)}'
-        } 
+        }
+
+def get_unidade_prisional():
+    """
+    Retorna o nome da unidade prisional das variáveis de ambiente.
+    Padrão: PAMC se não estiver configurado.
+    """
+    return os.getenv('UNIDADE_PRISIONAL', 'PAMC') 
