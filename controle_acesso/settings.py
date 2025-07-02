@@ -83,7 +83,6 @@ TEMPLATES = [
                 'core.context_processors.user_permissions',
                 'core.context_processors.unidade_prisional',
             ],
-            'string_if_invalid': 'INVALID EXPRESSION: %s',
         },
     },
 ]

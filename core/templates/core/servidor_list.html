@@ -38,11 +38,11 @@
                 <div class="input-group">
                     <input type="text" id="busca" name="q" class="form-control" 
                            placeholder="Buscar por nome, documento ou setor..." 
-                           value="{{ request.GET.q|default:'' }}">
+                           value="{{ query }}">
                     <button type="submit" class="btn btn-primary">
                         <i class="bi bi-search"></i> Buscar
                     </button>
-                    {% if request.GET.q %}
+                    {% if query %}
                     <a href="{% url 'servidor_list' %}" class="btn btn-outline-secondary">
                         <i class="bi bi-x-circle"></i> Limpar
                     </a>

@@ -2,7 +2,30 @@ from datetime import datetime, date, time, timedelta
 from django.utils import timezone
 import os
 import pytz
+import unicodedata
 from typing import Dict, Any
+
+
+def normalizar_texto(texto):
+    """
+    Normaliza texto removendo acentos e convertendo para minúsculas.
+    
+    Args:
+        texto: String a ser normalizada
+        
+    Returns:
+        String normalizada (sem acentos, em minúsculas)
+    """
+    if not texto:
+        return ''
+    
+    # Remove acentos usando unicodedata
+    texto_sem_acento = unicodedata.normalize('NFD', str(texto))
+    texto_sem_acento = ''.join(char for char in texto_sem_acento 
+                              if unicodedata.category(char) != 'Mn')
+    
+    # Converte para minúsculas
+    return texto_sem_acento.lower()
 
 def extrair_plantao_do_setor(setor):
     """
@@ -230,6 +253,7 @@ def calcular_totais_registros(registros, is_treinamento=False):
 def buscar_servidores_helper(query, formato='detalhado'):
     """
     Função auxiliar para buscar servidores de forma padronizada.
+    Busca normalizada (sem acentos, case-insensitive).
     
     Args:
         query: String de busca
@@ -244,17 +268,33 @@ def buscar_servidores_helper(query, formato='detalhado'):
     if len(query) < 2:
         return []
     
-    servidores = Servidor.objects.filter(
-        Q(nome__icontains=query) |
-        Q(numero_documento__icontains=query),
-        ativo=True
-    ).order_by('nome')[:10]
+    # Normaliza a query para busca sem acentos
+    query_normalizada = normalizar_texto(query)
+    
+    # Busca todos os servidores ativos e filtra no Python com normalização
+    servidores_raw = Servidor.objects.filter(ativo=True).order_by('nome')
+    
+    # Filtra manualmente usando normalização de texto
+    servidores_filtrados = []
+    for servidor in servidores_raw:
+        nome_normalizado = normalizar_texto(servidor.nome)
+        documento_normalizado = normalizar_texto(servidor.numero_documento)
+        setor_normalizado = normalizar_texto(servidor.setor or '')
+        
+        if (query_normalizada in nome_normalizado or 
+            query_normalizada in documento_normalizado or
+            query_normalizada in setor_normalizado):
+            servidores_filtrados.append(servidor)
+            
+        # Limita a 10 resultados para performance
+        if len(servidores_filtrados) >= 10:
+            break
     
     resultados = []
     
     if formato == 'simples':
         # Para autocomplete simples
-        for servidor in servidores:
+        for servidor in servidores_filtrados:
             resultados.append({
                 'id': servidor.id,
                 'nome': servidor.nome,
@@ -263,7 +303,7 @@ def buscar_servidores_helper(query, formato='detalhado'):
             })
     else:
         # Para ajax detalhado
-        for servidor in servidores:
+        for servidor in servidores_filtrados:
             resultados.append({
                 'id': servidor.id,
                 'nome': servidor.nome,

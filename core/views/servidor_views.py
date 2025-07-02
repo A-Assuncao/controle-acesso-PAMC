@@ -25,20 +25,42 @@ from ..utils import buscar_servidores_helper
 @login_required
 @pode_gerenciar_servidores
 def servidor_list(request):
-    """Lista todos os servidores com filtro de busca."""
-    query = request.GET.get('q')
+    """Lista todos os servidores com filtro de busca normalizada (sem acentos, case-insensitive)."""
+    from ..utils import normalizar_texto
+    
+    query = request.GET.get('q', '')
     servidores = Servidor.objects.all().order_by('nome')
     
     if query:
         print(f"Busca realizada com o termo: '{query}'")
-        servidores = servidores.filter(
-            Q(nome__icontains=query) |
-            Q(numero_documento__icontains=query) |
-            Q(setor__icontains=query)
-        )
-        print(f"Resultados encontrados: {servidores.count()}")
+        
+        # Normaliza a query para busca sem acentos
+        query_normalizada = normalizar_texto(query)
+        
+        # Busca todos os servidores e filtra no Python com normalização
+        servidores_raw = list(servidores)
+        servidores_filtrados = []
+        
+        for servidor in servidores_raw:
+            nome_normalizado = normalizar_texto(servidor.nome)
+            documento_normalizado = normalizar_texto(servidor.numero_documento)
+            setor_normalizado = normalizar_texto(servidor.setor or '')
+            
+            if (query_normalizada in nome_normalizado or 
+                query_normalizada in documento_normalizado or
+                query_normalizada in setor_normalizado):
+                servidores_filtrados.append(servidor)
+        
+        # Converte de volta para um objeto que o template pode iterar
+        servidores = servidores_filtrados
+        print(f"Resultados encontrados: {len(servidores)}")
     
-    return render(request, 'core/servidor_list.html', {'servidores': servidores})
+    context = {
+        'servidores': servidores,
+        'query': query,
+    }
+    
+    return render(request, 'core/servidor_list.html', context)
 
 
 @login_required
