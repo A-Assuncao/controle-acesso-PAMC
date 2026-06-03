@@ -41,6 +41,7 @@ function Update-WebConfig {
     $logFile = Join-Path $projectRoot "logs\uvicorn.log"
     $webConfigPath = Join-Path $projectRoot "web.config"
 
+    $startupScript = Join-Path $projectRoot "scripts\iis_startup.py"
     $xml = @"
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
@@ -49,8 +50,8 @@ function Update-WebConfig {
       <add name="httpPlatformHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" requireAccess="Script" />
     </handlers>
     <httpPlatform processPath="$pythonExe"
-                  arguments="-m uvicorn controle_acesso.asgi:application --host 127.0.0.1 --port %HTTP_PLATFORM_PORT% --timeout-keep-alive 120 --log-level info"
-                  startupTimeLimit="120"
+                  arguments="-u `"$startupScript`""
+                  startupTimeLimit="180"
                   requestTimeout="00:04:00"
                   stdoutLogEnabled="true"
                   stdoutLogFile="$logFile">
@@ -59,6 +60,7 @@ function Update-WebConfig {
         <environmentVariable name="PYTHONPATH" value="$projectRoot" />
         <environmentVariable name="PYTHONIOENCODING" value="utf-8" />
         <environmentVariable name="PYTHONUTF8" value="1" />
+        <environmentVariable name="PYTHONUNBUFFERED" value="1" />
       </environmentVariables>
     </httpPlatform>
   </system.webServer>
@@ -87,6 +89,87 @@ function Set-PermissoesIIS {
     }
 
     Fix "Permissoes IIS aplicadas para $identidadePool"
+}
+
+function Set-AppPoolConfig {
+    Import-Module WebAdministration -ErrorAction Stop
+
+    $poolPath = "IIS:\AppPools\$nomePool"
+    if (-not (Test-Path $poolPath)) {
+        Warn "App pool $nomePool nao encontrado - crie o site no inetmgr"
+        return
+    }
+
+    Set-ItemProperty $poolPath -Name managedRuntimeVersion -Value ""
+    Set-ItemProperty $poolPath -Name processModel.loadUserProfile -Value $true
+    Set-ItemProperty $poolPath -Name startMode -Value "AlwaysRunning" -ErrorAction SilentlyContinue
+
+    $venvScripts = Join-Path $projectRoot "venv\Scripts"
+    if (Test-Path $venvScripts) {
+        icacls $venvScripts /grant "${identidadePool}:(OI)(CI)RX" /T | Out-Null
+    }
+
+    Fix "App pool $nomePool - No Managed Code + loadUserProfile"
+}
+
+function Show-LogsDiagnostico {
+    $logDir = Join-Path $projectRoot "logs"
+    if (-not (Test-Path $logDir)) { return }
+
+    foreach ($pattern in @("iis_startup.log", "uvicorn*.log", "django_errors.log")) {
+        Get-ChildItem $logDir -Filter $pattern -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 2 |
+            ForEach-Object {
+                Write-Host ""
+                Write-Host "--- logs\$($_.Name) ---" -ForegroundColor DarkGray
+                Get-Content $_.FullName -Tail 12 -ErrorAction SilentlyContinue |
+                    ForEach-Object { Write-Host $_ -ForegroundColor DarkGray }
+            }
+    }
+}
+
+function Invoke-HttpWarmup {
+    param([int]$PortaDestino)
+
+    $urlTeste = "http://127.0.0.1:${PortaDestino}/login/"
+    $maxTentativas = 6
+
+    Write-Host ""
+    Write-Host "  Aquecendo aplicacao em $urlTeste (cold start pode levar 1-3 min)..." -ForegroundColor DarkGray
+
+    for ($t = 1; $t -le $maxTentativas; $t++) {
+        $pythonProcs = @(Get-Process -Name python* -ErrorAction SilentlyContinue)
+        if ($pythonProcs.Count -gt 0) {
+            $pids = ($pythonProcs | Select-Object -ExpandProperty Id) -join ", "
+            Write-Host "  Processo Python detectado (PID $pids)" -ForegroundColor DarkGray
+        }
+
+        try {
+            $response = Invoke-WebRequest $urlTeste -UseBasicParsing -TimeoutSec 60 -ErrorAction Stop
+            Ok "HTTP respondeu $($response.StatusCode) em $urlTeste"
+            return
+        } catch {
+            $msgErro = $_.Exception.Message
+            $ehTimeout = ($msgErro -match "timed out|tempo limite|Timeout")
+
+            if ($t -lt $maxTentativas) {
+                Write-Host "  Tentativa $t/$maxTentativas - ainda subindo..." -ForegroundColor DarkGray
+                Start-Sleep -Seconds 20
+                continue
+            }
+
+            if ($ehTimeout) {
+                Fail "HTTP timeout - Python nao respondeu. Veja logs\iis_startup.log"
+            } elseif ($msgErro -match "502") {
+                Fail "HTTP 502 - Python nao subiu. Veja logs\iis_startup.log"
+            } elseif ($msgErro -match "conectar|connect") {
+                Fail "HTTP recusado na porta $PortaDestino"
+            } else {
+                Warn "HTTP falhou: $msgErro"
+            }
+        }
+    }
 }
 
 function Start-ServicosIIS {
@@ -265,32 +348,8 @@ function Invoke-Verificacao {
         Pop-Location
     }
 
-    $urlTeste = "http://127.0.0.1:${PortaDestino}/login/"
-    try {
-        $response = Invoke-WebRequest $urlTeste -UseBasicParsing -TimeoutSec 120 -ErrorAction Stop
-        Ok "HTTP respondeu $($response.StatusCode) em $urlTeste"
-    } catch {
-        $msgErro = $_.Exception.Message
-        if ($msgErro -match "timed out") {
-            Fail "HTTP timeout em 120s - veja logs\uvicorn.log"
-        } elseif ($msgErro -match "502") {
-            Fail "HTTP 502 - Python nao subiu - veja logs\uvicorn.log"
-        } elseif ($msgErro -match "conectar|connect") {
-            Fail "HTTP recusado na porta $PortaDestino"
-        } else {
-            Warn "HTTP falhou: $msgErro"
-        }
-    }
-
-    $uvicornLog = Join-Path $projectRoot "logs\uvicorn.log"
-    if (Test-Path $uvicornLog) {
-        $tail = Get-Content $uvicornLog -Tail 5 -ErrorAction SilentlyContinue
-        if ($tail) {
-            Write-Host ""
-            Write-Host "--- logs\uvicorn.log ---" -ForegroundColor DarkGray
-            $tail | ForEach-Object { Write-Host $_ -ForegroundColor DarkGray }
-        }
-    }
+    Invoke-HttpWarmup -PortaDestino $PortaDestino
+    Show-LogsDiagnostico
 }
 
 Write-Host ""
@@ -312,6 +371,7 @@ if (-not $SomenteVerificar) {
 
     Update-WebConfig
     Set-PermissoesIIS
+    Set-AppPoolConfig
     Set-PortaSite -PortaDestino $Porta
     Invoke-DjangoSetup
 
@@ -319,7 +379,7 @@ if (-not $SomenteVerificar) {
         Write-Host ""
         Fix "Reiniciando IIS - $script:correcoes correcoes aplicadas"
         iisreset | Out-Null
-        Start-Sleep -Seconds 5
+        Start-Sleep -Seconds 10
     }
 } else {
     Write-Host ""

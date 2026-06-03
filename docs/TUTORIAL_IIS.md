@@ -409,9 +409,38 @@ powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1
 ### Erro 502.3
 
 ```powershell
-Get-Content C:\inetpub\wwwroot\controle-acesso-PAMC\logs\uvicorn.log -Tail 50
+Get-Content C:\inetpub\wwwroot\controle-acesso-PAMC\logs\iis_startup.log -Tail 30
+Get-ChildItem C:\inetpub\wwwroot\controle-acesso-PAMC\logs\uvicorn*.log | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | Get-Content -Tail 30
 Test-Path C:\inetpub\wwwroot\controle-acesso-PAMC\venv\Scripts\python.exe
 ```
+
+### HTTP timeout ("tempo limite da operação")
+
+O IIS **escuta na porta 3000**, mas o **Python ainda não respondeu**. Isso é comum na **primeira requisição** após `iisreset` ou deploy.
+
+| O que verificar | Comando |
+|-----------------|---------|
+| Log de subida do Python | `Get-Content .\logs\iis_startup.log -Tail 30` |
+| Log stdout do IIS (com PID) | `Get-ChildItem .\logs\uvicorn*.log` |
+| Processo Python ativo | `Get-Process python*` |
+| Teste manual (fora do IIS) | `python -m uvicorn controle_acesso.asgi:application --host 127.0.0.1 --port 8000` |
+
+**Interpretação do `iis_startup.log`:**
+
+| Conteúdo | Significado |
+|----------|-------------|
+| Arquivo **vazio** | IIS não conseguiu executar o Python — permissões ou `processPath` errado |
+| `inicio PID=... PORT=...` sem mais linhas | Python travou ao importar Django/dependências |
+| `uvicorn importado` + `Application startup complete` | App subiu — aguarde ou teste de novo no navegador |
+| `FATAL:` com traceback | Erro explícito — corrija a dependência/config indicada |
+
+Correção automática:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1
+```
+
+O script agora **tenta até 6 vezes** (com pausa) antes de reportar timeout.
 
 Teste manual:
 
