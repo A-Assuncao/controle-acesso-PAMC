@@ -11,7 +11,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 
 ### 🐛 Corrigido
 - **Guia IIS — instalação nova**: checklist do que não vem do Git (`.env`, caminhos do `web.config`, HttpPlatformHandler, permissões, firewall)
-- **Script unificado**: `scripts/configurar_iis.ps1` — corrige e verifica tudo (porta 3000, permissoes, web.config, migrate, collectstatic)
+- **IIS**: script unificado inicia servicos WAS e W3SVC automaticamente
 - **Tutorial IIS**: reescrito como `docs/TUTORIAL_IIS.md` — ambiente `venv`, desbloqueio do erro 0x80070021, remoção do localhost.run
 - **Dependência `pytz`**: adicionada ao `requirements.txt` (usada em `core/utils.py` e views, mas não estava declarada)
 

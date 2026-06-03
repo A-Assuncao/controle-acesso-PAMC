@@ -122,6 +122,19 @@ git --version
    - World Wide Web > HTTP Comuns > Conteúdo Estático, Documento Padrão
 4. **Pare o "Default Web Site"** se existir (evita conflito na porta 80)
 
+### Iniciar serviços WAS e W3SVC (obrigatório)
+
+Sem esses serviços o site **não inicia**. PowerShell como Administrador:
+
+```powershell
+Start-Service WAS
+Start-Service W3SVC
+Set-Service WAS -StartupType Automatic
+Set-Service W3SVC -StartupType Automatic
+```
+
+O script `configurar_iis.ps1` faz isso automaticamente.
+
 ---
 
 ## 5. Instalar HttpPlatformHandler
@@ -366,6 +379,20 @@ Só então teste no navegador.
 ### Erro 0x80070021
 
 Repita o [passo 6](#6-desbloquear-seções-do-iis-obrigatório).
+
+### Erro: WAS e W3SVC parados
+
+Mensagem do inetmgr: *"Não é possível iniciar os sites... WAS e W3SVC... estão parados"*.
+
+```powershell
+Start-Service WAS
+Start-Service W3SVC
+Set-Service WAS -StartupType Automatic
+Set-Service W3SVC -StartupType Automatic
+iisreset
+```
+
+Ou: `powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1`
 
 ### Erro inetmgr: "não pode verificar se a conta interna tem acesso"
 

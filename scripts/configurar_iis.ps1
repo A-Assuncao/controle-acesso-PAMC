@@ -89,8 +89,40 @@ function Set-PermissoesIIS {
     Fix "Permissoes IIS aplicadas para $identidadePool"
 }
 
+function Start-ServicosIIS {
+    # WAS deve iniciar antes do W3SVC
+    $servicos = @(
+        @{ Nome = "WAS";   Label = "Windows Process Activation Service" },
+        @{ Nome = "W3SVC"; Label = "World Wide Web Publishing Service" }
+    )
+
+    foreach ($svc in $servicos) {
+        $service = Get-Service -Name $svc.Nome -ErrorAction SilentlyContinue
+        if (-not $service) {
+            Fail "Servico $($svc.Nome) nao instalado - ative o IIS em optionalfeatures"
+            continue
+        }
+
+        if ($service.StartType -eq "Disabled") {
+            Set-Service -Name $svc.Nome -StartupType Automatic
+            Fix "$($svc.Nome) configurado para iniciar automaticamente"
+        }
+
+        if ($service.Status -ne "Running") {
+            try {
+                Start-Service -Name $svc.Nome -ErrorAction Stop
+                Fix "$($svc.Nome) iniciado - $($svc.Label)"
+            } catch {
+                Fail "Nao foi possivel iniciar $($svc.Nome) - execute como Administrador"
+            }
+        }
+    }
+}
+
 function Set-PortaSite {
     param([int]$PortaDestino)
+
+    Start-ServicosIIS
 
     Import-Module WebAdministration -ErrorAction Stop
 
@@ -112,7 +144,6 @@ function Set-PortaSite {
         Fix "Binding HTTP configurado na porta $PortaDestino"
     }
 
-    Start-Service W3SVC -ErrorAction SilentlyContinue
     if ((Get-Website -Name $NomeSite).State -ne "Started") {
         Start-Website -Name $NomeSite
         Fix "Site $NomeSite iniciado"
@@ -202,6 +233,13 @@ function Invoke-Verificacao {
             }
         } else {
             Fail "Site $NomeSite nao existe no IIS - crie no inetmgr"
+        }
+
+        $was = Get-Service WAS -ErrorAction SilentlyContinue
+        if ($was -and $was.Status -eq "Running") {
+            Ok "Servico WAS em execucao"
+        } else {
+            Fail "Servico WAS parado - necessario para iniciar sites IIS"
         }
 
         if ((Get-Service W3SVC -ErrorAction SilentlyContinue).Status -eq "Running") {
