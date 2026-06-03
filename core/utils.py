@@ -27,6 +27,71 @@ def normalizar_texto(texto):
     # Converte para minúsculas
     return texto_sem_acento.lower()
 
+
+def normalizar_documento(documento):
+    """
+    Remove pontuação e mantém apenas dígitos para busca por documento.
+
+    Args:
+        documento: Número do documento (CPF, RG, etc.)
+
+    Returns:
+        String contendo somente os dígitos
+    """
+    if not documento:
+        return ''
+
+    return ''.join(char for char in str(documento) if char.isdigit())
+
+
+def texto_contem_todas_palavras(texto_normalizado, query_normalizada):
+    """
+    Verifica se o texto contém todas as palavras da query.
+
+    Ex.: a query "anderson assuncao" encontra "anderson gomes assuncao".
+
+    Args:
+        texto_normalizado: Texto alvo já normalizado (sem acentos, minúsculas)
+        query_normalizada: Termo de busca já normalizado
+
+    Returns:
+        True se cada palavra da query estiver presente no texto
+    """
+    if not query_normalizada:
+        return False
+
+    palavras = query_normalizada.split()
+    if not palavras:
+        return False
+
+    return all(palavra in texto_normalizado for palavra in palavras)
+
+
+def eh_servidor_egresso(nome):
+    """Verifica se o servidor é egresso pelo prefixo no nome."""
+    return normalizar_texto(nome).startswith('egresso:')
+
+
+def servidor_corresponde_busca(servidor, query, query_normalizada):
+    """
+    Aplica as regras de correspondência por nome, documento e setor.
+
+    - Nome/setor: todas as palavras digitadas devem aparecer no texto
+    - Documento: busca apenas pelos dígitos, ignorando pontos e traços
+    """
+    nome_normalizado = normalizar_texto(servidor.nome)
+    setor_normalizado = normalizar_texto(servidor.setor or '')
+
+    nome_match = texto_contem_todas_palavras(nome_normalizado, query_normalizada)
+    setor_match = texto_contem_todas_palavras(setor_normalizado, query_normalizada)
+
+    query_digitos = normalizar_documento(query)
+    documento_digitos = normalizar_documento(servidor.numero_documento)
+    documento_match = len(query_digitos) >= 2 and query_digitos in documento_digitos
+
+    return nome_match or documento_match or setor_match
+
+
 def extrair_plantao_do_setor(setor):
     """
     Extrai o nome do plantão do campo setor.
@@ -250,43 +315,35 @@ def calcular_totais_registros(registros, is_treinamento=False):
         'total_pendentes': total_pendentes
     }
 
-def buscar_servidores_helper(query, formato='detalhado'):
+def buscar_servidores_helper(query, formato='detalhado', excluir_egressos=False):
     """
     Função auxiliar para buscar servidores de forma padronizada.
     Busca normalizada (sem acentos, case-insensitive).
-    
+
     Args:
         query: String de busca
         formato: 'simples' para autocomplete ou 'detalhado' para ajax
-    
+        excluir_egressos: Se True, ignora servidores com prefixo "Egresso:"
+
     Returns:
         List de dicionários com dados dos servidores
     """
-    from django.db.models import Q
     from .models import Servidor
-    
+
     if len(query) < 2:
         return []
-    
-    # Normaliza a query para busca sem acentos
+
     query_normalizada = normalizar_texto(query)
-    
-    # Busca todos os servidores ativos e filtra no Python com normalização
     servidores_raw = Servidor.objects.filter(ativo=True).order_by('nome')
-    
-    # Filtra manualmente usando normalização de texto
+
     servidores_filtrados = []
     for servidor in servidores_raw:
-        nome_normalizado = normalizar_texto(servidor.nome)
-        documento_normalizado = normalizar_texto(servidor.numero_documento)
-        setor_normalizado = normalizar_texto(servidor.setor or '')
-        
-        if (query_normalizada in nome_normalizado or 
-            query_normalizada in documento_normalizado or
-            query_normalizada in setor_normalizado):
+        if excluir_egressos and eh_servidor_egresso(servidor.nome):
+            continue
+
+        if servidor_corresponde_busca(servidor, query, query_normalizada):
             servidores_filtrados.append(servidor)
-            
-        # Limita a 10 resultados para performance
+
         if len(servidores_filtrados) >= 10:
             break
     

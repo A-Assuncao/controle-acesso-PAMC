@@ -9,6 +9,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 
 ## [Unreleased] - **Próximas Melhorias**
 
+### 🐛 Corrigido
+- **Dependência `pytz`**: adicionada ao `requirements.txt` (usada em `core/utils.py` e views, mas não estava declarada)
+
+### ✨ Adicionado
+- **Busca no dashboard**: egressos excluídos da busca de servidores; nomes exigem todas as palavras digitadas; documento ignora pontos e traços
+
 ### 🎯 **Planejado para v3.2.0**
 - **📊 Database URL**: Implementação de configuração via DATABASE_URL
 - **🐘 PostgreSQL**: Suporte completo para banco PostgreSQL em produção

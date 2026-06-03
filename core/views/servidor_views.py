@@ -146,7 +146,11 @@ def servidor_delete(request, pk):
 def buscar_servidor(request):
     """API para busca de servidores (autocomplete)."""
     query = request.GET.get('q', '')
-    resultados = buscar_servidores_helper(query, formato='simples')
+    resultados = buscar_servidores_helper(
+        query,
+        formato='simples',
+        excluir_egressos=True,
+    )
     return JsonResponse(resultados, safe=False)
 
 
