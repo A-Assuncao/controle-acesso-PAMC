@@ -25,31 +25,36 @@ Se funciona em **outro local** mas **não neste**, quase sempre falta um destes 
 | 4 | **Arquivo `.env`** | **Muito comum** | `copy .env.example .env` — **não está no repositório** |
 | 5 | **Caminhos no `web.config`** | **Muito comum** | Caminhos absolutos apontam para `C:\inetpub\...` — se a pasta for outra, **não funciona** |
 | 6 | **Site criado no IIS** | Por instalação | [passo 12](#12-configurar-o-site-no-iis) |
-| 7 | **Permissões** (`icacls`) | Por instalação | [passo 13](#13-permissões-de-pasta) |
+| 7 | **Permissões** (`icacls`) | Por instalação | [passo 13](#13-permissões-de-pasta) — aviso "Testar Configurações" |
 | 8 | **`migrate` + `collectstatic`** | Por instalação | [passo 10](#10-preparar-banco-estáticos-e-logs) |
-| 9 | **Default Web Site parado** | Comum | Pare o site padrão na porta 80 |
-| 10 | **Firewall porta 80** | Rede local | [passo 13b](#13b-firewall-rede-local) |
+| 9 | **Default Web Site parado** | Comum | Evita conflito se usar porta 80 |
+| 10 | **Porta do site IIS** | Comum | Recomendado: **3000** ([passo 12](#12-configurar-o-site-no-iis)) |
+| 11 | **Firewall** | Rede local | Liberar a porta escolhida ([passo 13b](#13b-firewall-rede-local)) |
 
-### Verificação automática (rode no servidor novo)
+### Verificação e correção automática (um comando)
 
 Na raiz do projeto, **como Administrador**:
 
 ```powershell
-cd C:\inetpub\wwwroot\controle-acesso-PAMC   # ou sua pasta real
-powershell -ExecutionPolicy Bypass -File .\scripts\verificar_instalacao_iis.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1
 ```
 
-O script lista `[OK]`, `[AVISO]` e `[ERRO]` para cada item.
+Este script **corrige e verifica** tudo de uma vez:
 
-### Corrigir caminhos do `web.config` automaticamente
+- `.env` (cria a partir do exemplo se faltar)
+- `web.config` (caminhos desta pasta)
+- Permissões IIS (pool + IIS_IUSRS)
+- Porta **3000**, firewall e site iniciado
+- `migrate` e `collectstatic` (se necessário)
+- `iisreset` + teste HTTP
 
-Se o projeto **não** está em `C:\inetpub\wwwroot\controle-acesso-PAMC`:
+Só verificar, sem alterar nada:
 
 ```powershell
-cd D:\caminho\real\controle-acesso-PAMC
-powershell -ExecutionPolicy Bypass -File .\scripts\atualizar_web_config.ps1
-iisreset
+powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1 -SomenteVerificar
 ```
+
+Outra porta: `-Porta 8080`
 
 ---
 
@@ -222,21 +227,9 @@ New-Item -ItemType Directory -Force -Path .\logs
 
 ## 11. Revisar o `web.config`
 
-> **Instalação nova:** os caminhos no `web.config` do Git são de **exemplo** (`C:\inetpub\wwwroot\...`). Se sua pasta for diferente, o IIS **não acha o Python** e a página fica em branco ou dá timeout.
+> **Instalação nova:** rode `configurar_iis.ps1` — ele regenera o `web.config` com os caminhos corretos desta pasta.
 
-**Forma recomendada** — regenere com o script (usa a pasta atual automaticamente):
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\atualizar_web_config.ps1
-```
-
-**Ou edite manualmente** estas 3 linhas para a **pasta real** deste servidor:
-
-| Campo | Deve apontar para |
-|-------|-------------------|
-| `processPath` | `SUA_PASTA\venv\Scripts\python.exe` |
-| `stdoutLogFile` | `SUA_PASTA\logs\uvicorn.log` |
-| `PYTHONPATH` | `SUA_PASTA` (raiz do projeto) |
+O `web.config` **não define a porta externa** (3000). Isso é configurado no IIS pelo script unificado.
 
 Pontos críticos:
 
@@ -264,41 +257,45 @@ Variáveis sensíveis vêm do **`.env`**, não do XML.
 
 ## 12. Configurar o site no IIS
 
-1. `inetmgr` → **Sites** → **Adicionar Site**
+### Porta recomendada: **3000**
+
+Crie o site manualmente no `inetmgr` (uma vez por servidor):
+
+1. **Sites** → **Adicionar Site**
 2. Nome: `controle-acesso-PAMC`
-3. Caminho: `C:\inetpub\wwwroot\controle-acesso-PAMC`
-4. Porta: `80`
-5. Pool: **Sem código gerenciado**, pipeline **Integrado**
-6. **Pare** o *Default Web Site* se ainda estiver na porta 80
+3. Caminho: pasta do projeto
+4. Porta: `3000` (ou qualquer — o script ajusta depois)
+
+Depois rode o script unificado — ele configura porta, permissões, firewall e reinicia o IIS:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1
+```
+
+### Acesso
+
+- Local: **http://localhost:3000/login/**
+- Rede: **http://SEU_IP:3000/login/**
 
 ---
 
 ## 13. Permissões de pasta
 
-Substitua o caminho se o projeto **não** estiver em `C:\inetpub\wwwroot\controle-acesso-PAMC`:
+Incluídas automaticamente em `configurar_iis.ps1`. Se o inetmgr mostrar aviso de autenticação pass-through, rode o script novamente como Administrador.
 
-```powershell
-$Pasta = "C:\inetpub\wwwroot\controle-acesso-PAMC"   # ajuste aqui
-$Pool  = "controle-acesso-PAMC"                       # nome do pool no IIS
-
-icacls $Pasta /grant "IIS_IUSRS:(OI)(CI)M" /T
-icacls $Pasta /grant "IIS AppPool\${Pool}:(OI)(CI)M" /T
-iisreset
-```
-
-Confira o nome do pool em `inetmgr` → **Pools de Aplicativos** (deve coincidir com `$Pool`).
+> Em servidor **de domínio**, conceda **Leitura** também a `DOMINIO\NOME_DO_PC$` se necessário.
 
 ---
 
 ## 13b. Firewall (rede local)
 
-Para acessar de **outros computadores** na rede, libere a porta 80:
+Libere a **mesma porta do site** (ex.: 3000):
 
 ```powershell
-New-NetFirewallRule -DisplayName "IIS Controle Acesso PAMC" -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow
+New-NetFirewallRule -DisplayName "IIS Controle Acesso PAMC porta 3000" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
 ```
 
-Inclua o IP desta máquina em `DJANGO_ALLOWED_HOSTS` no `.env`:
+Inclua o IP desta máquina em `DJANGO_ALLOWED_HOSTS` no `.env` (porta não entra no ALLOWED_HOSTS):
 
 ```powershell
 ipconfig
@@ -333,8 +330,10 @@ Invoke-WebRequest http://localhost -UseBasicParsing | Select-Object StatusCode, 
 
 ### URLs
 
-- Local: http://localhost/login/
-- Rede: http://SEU_IP/login/
+- Local: http://localhost:3000/login/
+- Rede: http://SEU_IP:3000/login/
+
+> Se usou outra porta, ajuste na URL. O `web.config` **não** precisa ser alterado.
 
 A raiz `/` exige login e redireciona — use **`/login/`** para testar.
 
@@ -343,7 +342,7 @@ A raiz `/` exige login e redireciona — use **`/login/`** para testar.
 Após `git pull` ou `iisreset`, abra uma vez:
 
 ```powershell
-Invoke-WebRequest http://localhost/login/ -UseBasicParsing
+Invoke-WebRequest http://localhost:3000/login/ -UseBasicParsing -TimeoutSec 120
 ```
 
 Só então teste no navegador.
@@ -368,6 +367,18 @@ Só então teste no navegador.
 
 Repita o [passo 6](#6-desbloquear-seções-do-iis-obrigatório).
 
+### Erro inetmgr: "não pode verificar se a conta interna tem acesso"
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1
+```
+
+### Erro: "Impossível conectar-se ao servidor remoto"
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1
+```
+
 ### Erro 502.3
 
 ```powershell
@@ -384,38 +395,10 @@ python -m uvicorn controle_acesso.asgi:application --host 127.0.0.1 --port 8000
 
 Se **8000 funciona** e **80 não** → IIS/`web.config`/permissões.
 
-### Script de diagnóstico completo
-
-Use o script automatizado (recomendado):
+### Script de diagnóstico
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\verificar_instalacao_iis.ps1
-```
-
-Ou manualmente:
-
-```powershell
-cd C:\inetpub\wwwroot\controle-acesso-PAMC
-
-Write-Host "=== Python ===" -ForegroundColor Cyan
-Test-Path .\venv\Scripts\python.exe
-
-Write-Host "=== Logs ===" -ForegroundColor Cyan
-Get-Content .\logs\uvicorn.log -Tail 15 -ErrorAction SilentlyContinue
-Get-Content .\logs\django_errors.log -Tail 10 -ErrorAction SilentlyContinue
-
-Write-Host "=== IIS ===" -ForegroundColor Cyan
-Import-Module WebAdministration
-Get-Website -Name "controle-acesso-PAMC" | Format-Table Name, State
-Get-WebAppPoolState -Name "controle-acesso-PAMC"
-
-Write-Host "=== HTTP ===" -ForegroundColor Cyan
-try {
-    $r = Invoke-WebRequest http://localhost/login/ -UseBasicParsing -TimeoutSec 180
-    Write-Host "Status:" $r.StatusCode
-} catch {
-    Write-Host "Erro:" $_.Exception.Message
-}
+powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1 -SomenteVerificar
 ```
 
 ---
@@ -428,16 +411,10 @@ Marque **todos** antes de testar no navegador:
 - [ ] `appcmd unlock` executado neste **servidor**
 - [ ] Projeto clonado na pasta final (ex.: `C:\inetpub\wwwroot\controle-acesso-PAMC`)
 - [ ] **`venv`** criado + `pip install -r requirements.txt`
-- [ ] **`.env`** criado (`copy .env.example .env`) — **não vem do Git**
-- [ ] **`web.config`** com caminhos desta pasta (`atualizar_web_config.ps1`)
-- [ ] `migrate` + `collectstatic --noinput` + `createsuperuser`
-- [ ] Pasta **`logs`** criada
-- [ ] **Site IIS** apontando para a pasta correta, porta 80
-- [ ] **Default Web Site** parado
-- [ ] **Permissões** `IIS_IUSRS` + pool (`icacls`)
-- [ ] **Firewall** porta 80 (se acesso na rede)
-- [ ] `verificar_instalacao_iis.ps1` sem `[ERRO]`
-- [ ] `iisreset` + aguardar até 120s + testar `http://localhost/login/`
+- [ ] Site criado no **inetmgr** (uma vez)
+- [ ] **`configurar_iis.ps1`** executado (faz .env, web.config, permissoes, migrate, collectstatic, porta 3000)
+- [ ] `createsuperuser` (manual, se necessario)
+- [ ] Sem `[ERRO]` no script — acesse `http://localhost:3000/login/`
 
 ---
 
@@ -447,7 +424,7 @@ Marque **todos** antes de testar no navegador:
 - [ ] `pip install -r requirements.txt`
 - [ ] `python manage.py migrate`
 - [ ] `python manage.py collectstatic --noinput`
-- [ ] Se mudou de pasta: `atualizar_web_config.ps1`
+- [ ] `configurar_iis.ps1` (ou `-SomenteVerificar` se ja configurado)
 - [ ] `iisreset` + testar `/login/`
 
 ---
