@@ -56,6 +56,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -63,8 +64,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.TrocaSenhaMiddleware',
-    'core.middleware.ErrorLoggingMiddleware',  # Middleware para capturar erros
-    # 'whitenoise.middleware.WhiteNoiseMiddleware',  # Temporariamente desabilitado
+    'core.middleware.ErrorLoggingMiddleware',
 ]
 
 ROOT_URLCONF = 'controle_acesso.urls'
@@ -163,7 +163,15 @@ AUTHENTICATION_BACKENDS = [
     # 'core.authentication.CanaimeAuthBackend',   # Removido - usado apenas manualmente
 ]
 
-# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'  # Temporariamente desabilitado
+# WhiteNoise serve arquivos estáticos em produção (IIS, etc.)
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+    },
+}
 
 # Configurações para evitar erro de muitos campos no admin
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 4000  # Padrão é 1000 - aumentado para suportar mais registros

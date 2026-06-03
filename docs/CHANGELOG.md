@@ -10,8 +10,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 ## [Unreleased] - **Próximas Melhorias**
 
 ### 🐛 Corrigido
-- **Tutorial IIS**: reescrito como `docs/TUTORIAL_IIS.md` — ambiente `.venv` com uv, desbloqueio correto do erro 0x80070021, remoção do localhost.run
-- **`web.config`**: aponta para `.venv\Scripts\python.exe`; variáveis sensíveis via `.env` (não mais `SECRET_KEY`/`DEBUG` incorretos no XML)
+- **IIS lento/página em branco**: removido `Content-Type` global do `web.config`; WhiteNoise habilitado; `startupTimeLimit` aumentado; tutorial atualizado com cold start e diagnóstico
+- **Tutorial IIS**: reescrito como `docs/TUTORIAL_IIS.md` — ambiente `venv`, desbloqueio do erro 0x80070021, remoção do localhost.run
 - **Dependência `pytz`**: adicionada ao `requirements.txt` (usada em `core/utils.py` e views, mas não estava declarada)
 
 ### ✨ Adicionado

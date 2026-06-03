@@ -2,32 +2,33 @@
 
 ## Objetivo
 
-Este guia configura o **Sistema de Controle de Acesso PAMC** para rodar no **IIS** do Windows, usando:
+Este guia configura o **Sistema de Controle de Acesso PAMC** no **IIS** do Windows, usando:
 
-- ambiente virtual **`.venv`** gerenciado com **uv**
+- ambiente virtual **`venv`** (ou `.venv`, desde que coincida com o `web.config`)
 - **HttpPlatformHandler** + **uvicorn**
-- acesso local (`http://localhost`) e na **rede local** (IP da máquina)
+- **WhiteNoise** para arquivos estáticos em produção
+- acesso local (`http://localhost`) e na **rede local**
 
-> **Não inclui** túnel externo (localhost.run, ngrok, etc.). Para acesso fora da rede, use VPN ou infraestrutura corporativa.
+> **Não inclui** túnel externo (localhost.run, ngrok, etc.).
 
 ---
 
 ## Índice
 
 1. [Pré-requisitos](#1-pré-requisitos)
-2. [Instalar Python e uv](#2-instalar-python-e-uv)
+2. [Instalar Python](#2-instalar-python)
 3. [Instalar Git](#3-instalar-git)
 4. [Ativar o IIS](#4-ativar-o-iis)
 5. [Instalar HttpPlatformHandler](#5-instalar-httpplatformhandler)
 6. [Desbloquear seções do IIS (obrigatório)](#6-desbloquear-seções-do-iis-obrigatório)
 7. [Clonar o repositório](#7-clonar-o-repositório)
-8. [Criar o ambiente `.venv` e instalar dependências](#8-criar-o-ambiente-venv-e-instalar-dependências)
-9. [Configurar variáveis de ambiente (`.env`)](#9-configurar-variáveis-de-ambiente-env)
-10. [Preparar banco, estáticos e pastas](#10-preparar-banco-estáticos-e-pastas)
+8. [Criar o `venv` e instalar dependências](#8-criar-o-venv-e-instalar-dependências)
+9. [Configurar `.env`](#9-configurar-env)
+10. [Preparar banco, estáticos e logs](#10-preparar-banco-estáticos-e-logs)
 11. [Revisar o `web.config`](#11-revisar-o-webconfig)
 12. [Configurar o site no IIS](#12-configurar-o-site-no-iis)
 13. [Permissões de pasta](#13-permissões-de-pasta)
-14. [Testar o acesso](#14-testar-o-acesso)
+14. [Testar e aquecer a aplicação](#14-testar-e-aquecer-a-aplicação)
 15. [Troubleshooting](#15-troubleshooting)
 
 ---
@@ -36,43 +37,29 @@ Este guia configura o **Sistema de Controle de Acesso PAMC** para rodar no **IIS
 
 - Windows 10/11 ou Windows Server
 - PowerShell **como Administrador**
-- Conta com permissão para instalar recursos do Windows e configurar o IIS
-
-**Versão recomendada do Python:** 3.11 ou 3.12 (evite versões muito novas sem testar dependências).
+- **Python 3.11 ou 3.12** (evite 3.14+ em produção até validar dependências)
 
 ---
 
-## 2. Instalar Python e uv
-
-### Python
+## 2. Instalar Python
 
 1. Baixe em: https://www.python.org/downloads/windows/
-2. Durante a instalação, marque **"Add Python to PATH"**
+2. Marque **"Add Python to PATH"**
 3. Verifique:
 
 ```powershell
 python --version
 ```
 
-### uv (gerenciador de ambiente e pacotes)
+Opcional — **uv** acelera instalação de pacotes:
 
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-Feche e abra o PowerShell, depois confira:
-
-```powershell
-uv --version
-```
-
 ---
 
 ## 3. Instalar Git
-
-1. Baixe em: https://git-scm.com/downloads
-2. Instale com as opções padrão
-3. Verifique:
 
 ```powershell
 git --version
@@ -82,41 +69,27 @@ git --version
 
 ## 4. Ativar o IIS
 
-1. Pressione `Win + R`, digite `optionalfeatures` e pressione Enter
+1. `Win + R` → `optionalfeatures`
 2. Marque **Serviços de Informações da Internet**
-3. Dentro dele, garanta pelo menos:
+3. Garanta:
    - Console de Gerenciamento do IIS
-   - Serviço World Wide Web > Recursos de Aplicativos de Desenvolvimento > **CGI**
-   - Serviço World Wide Web > Recursos HTTP Comuns > Conteúdo Estático, Documento Padrão, Erros HTTP
-4. Clique em OK e aguarde a instalação
-
-Abra o Gerenciador do IIS:
-
-```powershell
-inetmgr
-```
+   - World Wide Web > Desenvolvimento de Aplicativos > **CGI**
+   - World Wide Web > HTTP Comuns > Conteúdo Estático, Documento Padrão
+4. **Pare o "Default Web Site"** se existir (evita conflito na porta 80)
 
 ---
 
 ## 5. Instalar HttpPlatformHandler
 
-1. Baixe em: https://www.iis.net/downloads/microsoft/httpplatformhandler
-2. Instale **como Administrador**
-3. Reinicie o IIS:
-
-```powershell
-iisreset
-```
+1. https://www.iis.net/downloads/microsoft/httpplatformhandler
+2. Instale como Administrador
+3. `iisreset`
 
 ---
 
 ## 6. Desbloquear seções do IIS (obrigatório)
 
-Se pular este passo, o IIS retorna o erro **0x80070021** ao ler o `web.config`:
-
-> *Esta seção de configuração não pode ser usada nesse caminho... `system.webServer/handlers`*
-
-Execute **como Administrador**:
+Sem este passo → erro **0x80070021** no `web.config`.
 
 ```powershell
 & "$env:windir\system32\inetsrv\appcmd.exe" unlock config -section:system.webServer/handlers
@@ -124,15 +97,7 @@ Execute **como Administrador**:
 iisreset
 ```
 
-### Verificar se desbloqueou
-
-```powershell
-& "$env:windir\system32\inetsrv\appcmd.exe" list config -section:system.webServer/handlers /config:* | Select-String overrideMode
-```
-
-O `overrideMode` deve permitir alteração no nível do site/aplicação (não `Deny` bloqueando herança).
-
-> **Atenção:** o passo antigo de "Editar permissões de recurso" em *Manipuladores* **não resolve** o erro 0x80070021. É necessário desbloquear a seção com `appcmd`.
+> Editar permissões em *Manipuladores* **não resolve** o 0x80070021.
 
 ---
 
@@ -146,28 +111,23 @@ cd controle-acesso-PAMC
 
 ---
 
-## 8. Criar o ambiente `.venv` e instalar dependências
+## 8. Criar o `venv` e instalar dependências
 
-Sempre use o ambiente virtual **`.venv`** na raiz do projeto (não `venv`).
+O `web.config` do repositório aponta para **`venv`** (não `.venv`). Use o mesmo nome.
 
 ```powershell
 cd C:\inetpub\wwwroot\controle-acesso-PAMC
 
-# Cria .venv com a versão de Python disponível
-uv venv .venv
-
-# Ativa o ambiente (obrigatório antes de comandos python/pip)
-.\.venv\Scripts\Activate.ps1
-
-# Instala dependências dentro do .venv
-uv pip install -r requirements.txt
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-Confirme que o Python do IIS será o do `.venv`:
+Confirme:
 
 ```powershell
-.\.venv\Scripts\python.exe --version
-.\.venv\Scripts\python.exe -c "import django; print(django.get_version())"
+Test-Path .\venv\Scripts\python.exe   # deve retornar True
+python manage.py check
 ```
 
 Se `Activate.ps1` for bloqueado:
@@ -178,222 +138,216 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 ---
 
-## 9. Configurar variáveis de ambiente (`.env`)
+## 9. Configurar `.env`
 
 ```powershell
 copy .env.example .env
 notepad .env
 ```
 
-Exemplo mínimo para produção no IIS:
+Exemplo para IIS:
 
 ```env
-DJANGO_SECRET_KEY=sua-chave-fixa-gerada-com-manage-py-check-secret-key
+DJANGO_SECRET_KEY=sua-chave-fixa-aqui
 DJANGO_DEBUG=False
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,SEU_IP_LOCAL
 SERVE_STATIC_FILES=True
 ```
 
-Gere uma chave segura:
+Gere a chave:
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
+.\venv\Scripts\Activate.ps1
 python manage.py check_secret_key --generate
 ```
 
-Copie a chave gerada para `DJANGO_SECRET_KEY` no `.env`.
-
-Mais detalhes: [CONFIGURACAO_AMBIENTE.md](CONFIGURACAO_AMBIENTE.md)
-
 ---
 
-## 10. Preparar banco, estáticos e pastas
-
-Com o `.venv` ativado:
+## 10. Preparar banco, estáticos e logs
 
 ```powershell
 cd C:\inetpub\wwwroot\controle-acesso-PAMC
-.\.venv\Scripts\Activate.ps1
+.\venv\Scripts\Activate.ps1
 
 python manage.py migrate
 python manage.py collectstatic --noinput
 python manage.py createsuperuser
-```
 
-Crie a pasta de logs usada pelo IIS/uvicorn:
-
-```powershell
 New-Item -ItemType Directory -Force -Path .\logs
 ```
+
+**`collectstatic` é obrigatório** — sem ele, páginas carregam sem CSS/JS em produção.
 
 ---
 
 ## 11. Revisar o `web.config`
 
-O arquivo `web.config` na raiz do projeto deve apontar para o Python do **`.venv`**.
+Pontos críticos (já configurados no repositório):
 
-Verifique esta linha (ajuste o caminho se o projeto não estiver em `C:\inetpub\wwwroot\...`):
+| Item | Valor correto |
+|------|---------------|
+| `processPath` | `...\venv\Scripts\python.exe` (mesmo nome da pasta do ambiente) |
+| `stdoutLogFile` | caminho **absoluto** para `logs\uvicorn.log` |
+| `startupTimeLimit` | `120` (segundos para o Django subir na 1ª requisição) |
+| **Não usar** | `<customHeaders>` forçando `Content-Type: text/html` — quebra JS/CSS |
+
+O trecho principal deve ser semelhante a:
 
 ```xml
-<httpPlatform processPath="C:\inetpub\wwwroot\controle-acesso-PAMC\.venv\Scripts\python.exe"
-              arguments="-m uvicorn controle_acesso.asgi:application --host 0.0.0.0 --port %HTTP_PLATFORM_PORT%"
-              ...>
+<httpPlatform processPath="C:\inetpub\wwwroot\controle-acesso-PAMC\venv\Scripts\python.exe"
+              arguments="-m uvicorn controle_acesso.asgi:application --host 127.0.0.1 --port %HTTP_PLATFORM_PORT% --timeout-keep-alive 120"
+              startupTimeLimit="120"
+              requestTimeout="00:04:00"
+              stdoutLogEnabled="true"
+              stdoutLogFile="C:\inetpub\wwwroot\controle-acesso-PAMC\logs\uvicorn.log">
 ```
 
-Variáveis importantes já presentes:
-
-- `DJANGO_SETTINGS_MODULE=controle_acesso.settings`
-- `PYTHONPATH` apontando para a raiz do projeto
-
-As demais configurações (SECRET_KEY, DEBUG, ALLOWED_HOSTS) vêm do arquivo **`.env`**.
+Variáveis sensíveis vêm do **`.env`**, não do XML.
 
 ---
 
 ## 12. Configurar o site no IIS
 
-1. Abra `inetmgr`
-2. Clique com o botão direito em **Sites** → **Adicionar Site**
-3. Preencha:
-   - **Nome:** `controle-acesso-PAMC`
-   - **Caminho físico:** `C:\inetpub\wwwroot\controle-acesso-PAMC`
-   - **Porta:** `80`
-4. Confirme
-
-### Pool de aplicativos
-
-1. Vá em **Pools de Aplicativos** → selecione o pool do site
-2. **Configurações Avançadas:**
-   - **Versão do .NET CLR:** `Sem código gerenciado`
-   - **Modo de pipeline gerenciado:** `Integrado`
-3. **Identidade:** `ApplicationPoolIdentity` (padrão)
+1. `inetmgr` → **Sites** → **Adicionar Site**
+2. Nome: `controle-acesso-PAMC`
+3. Caminho: `C:\inetpub\wwwroot\controle-acesso-PAMC`
+4. Porta: `80`
+5. Pool: **Sem código gerenciado**, pipeline **Integrado**
+6. **Pare** o *Default Web Site* se ainda estiver na porta 80
 
 ---
 
 ## 13. Permissões de pasta
 
-O pool do IIS precisa ler/escrever no projeto (banco SQLite, logs, etc.).
-
 ```powershell
 icacls "C:\inetpub\wwwroot\controle-acesso-PAMC" /grant "IIS_IUSRS:(OI)(CI)M" /T
 icacls "C:\inetpub\wwwroot\controle-acesso-PAMC" /grant "IIS AppPool\controle-acesso-PAMC:(OI)(CI)M" /T
+iisreset
 ```
-
-> Substitua `controle-acesso-PAMC` pelo nome exato do pool, se for diferente.
 
 ---
 
-## 14. Testar o acesso
+## 14. Testar e aquecer a aplicação
 
-### Local
+### Comportamento normal
 
-- http://localhost
-- http://127.0.0.1
-
-### Rede local
-
-Descubra o IP:
+A **primeira requisição após `iisreset`** pode demorar **30–120 segundos** — o IIS inicia o processo Python + Django + uvicorn. Isso **não é travamento**; aguarde ou veja o log:
 
 ```powershell
-ipconfig
+Get-Content C:\inetpub\wwwroot\controle-acesso-PAMC\logs\uvicorn.log -Wait -Tail 20
 ```
 
-Acesse de outro dispositivo na mesma rede:
+### Teste rápido (PowerShell)
 
-- `http://192.168.x.x` (use o IP real da máquina)
+```powershell
+# Deve retornar StatusCode 200 ou 302 (redirect para login)
+Invoke-WebRequest http://localhost -UseBasicParsing | Select-Object StatusCode, StatusDescription
+```
 
-Certifique-se de incluir esse IP em `DJANGO_ALLOWED_HOSTS` no `.env`.
+- **302** → redirecionou para `/login/` (esperado se não autenticado)
+- **200** → página ok
+- **502** → Python não subiu (veja uvicorn.log)
+- **Timeout** → processPath errado ou startupTimeLimit baixo
+
+### URLs
+
+- Local: http://localhost/login/
+- Rede: http://SEU_IP/login/
+
+A raiz `/` exige login e redireciona — use **`/login/`** para testar.
+
+### Aquecer após deploy
+
+Após `git pull` ou `iisreset`, abra uma vez:
+
+```powershell
+Invoke-WebRequest http://localhost/login/ -UseBasicParsing
+```
+
+Só então teste no navegador.
 
 ---
 
 ## 15. Troubleshooting
 
-### Erro 0x80070021 — seção `handlers` bloqueada
+### Página em branco ou “carregando” por muito tempo
 
-**Causa:** seção `system.webServer/handlers` bloqueada no IIS.
+| Causa | Como verificar | Solução |
+|-------|----------------|---------|
+| **1ª requisição / cold start** | `uvicorn.log` vazio por ~1 min, depois preenche | Aguarde até 120s; aumente `startupTimeLimit` |
+| **`processPath` errado** | `Test-Path .\venv\Scripts\python.exe` → False | Crie `venv` ou ajuste `web.config` |
+| **Header `Content-Type` no web.config** | XML com `<customHeaders>` forçando `text/html` | **Remova** o bloco `httpProtocol/customHeaders` |
+| **Estáticos não coletados** | CSS/JS 404 no DevTools (F12) | `python manage.py collectstatic --noinput` |
+| **WhiteNoise desativado** | `/static/` retorna 404 com `DEBUG=False` | Atualize o código (`whitenoise` no middleware) |
+| **Default Web Site na porta 80** | Aparece página padrão do IIS | Pare o site padrão |
+| **CDN bloqueada (rede fechada)** | Login lento; fontes do Google não carregam | Normal em rede isolada; aguarde ou use rede com internet na 1ª carga |
 
-**Solução:** repita o [passo 6](#6-desbloquear-seções-do-iis-obrigatório) como Administrador e reinicie o IIS.
+### Erro 0x80070021
 
----
+Repita o [passo 6](#6-desbloquear-seções-do-iis-obrigatório).
 
-### Erro 500 — aplicação não sobe
-
-1. Verifique o log do uvicorn:
+### Erro 502.3
 
 ```powershell
 Get-Content C:\inetpub\wwwroot\controle-acesso-PAMC\logs\uvicorn.log -Tail 50
+Test-Path C:\inetpub\wwwroot\controle-acesso-PAMC\venv\Scripts\python.exe
 ```
 
-2. Confirme o Python do `.venv`:
+Teste manual:
 
 ```powershell
-Test-Path C:\inetpub\wwwroot\controle-acesso-PAMC\.venv\Scripts\python.exe
-```
-
-3. Teste manualmente (com `.venv` ativado):
-
-```powershell
-cd C:\inetpub\wwwroot\controle-acesso-PAMC
-.\.venv\Scripts\Activate.ps1
-python manage.py check
+.\venv\Scripts\Activate.ps1
 python -m uvicorn controle_acesso.asgi:application --host 127.0.0.1 --port 8000
 ```
 
-Se funcionar na porta 8000 mas não no IIS, o problema está no IIS/`web.config`/permissões.
+Se **8000 funciona** e **80 não** → IIS/`web.config`/permissões.
 
----
-
-### `ModuleNotFoundError` (django, pytz, etc.)
-
-Dependências não foram instaladas **dentro do `.venv`**:
+### Script de diagnóstico completo
 
 ```powershell
 cd C:\inetpub\wwwroot\controle-acesso-PAMC
-.\.venv\Scripts\Activate.ps1
-uv pip install -r requirements.txt
+
+Write-Host "=== Python ===" -ForegroundColor Cyan
+Test-Path .\venv\Scripts\python.exe
+
+Write-Host "=== Logs ===" -ForegroundColor Cyan
+Get-Content .\logs\uvicorn.log -Tail 15 -ErrorAction SilentlyContinue
+Get-Content .\logs\django_errors.log -Tail 10 -ErrorAction SilentlyContinue
+
+Write-Host "=== IIS ===" -ForegroundColor Cyan
+Import-Module WebAdministration
+Get-Website -Name "controle-acesso-PAMC" | Format-Table Name, State
+Get-WebAppPoolState -Name "controle-acesso-PAMC"
+
+Write-Host "=== HTTP ===" -ForegroundColor Cyan
+try {
+    $r = Invoke-WebRequest http://localhost/login/ -UseBasicParsing -TimeoutSec 180
+    Write-Host "Status:" $r.StatusCode
+} catch {
+    Write-Host "Erro:" $_.Exception.Message
+}
 ```
-
----
-
-### HTTP 502.3 — Bad Gateway
-
-- HttpPlatformHandler não instalado ou IIS não reiniciado após instalação
-- Caminho errado em `processPath` no `web.config` (deve ser `.venv\Scripts\python.exe`)
-- `startupTimeLimit` insuficiente (aumente para 60 no `web.config` se o servidor for lento)
-
----
-
-### Página sem CSS / arquivos estáticos
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-python manage.py collectstatic --noinput
-```
-
-Confirme `SERVE_STATIC_FILES=True` no `.env` (ou `whitenoise` configurado).
 
 ---
 
 ## Checklist final
 
-- [ ] Python 3.11+ instalado
-- [ ] uv instalado
-- [ ] IIS + CGI ativados
-- [ ] HttpPlatformHandler instalado
-- [ ] Seções `handlers` e `httpPlatform` desbloqueadas (`appcmd unlock`)
-- [ ] Repositório clonado em `C:\inetpub\wwwroot\controle-acesso-PAMC`
-- [ ] Ambiente **`.venv`** criado com `uv venv .venv`
-- [ ] Dependências instaladas com `uv pip install -r requirements.txt`
-- [ ] Arquivo `.env` configurado
-- [ ] `migrate` e `collectstatic` executados
-- [ ] `web.config` apontando para `.venv\Scripts\python.exe`
-- [ ] Site criado no IIS na porta 80
-- [ ] Permissões concedidas a `IIS_IUSRS` e ao pool
-- [ ] Acesso local e na rede funcionando
+- [ ] Python 3.11/3.12 instalado
+- [ ] IIS + CGI + HttpPlatformHandler
+- [ ] Seções `handlers` e `httpPlatform` desbloqueadas
+- [ ] `venv` criado e `pip install -r requirements.txt`
+- [ ] `.env` com `DJANGO_SECRET_KEY` e `DJANGO_ALLOWED_HOSTS`
+- [ ] `migrate` + **`collectstatic --noinput`**
+- [ ] Pasta `logs` criada
+- [ ] `web.config` com `venv\Scripts\python.exe` e **sem** `customHeaders` de Content-Type
+- [ ] Default Web Site parado; site na porta 80
+- [ ] Permissões IIS_IUSRS + pool
+- [ ] Primeira requisição aquecida; `/login/` responde 200 ou 302
 
 ---
 
 ## Referências
 
 - [CONFIGURACAO_AMBIENTE.md](CONFIGURACAO_AMBIENTE.md)
-- [GUIA_INSTALACAO_ADMIN.md](GUIA_INSTALACAO_ADMIN.md)
 - [HttpPlatformHandler — Microsoft](https://www.iis.net/downloads/microsoft/httpplatformhandler)
+- [WhiteNoise — documentação](http://whitenoise.evans.io/)
