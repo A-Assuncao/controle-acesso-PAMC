@@ -240,31 +240,55 @@ New-Item -ItemType Directory -Force -Path .\logs
 
 ## 11. Revisar o `web.config`
 
-> **Instalação nova:** rode `configurar_iis.ps1` — ele regenera o `web.config` com os caminhos corretos desta pasta.
+> **Instalação nova:** rode `configurar_iis.ps1` — ele **gera** o `web.config` local (não versionado no Git).
 
-O `web.config` **não define a porta externa** (3000). Isso é configurado no IIS pelo script unificado.
+O arquivo segue o padrão oficial **HttpPlatformHandler + uvicorn** ([Microsoft Learn](https://learn.microsoft.com/pt-br/visualstudio/python/configure-web-apps-for-iis-windows), [Lex Li](https://docs.lextudio.com/blog/running-django-web-apps-on-iis-with-httpplatformhandler/)).
 
-Pontos críticos:
+**Não use FastCGI / wfastcgi** — Microsoft e Django Forum descontinuaram essa abordagem.
 
 | Item | Valor correto |
 |------|---------------|
-| `processPath` | `...\venv\Scripts\python.exe` (mesmo nome da pasta do ambiente) |
-| `stdoutLogFile` | caminho **absoluto** para `logs\uvicorn.log` |
-| `startupTimeLimit` | `120` (segundos para o Django subir na 1ª requisição) |
-| **Não usar** | `<customHeaders>` forçando `Content-Type: text/html` — quebra JS/CSS |
+| Handler | **apenas** `httpPlatformHandler` (sem FastCGI duplicado) |
+| `processPath` | `...\venv\Scripts\python.exe` |
+| `arguments` | `-m uvicorn controle_acesso.asgi:application --port %HTTP_PLATFORM_PORT%` |
+| `stdoutLogFile` | caminho **absoluto** para `logs\uvicorn.log` (IIS adiciona sufixo `_PID`) |
+| `processesPerApplication` | `1` |
+| `startupTimeLimit` | `120` |
+| App pool | **No Managed Code**, **64-bit** desmarcado |
+| **Não usar** | `<customHeaders>` forçando `Content-Type: text/html` |
 
-O trecho principal deve ser semelhante a:
+Modelo em `web.config.example`. Trecho principal:
 
 ```xml
 <httpPlatform processPath="C:\inetpub\wwwroot\controle-acesso-PAMC\venv\Scripts\python.exe"
-              arguments="-m uvicorn controle_acesso.asgi:application --host 127.0.0.1 --port %HTTP_PLATFORM_PORT% --timeout-keep-alive 120"
+              arguments="-m uvicorn controle_acesso.asgi:application --port %HTTP_PLATFORM_PORT%"
               startupTimeLimit="120"
-              requestTimeout="00:04:00"
+              processesPerApplication="1"
               stdoutLogEnabled="true"
               stdoutLogFile="C:\inetpub\wwwroot\controle-acesso-PAMC\logs\uvicorn.log">
+  <environmentVariables>
+    <environmentVariable name="DJANGO_SETTINGS_MODULE" value="controle_acesso.settings" />
+    <environmentVariable name="PYTHONPATH" value="C:\inetpub\wwwroot\controle-acesso-PAMC" />
+  </environmentVariables>
+</httpPlatform>
 ```
 
 Variáveis sensíveis vêm do **`.env`**, não do XML.
+
+### Checklist vs. guias oficiais
+
+| Requisito | Onde configurar |
+|-----------|-----------------|
+| HttpPlatformHandler MSI | Passo 5 |
+| `appcmd unlock` handlers + httpPlatform | Passo 6 — **script faz automaticamente** |
+| Site apontando para raiz do projeto | Passo 12 |
+| App pool No Managed Code + 64-bit | `configurar_iis.ps1` |
+| Permissões venv + logs (stdout vazio = 0x80070005) | Passo 13 / script |
+| `collectstatic` + WhiteNoise | Passo 10 |
+| `manage.py check --deploy` | Script avisa se faltar algo |
+| Um único handler (sem duplicata FastCGI) | Script remove conflitos |
+
+> **venv + IIS:** o [Django Forum](https://forum.djangoproject.com/t/django-iis-deployment-with-httpplatformhandler/26824/3) alerta que venv pode dar problemas de permissão. Se logs ficarem vazios e timeout persistir, teste Python global (`processPath` apontando para `C:\Python312\python.exe` com pacotes instalados globalmente).
 
 ---
 

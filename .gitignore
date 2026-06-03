@@ -28,6 +28,9 @@ db.sqlite3-journal
 media/
 staticfiles/
 
+# IIS — gerado localmente pelo configurar_iis.ps1 (caminhos absolutos do servidor)
+web.config
+
 # Environment
 .env
 .venv

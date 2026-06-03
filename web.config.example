@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Modelo do web.config para IIS + HttpPlatformHandler + uvicorn.
+  NAO edite caminhos manualmente no servidor: o script regenera este arquivo.
+
+  powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1
+
+  Referencias:
+  - https://learn.microsoft.com/pt-br/visualstudio/python/configure-web-apps-for-iis-windows
+  - https://docs.lextudio.com/blog/running-django-web-apps-on-iis-with-httpplatformhandler/
+-->
+<configuration>
+  <system.webServer>
+    <handlers>
+      <add name="httpPlatformHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" requireAccess="Script" />
+    </handlers>
+    <httpPlatform processPath="CAMINHO\venv\Scripts\python.exe"
+                  arguments="-m uvicorn controle_acesso.asgi:application --port %HTTP_PLATFORM_PORT%"
+                  startupTimeLimit="120"
+                  requestTimeout="00:04:00"
+                  processesPerApplication="1"
+                  stdoutLogEnabled="true"
+                  stdoutLogFile="CAMINHO\logs\uvicorn.log">
+      <environmentVariables>
+        <environmentVariable name="DJANGO_SETTINGS_MODULE" value="controle_acesso.settings" />
+        <environmentVariable name="PYTHONPATH" value="CAMINHO" />
+        <environmentVariable name="PYTHONIOENCODING" value="utf-8" />
+        <environmentVariable name="PYTHONUTF8" value="1" />
+      </environmentVariables>
+    </httpPlatform>
+  </system.webServer>
+</configuration>

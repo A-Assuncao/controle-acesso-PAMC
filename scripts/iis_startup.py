@@ -1,8 +1,12 @@
 #!/usr/bin/env python
-"""Ponto de entrada do uvicorn no IIS (HttpPlatformHandler).
+"""Diagnostico OPCIONAL do uvicorn no IIS.
 
-Grava logs em logs/iis_startup.log para diagnostico. O HttpPlatformHandler
-costuma criar arquivos stdout com sufixo de PID (ex.: uvicorn_1234.log).
+Nao e usado pelo web.config em producao. O padrao oficial e:
+  -m uvicorn controle_acesso.asgi:application --port %HTTP_PLATFORM_PORT%
+
+Use este script manualmente se logs\uvicorn*.log estiverem vazios:
+  set HTTP_PLATFORM_PORT=8765
+  venv\\Scripts\\python.exe scripts\\iis_startup.py
 """
 from __future__ import annotations
 

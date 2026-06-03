@@ -41,7 +41,8 @@ function Update-WebConfig {
     $logFile = Join-Path $projectRoot "logs\uvicorn.log"
     $webConfigPath = Join-Path $projectRoot "web.config"
 
-    $startupScript = Join-Path $projectRoot "scripts\iis_startup.py"
+    # Padrao Microsoft Learn + Lex Li (HttpPlatformHandler + uvicorn ASGI)
+    # https://learn.microsoft.com/pt-br/visualstudio/python/configure-web-apps-for-iis-windows
     $xml = @"
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
@@ -50,9 +51,10 @@ function Update-WebConfig {
       <add name="httpPlatformHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" requireAccess="Script" />
     </handlers>
     <httpPlatform processPath="$pythonExe"
-                  arguments="-u `"$startupScript`""
-                  startupTimeLimit="180"
+                  arguments="-m uvicorn controle_acesso.asgi:application --port %HTTP_PLATFORM_PORT%"
+                  startupTimeLimit="120"
                   requestTimeout="00:04:00"
+                  processesPerApplication="1"
                   stdoutLogEnabled="true"
                   stdoutLogFile="$logFile">
       <environmentVariables>
@@ -60,7 +62,6 @@ function Update-WebConfig {
         <environmentVariable name="PYTHONPATH" value="$projectRoot" />
         <environmentVariable name="PYTHONIOENCODING" value="utf-8" />
         <environmentVariable name="PYTHONUTF8" value="1" />
-        <environmentVariable name="PYTHONUNBUFFERED" value="1" />
       </environmentVariables>
     </httpPlatform>
   </system.webServer>
@@ -75,9 +76,17 @@ function Set-PermissoesIIS {
     icacls $projectRoot /grant "IIS_IUSRS:(OI)(CI)RX" /T | Out-Null
     icacls $projectRoot /grant "${identidadePool}:(OI)(CI)RX" /T | Out-Null
 
+    # venv inteiro: ApplicationPoolIdentity precisa executar python + DLLs (forum Django/IIS)
+    $venvDir = Join-Path $projectRoot "venv"
+    if (Test-Path $venvDir) {
+        icacls $venvDir /grant "IIS_IUSRS:(OI)(CI)RX" /T | Out-Null
+        icacls $venvDir /grant "${identidadePool}:(OI)(CI)RX" /T | Out-Null
+    }
+
     foreach ($pasta in @("logs", "media")) {
         $caminho = Join-Path $projectRoot $pasta
         New-Item -ItemType Directory -Force -Path $caminho | Out-Null
+        icacls $caminho /grant "IIS_IUSRS:(OI)(CI)M" /T | Out-Null
         icacls $caminho /grant "${identidadePool}:(OI)(CI)M" /T | Out-Null
     }
 
@@ -91,6 +100,44 @@ function Set-PermissoesIIS {
     Fix "Permissoes IIS aplicadas para $identidadePool"
 }
 
+function Unlock-IisSections {
+    $appcmd = Join-Path $env:windir "system32\inetsrv\appcmd.exe"
+    if (-not (Test-Path $appcmd)) {
+        Fail "appcmd.exe nao encontrado - IIS incompleto"
+        return
+    }
+
+    foreach ($secao in @("system.webServer/handlers", "system.webServer/httpPlatform")) {
+        & $appcmd unlock config /section:$secao 2>&1 | Out-Null
+    }
+
+    Fix "Secoes handlers e httpPlatform desbloqueadas (evita 0x80070021)"
+}
+
+function Remove-HandlersConflitantes {
+    Import-Module WebAdministration -ErrorAction Stop
+
+    $sitePath = "IIS:\Sites\$NomeSite"
+    if (-not (Test-Path $sitePath)) { return }
+
+    $handlers = Get-WebHandler -PSPath $sitePath -ErrorAction SilentlyContinue
+    if (-not $handlers) { return }
+
+    $conflitos = $handlers | Where-Object {
+        $_.Name -ne "httpPlatformHandler" -and (
+            $_.Modules -like "*FastCgi*" -or
+            $_.Modules -like "*httpPlatform*" -or
+            $_.Name -like "*Python*" -or
+            $_.Name -like "*wfastcgi*"
+        )
+    }
+
+    foreach ($handler in $conflitos) {
+        Remove-WebHandler -Name $handler.Name -PSPath $sitePath -ErrorAction SilentlyContinue
+        Fix "Handler conflitante removido: $($handler.Name) ($($handler.Modules))"
+    }
+}
+
 function Set-AppPoolConfig {
     Import-Module WebAdministration -ErrorAction Stop
 
@@ -101,15 +148,11 @@ function Set-AppPoolConfig {
     }
 
     Set-ItemProperty $poolPath -Name managedRuntimeVersion -Value ""
+    Set-ItemProperty $poolPath -Name enable32BitAppOnWin64 -Value $false
     Set-ItemProperty $poolPath -Name processModel.loadUserProfile -Value $true
     Set-ItemProperty $poolPath -Name startMode -Value "AlwaysRunning" -ErrorAction SilentlyContinue
 
-    $venvScripts = Join-Path $projectRoot "venv\Scripts"
-    if (Test-Path $venvScripts) {
-        icacls $venvScripts /grant "${identidadePool}:(OI)(CI)RX" /T | Out-Null
-    }
-
-    Fix "App pool $nomePool - No Managed Code + loadUserProfile"
+    Fix "App pool $nomePool - No Managed Code, 64-bit, loadUserProfile"
 }
 
 function Show-LogsDiagnostico {
@@ -280,8 +323,11 @@ function Invoke-Verificacao {
         if ($content -match [regex]::Escape($projectRoot)) { Ok "web.config aponta para esta pasta" }
         else { Fail "web.config com caminhos errados - rode sem -SomenteVerificar para corrigir" }
         if ($content -match "customHeaders") { Fail "web.config tem customHeaders invalidos" }
+        if ($content -match "FastCgi|wfastcgi") { Fail "web.config usa FastCGI - use apenas HttpPlatformHandler" }
+        if ($content -match "%HTTP_PLATFORM_PORT%") { Ok "web.config usa porta dinamica HTTP_PLATFORM_PORT" }
+        else { Fail "web.config sem --port %HTTP_PLATFORM_PORT% nos arguments" }
     } else {
-        Fail "web.config ausente"
+        Fail "web.config ausente - rode configurar_iis.ps1 para gerar"
     }
 
     if (Test-Path (Join-Path $projectRoot "logs")) { Ok "pasta logs existe" }
@@ -314,8 +360,28 @@ function Invoke-Verificacao {
             if ($site.PhysicalPath.TrimEnd('\') -ne $projectRoot.TrimEnd('\')) {
                 Fail "Caminho fisico IIS difere da pasta do projeto"
             }
+
+            $sitePath = "IIS:\Sites\$NomeSite"
+            $fastCgi = Get-WebHandler -PSPath $sitePath -ErrorAction SilentlyContinue |
+                Where-Object { $_.Modules -like "*FastCgi*" -or $_.Name -like "*wfastcgi*" }
+            if ($fastCgi) {
+                Fail "Handler FastCGI encontrado no site - remova (nao usar wfastcgi)"
+            } else {
+                Ok "Sem handlers FastCGI no site"
+            }
         } else {
             Fail "Site $NomeSite nao existe no IIS - crie no inetmgr"
+        }
+
+        $poolPath = "IIS:\AppPools\$nomePool"
+        if (Test-Path $poolPath) {
+            $runtime = (Get-ItemProperty $poolPath).managedRuntimeVersion
+            if ($runtime -eq "") { Ok "App pool sem .NET (No Managed Code)" }
+            else { Fail "App pool com .NET $runtime - defina No Managed Code" }
+
+            $bit32 = (Get-ItemProperty $poolPath).enable32BitAppOnWin64
+            if (-not $bit32) { Ok "App pool 64-bit (Python 64-bit)" }
+            else { Fail "App pool 32-bit ativo - desative para Python 64-bit" }
         }
 
         $was = Get-Service WAS -ErrorAction SilentlyContinue
@@ -345,6 +411,10 @@ function Invoke-Verificacao {
         & $pythonExe manage.py check 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) { Ok "python manage.py check passou" }
         else { Fail "python manage.py check falhou" }
+
+        & $pythonExe manage.py check --deploy 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { Ok "python manage.py check --deploy passou" }
+        else { Warn "check --deploy com avisos - revise DEBUG/ALLOWED_HOSTS/HTTPS no .env" }
         Pop-Location
     }
 
@@ -369,9 +439,11 @@ if (-not $SomenteVerificar) {
         }
     }
 
+    Unlock-IisSections
     Update-WebConfig
     Set-PermissoesIIS
     Set-AppPoolConfig
+    Remove-HandlersConflitantes
     Set-PortaSite -PortaDestino $Porta
     Invoke-DjangoSetup
 

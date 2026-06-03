@@ -10,7 +10,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 ## [Unreleased] - **Próximas Melhorias**
 
 ### 🐛 Corrigido
-- **IIS HTTP timeout (cold start)**: script `iis_startup.py` com log dedicado; app pool configurado (No Managed Code); aquecimento com retentativas
+- **IIS alinhado aos guias oficiais**: `web.config` gerado localmente (nao versionado); `--port %HTTP_PLATFORM_PORT%`; `appcmd unlock`; app pool 64-bit; remocao de handlers FastCGI; permissoes no venv inteiro
+- **IIS HTTP timeout (cold start)**: retentativas de aquecimento e leitura de `logs\uvicorn*.log`
 - **Guia IIS — instalação nova**: checklist do que não vem do Git (`.env`, caminhos do `web.config`, HttpPlatformHandler, permissões, firewall)
 - **IIS**: script unificado inicia servicos WAS e W3SVC automaticamente
 - **Tutorial IIS**: reescrito como `docs/TUTORIAL_IIS.md` — ambiente `venv`, desbloqueio do erro 0x80070021, remoção do localhost.run
