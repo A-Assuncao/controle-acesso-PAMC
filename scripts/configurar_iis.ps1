@@ -1,5 +1,5 @@
 # Configura e verifica o deploy IIS do Controle de Acesso PAMC.
-# Um unico comando para corrigir e validar a instalacao.
+# Compativel com Windows PowerShell 5.1+
 #
 # Uso (PowerShell como Administrador, na raiz do projeto):
 #   powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1
@@ -22,18 +22,18 @@ $pythonExe = Join-Path $projectRoot "venv\Scripts\python.exe"
 $nomePool = $NomeSite
 $identidadePool = "IIS AppPool\$nomePool"
 
-function Ok($msg) { Write-Host "[OK]    $msg" -ForegroundColor Green }
-function Warn($msg) { Write-Host "[AVISO] $msg" -ForegroundColor Yellow; $script:avisos++ }
-function Fail($msg) { Write-Host "[ERRO]  $msg" -ForegroundColor Red; $script:erros++ }
-function Fix($msg) { Write-Host "[FIX]   $msg" -ForegroundColor Cyan; $script:correcoes++ }
-function Step($msg) {
+function Ok([string]$msg) { Write-Host "[OK]    $msg" -ForegroundColor Green }
+function Warn([string]$msg) { Write-Host "[AVISO] $msg" -ForegroundColor Yellow; $script:avisos++ }
+function Fail([string]$msg) { Write-Host "[ERRO]  $msg" -ForegroundColor Red; $script:erros++ }
+function Fix([string]$msg) { Write-Host "[FIX]   $msg" -ForegroundColor Cyan; $script:correcoes++ }
+function Step([string]$msg) {
     Write-Host ""
     Write-Host "=== $msg ===" -ForegroundColor Cyan
 }
 
 function Update-WebConfig {
     if (-not (Test-Path $pythonExe)) {
-        Warn "web.config nao atualizado — venv ausente"
+        Warn "web.config nao atualizado - venv ausente"
         return
     }
 
@@ -86,7 +86,7 @@ function Set-PermissoesIIS {
         icacls $dbFile /grant "${identidadePool}:M" | Out-Null
     }
 
-    Fix "Permissoes IIS aplicadas (IIS_IUSRS + $identidadePool)"
+    Fix "Permissoes IIS aplicadas para $identidadePool"
 }
 
 function Set-PortaSite {
@@ -96,7 +96,7 @@ function Set-PortaSite {
 
     $site = Get-Website -Name $NomeSite -ErrorAction SilentlyContinue
     if (-not $site) {
-        Warn "Site '$NomeSite' nao encontrado — crie manualmente no inetmgr"
+        Warn "Site $NomeSite nao encontrado - crie manualmente no inetmgr"
         return
     }
 
@@ -115,7 +115,7 @@ function Set-PortaSite {
     Start-Service W3SVC -ErrorAction SilentlyContinue
     if ((Get-Website -Name $NomeSite).State -ne "Started") {
         Start-Website -Name $NomeSite
-        Fix "Site '$NomeSite' iniciado"
+        Fix "Site $NomeSite iniciado"
     }
 
     $regra = "IIS Controle Acesso PAMC porta $PortaDestino"
@@ -133,7 +133,7 @@ function Invoke-DjangoSetup {
     $dbFile = Join-Path $projectRoot "db.sqlite3"
     if (-not (Test-Path $dbFile)) {
         & $pythonExe manage.py migrate --noinput 2>&1 | Out-Null
-        if ($LASTEXITCODE -eq 0) { Fix "migrate executado (db.sqlite3 criado)" }
+        if ($LASTEXITCODE -eq 0) { Fix "migrate executado - db.sqlite3 criado" }
     }
 
     $staticDir = Join-Path $projectRoot "staticfiles"
@@ -150,18 +150,21 @@ function Invoke-Verificacao {
 
     Step "Verificacao"
 
-    if (Test-Path $pythonExe) { Ok "venv\Scripts\python.exe existe" }
-    else { Fail "venv ausente — rode: python -m venv venv && pip install -r requirements.txt" }
+    if (Test-Path $pythonExe) {
+        Ok "venv\Scripts\python.exe existe"
+    } else {
+        Fail "venv ausente - rode: python -m venv venv; pip install -r requirements.txt"
+    }
 
     $envFile = Join-Path $projectRoot ".env"
     if (Test-Path $envFile) { Ok ".env existe" }
-    else { Fail ".env ausente — sera criado na proxima execucao sem -SomenteVerificar" }
+    else { Fail ".env ausente - sera criado na proxima execucao sem -SomenteVerificar" }
 
     $webConfig = Join-Path $projectRoot "web.config"
     if (Test-Path $webConfig) {
         $content = Get-Content $webConfig -Raw
         if ($content -match [regex]::Escape($projectRoot)) { Ok "web.config aponta para esta pasta" }
-        else { Fail "web.config com caminhos errados — rode sem -SomenteVerificar para corrigir" }
+        else { Fail "web.config com caminhos errados - rode sem -SomenteVerificar para corrigir" }
         if ($content -match "customHeaders") { Fail "web.config tem customHeaders invalidos" }
     } else {
         Fail "web.config ausente"
@@ -171,34 +174,34 @@ function Invoke-Verificacao {
     else { Warn "pasta logs ausente" }
 
     if (Test-Path (Join-Path $projectRoot "db.sqlite3")) { Ok "db.sqlite3 existe" }
-    else { Warn "db.sqlite3 ausente — migrate sera executado na correcao automatica" }
+    else { Warn "db.sqlite3 ausente - migrate sera executado na correcao automatica" }
 
     $staticDir = Join-Path $projectRoot "staticfiles"
     if ((Test-Path $staticDir) -and (Get-ChildItem $staticDir -ErrorAction SilentlyContinue)) {
-        Ok "staticfiles/ populado"
+        Ok "staticfiles populado"
     } else {
-        Warn "staticfiles/ vazio — collectstatic sera executado na correcao automatica"
+        Warn "staticfiles vazio - collectstatic sera executado na correcao automatica"
     }
 
     try {
         Import-Module WebAdministration -ErrorAction Stop
         $handler = Get-WebGlobalModule -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*Platform*" }
         if ($handler) { Ok "HttpPlatformHandler instalado" }
-        else { Fail "HttpPlatformHandler NAO instalado — https://www.iis.net/downloads/microsoft/httpplatformhandler" }
+        else { Fail "HttpPlatformHandler NAO instalado - baixe em iis.net/downloads/microsoft/httpplatformhandler" }
 
         $site = Get-Website -Name $NomeSite -ErrorAction SilentlyContinue
         if ($site) {
-            if ($site.State -eq "Started") { Ok "Site '$NomeSite' Started" }
-            else { Fail "Site '$NomeSite' esta $($site.State)" }
+            if ($site.State -eq "Started") { Ok "Site $NomeSite Started" }
+            else { Fail "Site $NomeSite esta $($site.State)" }
 
             $bindings = $site.bindings.Collection | ForEach-Object { $_.bindingInformation }
             Ok "Bindings: $($bindings -join ', ')"
 
             if ($site.PhysicalPath.TrimEnd('\') -ne $projectRoot.TrimEnd('\')) {
-                Fail "Caminho fisico IIS ($($site.PhysicalPath)) != pasta do projeto ($projectRoot)"
+                Fail "Caminho fisico IIS difere da pasta do projeto"
             }
         } else {
-            Fail "Site '$NomeSite' nao existe no IIS — crie no inetmgr"
+            Fail "Site $NomeSite nao existe no IIS - crie no inetmgr"
         }
 
         if ((Get-Service W3SVC -ErrorAction SilentlyContinue).Status -eq "Running") {
@@ -213,7 +216,7 @@ function Invoke-Verificacao {
             Fail "Porta $PortaDestino nao esta em escuta"
         }
     } catch {
-        Warn "Nao foi possivel verificar IIS (execute como Administrador?)"
+        Warn "Nao foi possivel verificar IIS - execute como Administrador"
     }
 
     if (Test-Path $pythonExe) {
@@ -224,18 +227,20 @@ function Invoke-Verificacao {
         Pop-Location
     }
 
+    $urlTeste = "http://127.0.0.1:${PortaDestino}/login/"
     try {
-        $response = Invoke-WebRequest "http://127.0.0.1:${PortaDestino}/login/" -UseBasicParsing -TimeoutSec 120 -ErrorAction Stop
-        Ok "HTTP respondeu: $($response.StatusCode) em http://127.0.0.1:${PortaDestino}/login/"
+        $response = Invoke-WebRequest $urlTeste -UseBasicParsing -TimeoutSec 120 -ErrorAction Stop
+        Ok "HTTP respondeu $($response.StatusCode) em $urlTeste"
     } catch {
-        if ($_.Exception.Message -match "timed out") {
-            Fail "HTTP timeout (120s) — veja logs\uvicorn.log"
-        } elseif ($_.Exception.Message -match "502") {
-            Fail "HTTP 502 — Python nao subiu. Veja logs\uvicorn.log"
-        } elseif ($_.Exception.Message -match "conectar|connect") {
+        $msgErro = $_.Exception.Message
+        if ($msgErro -match "timed out") {
+            Fail "HTTP timeout em 120s - veja logs\uvicorn.log"
+        } elseif ($msgErro -match "502") {
+            Fail "HTTP 502 - Python nao subiu - veja logs\uvicorn.log"
+        } elseif ($msgErro -match "conectar|connect") {
             Fail "HTTP recusado na porta $PortaDestino"
         } else {
-            Warn "HTTP: $($_.Exception.Message)"
+            Warn "HTTP falhou: $msgErro"
         }
     }
 
@@ -244,16 +249,14 @@ function Invoke-Verificacao {
         $tail = Get-Content $uvicornLog -Tail 5 -ErrorAction SilentlyContinue
         if ($tail) {
             Write-Host ""
-            Write-Host "--- logs\uvicorn.log (ultimas linhas) ---" -ForegroundColor DarkGray
+            Write-Host "--- logs\uvicorn.log ---" -ForegroundColor DarkGray
             $tail | ForEach-Object { Write-Host $_ -ForegroundColor DarkGray }
         }
     }
 }
 
-# --- Execucao ---
-
 Write-Host ""
-Write-Host "Controle de Acesso PAMC — Configurador IIS" -ForegroundColor White
+Write-Host "Controle de Acesso PAMC - Configurador IIS" -ForegroundColor White
 Write-Host "Pasta: $projectRoot | Porta: $Porta | Site: $NomeSite" -ForegroundColor DarkGray
 
 if (-not $SomenteVerificar) {
@@ -263,7 +266,7 @@ if (-not $SomenteVerificar) {
         $example = Join-Path $projectRoot ".env.example"
         if (Test-Path $example) {
             Copy-Item $example (Join-Path $projectRoot ".env")
-            Fix ".env criado a partir de .env.example — edite DJANGO_SECRET_KEY e ALLOWED_HOSTS"
+            Fix ".env criado a partir de .env.example - edite DJANGO_SECRET_KEY e ALLOWED_HOSTS"
         } else {
             Warn ".env.example nao encontrado"
         }
@@ -276,13 +279,13 @@ if (-not $SomenteVerificar) {
 
     if ($script:correcoes -gt 0) {
         Write-Host ""
-        Fix "Reiniciando IIS ($($script:correcoes) correcao(oes) aplicadas)..."
+        Fix "Reiniciando IIS - $script:correcoes correcoes aplicadas"
         iisreset | Out-Null
         Start-Sleep -Seconds 5
     }
 } else {
     Write-Host ""
-    Write-Host "Modo somente verificacao (-SomenteVerificar)" -ForegroundColor DarkGray
+    Write-Host "Modo somente verificacao -SomenteVerificar" -ForegroundColor DarkGray
 }
 
 Invoke-Verificacao -PortaDestino $Porta
@@ -291,10 +294,10 @@ Write-Host ""
 if ($script:erros -eq 0 -and $script:avisos -eq 0) {
     Write-Host "Instalacao OK. Acesse: http://localhost:${Porta}/login/" -ForegroundColor Green
 } elseif ($script:erros -eq 0) {
-    Write-Host "$($script:avisos) aviso(s). Acesse: http://localhost:${Porta}/login/" -ForegroundColor Yellow
+    Write-Host "$script:avisos aviso(s). Acesse: http://localhost:${Porta}/login/" -ForegroundColor Yellow
 } else {
-    Write-Host "$($script:erros) erro(s), $($script:avisos) aviso(s). Corrija os [ERRO] acima." -ForegroundColor Red
-    Write-Host "Itens manuais comuns: HttpPlatformHandler, criar site no inetmgr, python -m venv venv" -ForegroundColor DarkGray
+    Write-Host "$script:erros erro(s), $script:avisos aviso(s). Corrija os itens ERRO acima." -ForegroundColor Red
+    Write-Host "Itens manuais: HttpPlatformHandler, criar site no inetmgr, python -m venv venv" -ForegroundColor DarkGray
 }
 Write-Host ""
 
