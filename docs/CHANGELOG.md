@@ -10,6 +10,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 ## [Unreleased] - **Próximas Melhorias**
 
 ### 🐛 Corrigido
+- **Tutorial IIS**: reescrito como `docs/TUTORIAL_IIS.md` — ambiente `.venv` com uv, desbloqueio correto do erro 0x80070021, remoção do localhost.run
+- **`web.config`**: aponta para `.venv\Scripts\python.exe`; variáveis sensíveis via `.env` (não mais `SECRET_KEY`/`DEBUG` incorretos no XML)
 - **Dependência `pytz`**: adicionada ao `requirements.txt` (usada em `core/utils.py` e views, mas não estava declarada)
 
 ### ✨ Adicionado
@@ -219,7 +221,7 @@ Este projeto segue o [Versionamento Semântico](https://semver.org/):
 
 - [README.md](README.md) - Documentação principal
 - [CONFIGURACAO_AMBIENTE.md](CONFIGURACAO_AMBIENTE.md) - Guia de configuração
-- [docs/TUTORIAL_IIS_LOCALHOST_RUN.md](docs/TUTORIAL_IIS_LOCALHOST_RUN.md) - Tutorial de deploy
+- [docs/TUTORIAL_IIS.md](docs/TUTORIAL_IIS.md) - Tutorial de deploy no IIS
 
 ---
 

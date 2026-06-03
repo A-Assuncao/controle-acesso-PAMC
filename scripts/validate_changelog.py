@@ -31,7 +31,7 @@ def validar_changelog():
     arquivos_referenciados = [
         "README.md",
         "docs/CONFIGURACAO_AMBIENTE.md", 
-        "docs/TUTORIAL_IIS_LOCALHOST_RUN.md"
+        "docs/TUTORIAL_IIS.md"
     ]
     
     print("\n📋 Validando links para arquivos:")

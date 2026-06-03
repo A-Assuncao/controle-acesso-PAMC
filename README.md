@@ -52,7 +52,7 @@ O **Sistema de Controle de Acesso** é uma aplicação web robusta desenvolvida 
 - **🔌 Funcionamento Offline**: Operação completa sem conexão à internet
 - **🎓 Ambiente de Treinamento**: Área isolada para capacitação com tutoriais em vídeo
 - **📊 Relatórios Inteligentes**: Exportação em Excel/PDF e filtros avançados
-- **🌐 Acesso Remoto**: Integração com tunneling para acesso externo seguro
+- **🌐 Acesso na Rede Local**: Deploy no IIS com acesso via IP da máquina
 - **🔍 Sistema de Debug**: Logging avançado com captura de erros detalhada
 - **⚙️ Configuração Inteligente**: SECRET_KEY automática, configuração via .env e comandos personalizados
 
@@ -60,21 +60,20 @@ O **Sistema de Controle de Acesso** é uma aplicação web robusta desenvolvida 
 
 ---
 
-## 🚀 Tutorial: IIS + Localhost.run
+## 🚀 Tutorial: IIS no Windows
 
-### 📝 **Configuração Completa para Produção**
+### 📝 **Configuração para Produção Local**
 
-Para uma configuração detalhada do sistema em ambiente Windows com IIS e exposição via localhost.run, consulte nosso tutorial completo:
+Para configurar o sistema no **IIS** do Windows (ambiente `.venv`, HttpPlatformHandler, rede local):
 
-📖 **[Tutorial Completo IIS + Localhost.run](docs/TUTORIAL_IIS_LOCALHOST_RUN.md)**
+📖 **[Tutorial IIS — Windows](docs/TUTORIAL_IIS.md)**
 
 Este tutorial aborda:
-- 🔧 Instalação e configuração do IIS
-- 🌐 Configuração do localhost.run para exposição externa
-- ⚙️ Configuração do Django para produção
-- 🔒 Configurações de segurança
-- 🚀 Deploy automatizado
-- 🐛 Troubleshooting comum
+- 🔧 Instalação do IIS e HttpPlatformHandler
+- 🐍 Ambiente virtual `.venv` com **uv**
+- 🔓 Desbloqueio das seções `handlers` e `httpPlatform` (erro 0x80070021)
+- ⚙️ Configuração do `web.config` e variáveis `.env`
+- 🔒 Permissões e troubleshooting
 
 ---
 
@@ -401,7 +400,7 @@ controle-acesso-PAMC/
 │   ├── django_errors.log     # Erros do sistema
 │   └── debug.log             # Logs de debug
 ├── 📁 docs/                  # Documentação (CHANGELOG, guias, tutoriais)
-│   └── 📄 TUTORIAL_IIS_LOCALHOST_RUN.md
+│   └── 📄 TUTORIAL_IIS.md
 ├── 📁 update/                # Scripts de atualização
 │   ├── 📄 update.bat         # Script Windows
 │   └── 📄 AtualizarControleAcesso.xml
@@ -741,31 +740,15 @@ AUTO_BACKUP_ENABLED=true
 
 ---
 
-## 🌐 Acesso Remoto
+## 🌐 Acesso na Rede Local
 
-### 🚇 **Configuração de Tunneling**
+Com o IIS configurado conforme o [Tutorial IIS](docs/TUTORIAL_IIS.md):
 
-O sistema suporta várias opções de acesso remoto:
+1. Descubra o IP da máquina: `ipconfig`
+2. Inclua o IP em `DJANGO_ALLOWED_HOSTS` no `.env`
+3. Acesse de outro dispositivo na mesma rede: `http://192.168.x.x`
 
-#### **🔧 Localhost.run**
-```bash
-# Estabelece túnel SSH automaticamente
-ssh -R 80:localhost:8000 localhost.run
-# Retorna: https://abcd1234.localhost.run
-```
-
-#### **🔗 Outros Serviços**
-- **Ngrok**: `ngrok http 8000`
-- **Serveo**: `ssh -R 80:localhost:8000 serveo.net`
-- **Cloudflare Tunnel**: Para uso corporativo
-
-### 🔐 **Segurança do Acesso Remoto**
-
-- **HTTPS Forçado**: Apenas conexões criptografadas
-- **Autenticação Obrigatória**: Login necessário para qualquer acesso
-- **Session Security**: Cookies seguros e timeout automático
-- **Rate Limiting**: Proteção contra ataques de força bruta
-- **IP Logging**: Registro de todos os acessos externos
+Para acesso externo à internet, use VPN ou infraestrutura corporativa aprovada pela instituição.
 
 ---
 
@@ -851,7 +834,7 @@ controle-acesso-PAMC/
 │   ├── 📁 static/             # JS com funcionalidades avançadas
 │   └── 📁 management/         # Comandos personalizados
 ├── 📁 docs/                   # Documentação
-│   ├── 📄 TUTORIAL_IIS_LOCALHOST_RUN.md
+│   ├── 📄 TUTORIAL_IIS.md
 │   ├── 📄 CONFIGURACAO_AMBIENTE.md    # Guia completo de configuração
 │   ├── 📄 CHANGELOG.md              # Histórico de mudanças e versões
 │   ├── 📄 ADMIN_MELHORIAS.md        # Melhorias do admin
@@ -1032,14 +1015,14 @@ echo "DJANGO_SECRET_KEY=sua-chave-aqui" >> .env
 python manage.py check_secret_key --show-current
 ```
 
-#### **🌐 Erro: "Tunneling não conecta"**
-```bash
-# Soluções:
-1. Verificar conexão com internet
-2. Tentar porta diferente: ssh -R 8080:localhost:8000 localhost.run
-3. Verificar firewall/antivírus
-4. Usar serviço alternativo (ngrok, serveo)
+#### **🌐 Erro 0x80070021 no IIS (handlers bloqueados)**
+```powershell
+# Execute como Administrador:
+& "$env:windir\system32\inetsrv\appcmd.exe" unlock config -section:system.webServer/handlers
+& "$env:windir\system32\inetsrv\appcmd.exe" unlock config -section:system.webServer/httpPlatform
+iisreset
 ```
+Consulte também: [docs/TUTORIAL_IIS.md](docs/TUTORIAL_IIS.md)
 
 ### 🔍 **Logs de Debug**
 
