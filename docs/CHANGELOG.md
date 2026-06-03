@@ -10,7 +10,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 ## [Unreleased] - **Próximas Melhorias**
 
 ### 🐛 Corrigido
-- **IIS lento/página em branco**: removido `Content-Type` global do `web.config`; WhiteNoise habilitado; `startupTimeLimit` aumentado; tutorial atualizado com cold start e diagnóstico
+- **Guia IIS — instalação nova**: checklist do que não vem do Git (`.env`, caminhos do `web.config`, HttpPlatformHandler, permissões, firewall)
+- **Scripts**: `scripts/verificar_instalacao_iis.ps1` e `scripts/atualizar_web_config.ps1`
 - **Tutorial IIS**: reescrito como `docs/TUTORIAL_IIS.md` — ambiente `venv`, desbloqueio do erro 0x80070021, remoção do localhost.run
 - **Dependência `pytz`**: adicionada ao `requirements.txt` (usada em `core/utils.py` e views, mas não estava declarada)
 

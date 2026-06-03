@@ -13,6 +13,46 @@ Este guia configura o **Sistema de Controle de Acesso PAMC** no **IIS** do Windo
 
 ---
 
+## ⚠️ Instalação em servidor ou pasta NOVA
+
+Se funciona em **outro local** mas **não neste**, quase sempre falta um destes itens — **não vêm do Git**:
+
+| # | Item | Esquecido? | Como resolver |
+|---|------|------------|---------------|
+| 1 | **HttpPlatformHandler** | Por servidor | Instalar MSI + `iisreset` ([passo 5](#5-instalar-httpplatformhandler)) |
+| 2 | **Desbloqueio IIS** (`appcmd unlock`) | Por servidor | [passo 6](#6-desbloquear-seções-do-iis-obrigatório) |
+| 3 | **`venv` + dependências** | Sempre | [passo 8](#8-criar-o-venv-e-instalar-dependências) |
+| 4 | **Arquivo `.env`** | **Muito comum** | `copy .env.example .env` — **não está no repositório** |
+| 5 | **Caminhos no `web.config`** | **Muito comum** | Caminhos absolutos apontam para `C:\inetpub\...` — se a pasta for outra, **não funciona** |
+| 6 | **Site criado no IIS** | Por instalação | [passo 12](#12-configurar-o-site-no-iis) |
+| 7 | **Permissões** (`icacls`) | Por instalação | [passo 13](#13-permissões-de-pasta) |
+| 8 | **`migrate` + `collectstatic`** | Por instalação | [passo 10](#10-preparar-banco-estáticos-e-logs) |
+| 9 | **Default Web Site parado** | Comum | Pare o site padrão na porta 80 |
+| 10 | **Firewall porta 80** | Rede local | [passo 13b](#13b-firewall-rede-local) |
+
+### Verificação automática (rode no servidor novo)
+
+Na raiz do projeto, **como Administrador**:
+
+```powershell
+cd C:\inetpub\wwwroot\controle-acesso-PAMC   # ou sua pasta real
+powershell -ExecutionPolicy Bypass -File .\scripts\verificar_instalacao_iis.ps1
+```
+
+O script lista `[OK]`, `[AVISO]` e `[ERRO]` para cada item.
+
+### Corrigir caminhos do `web.config` automaticamente
+
+Se o projeto **não** está em `C:\inetpub\wwwroot\controle-acesso-PAMC`:
+
+```powershell
+cd D:\caminho\real\controle-acesso-PAMC
+powershell -ExecutionPolicy Bypass -File .\scripts\atualizar_web_config.ps1
+iisreset
+```
+
+---
+
 ## Índice
 
 1. [Pré-requisitos](#1-pré-requisitos)
@@ -182,7 +222,23 @@ New-Item -ItemType Directory -Force -Path .\logs
 
 ## 11. Revisar o `web.config`
 
-Pontos críticos (já configurados no repositório):
+> **Instalação nova:** os caminhos no `web.config` do Git são de **exemplo** (`C:\inetpub\wwwroot\...`). Se sua pasta for diferente, o IIS **não acha o Python** e a página fica em branco ou dá timeout.
+
+**Forma recomendada** — regenere com o script (usa a pasta atual automaticamente):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\atualizar_web_config.ps1
+```
+
+**Ou edite manualmente** estas 3 linhas para a **pasta real** deste servidor:
+
+| Campo | Deve apontar para |
+|-------|-------------------|
+| `processPath` | `SUA_PASTA\venv\Scripts\python.exe` |
+| `stdoutLogFile` | `SUA_PASTA\logs\uvicorn.log` |
+| `PYTHONPATH` | `SUA_PASTA` (raiz do projeto) |
+
+Pontos críticos:
 
 | Item | Valor correto |
 |------|---------------|
@@ -219,11 +275,37 @@ Variáveis sensíveis vêm do **`.env`**, não do XML.
 
 ## 13. Permissões de pasta
 
+Substitua o caminho se o projeto **não** estiver em `C:\inetpub\wwwroot\controle-acesso-PAMC`:
+
 ```powershell
-icacls "C:\inetpub\wwwroot\controle-acesso-PAMC" /grant "IIS_IUSRS:(OI)(CI)M" /T
-icacls "C:\inetpub\wwwroot\controle-acesso-PAMC" /grant "IIS AppPool\controle-acesso-PAMC:(OI)(CI)M" /T
+$Pasta = "C:\inetpub\wwwroot\controle-acesso-PAMC"   # ajuste aqui
+$Pool  = "controle-acesso-PAMC"                       # nome do pool no IIS
+
+icacls $Pasta /grant "IIS_IUSRS:(OI)(CI)M" /T
+icacls $Pasta /grant "IIS AppPool\${Pool}:(OI)(CI)M" /T
 iisreset
 ```
+
+Confira o nome do pool em `inetmgr` → **Pools de Aplicativos** (deve coincidir com `$Pool`).
+
+---
+
+## 13b. Firewall (rede local)
+
+Para acessar de **outros computadores** na rede, libere a porta 80:
+
+```powershell
+New-NetFirewallRule -DisplayName "IIS Controle Acesso PAMC" -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow
+```
+
+Inclua o IP desta máquina em `DJANGO_ALLOWED_HOSTS` no `.env`:
+
+```powershell
+ipconfig
+# Ex.: DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.50
+```
+
+> Acesso só em `localhost` no próprio servidor **não precisa** abrir firewall.
 
 ---
 
@@ -304,6 +386,14 @@ Se **8000 funciona** e **80 não** → IIS/`web.config`/permissões.
 
 ### Script de diagnóstico completo
 
+Use o script automatizado (recomendado):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verificar_instalacao_iis.ps1
+```
+
+Ou manualmente:
+
 ```powershell
 cd C:\inetpub\wwwroot\controle-acesso-PAMC
 
@@ -330,19 +420,35 @@ try {
 
 ---
 
-## Checklist final
+## Checklist final — nova instalação
 
-- [ ] Python 3.11/3.12 instalado
-- [ ] IIS + CGI + HttpPlatformHandler
-- [ ] Seções `handlers` e `httpPlatform` desbloqueadas
-- [ ] `venv` criado e `pip install -r requirements.txt`
-- [ ] `.env` com `DJANGO_SECRET_KEY` e `DJANGO_ALLOWED_HOSTS`
-- [ ] `migrate` + **`collectstatic --noinput`**
-- [ ] Pasta `logs` criada
-- [ ] `web.config` com `venv\Scripts\python.exe` e **sem** `customHeaders` de Content-Type
-- [ ] Default Web Site parado; site na porta 80
-- [ ] Permissões IIS_IUSRS + pool
-- [ ] Primeira requisição aquecida; `/login/` responde 200 ou 302
+Marque **todos** antes de testar no navegador:
+
+- [ ] HttpPlatformHandler instalado neste **servidor**
+- [ ] `appcmd unlock` executado neste **servidor**
+- [ ] Projeto clonado na pasta final (ex.: `C:\inetpub\wwwroot\controle-acesso-PAMC`)
+- [ ] **`venv`** criado + `pip install -r requirements.txt`
+- [ ] **`.env`** criado (`copy .env.example .env`) — **não vem do Git**
+- [ ] **`web.config`** com caminhos desta pasta (`atualizar_web_config.ps1`)
+- [ ] `migrate` + `collectstatic --noinput` + `createsuperuser`
+- [ ] Pasta **`logs`** criada
+- [ ] **Site IIS** apontando para a pasta correta, porta 80
+- [ ] **Default Web Site** parado
+- [ ] **Permissões** `IIS_IUSRS` + pool (`icacls`)
+- [ ] **Firewall** porta 80 (se acesso na rede)
+- [ ] `verificar_instalacao_iis.ps1` sem `[ERRO]`
+- [ ] `iisreset` + aguardar até 120s + testar `http://localhost/login/`
+
+---
+
+## Checklist final — atualização (git pull)
+
+- [ ] `git pull origin main`
+- [ ] `pip install -r requirements.txt`
+- [ ] `python manage.py migrate`
+- [ ] `python manage.py collectstatic --noinput`
+- [ ] Se mudou de pasta: `atualizar_web_config.ps1`
+- [ ] `iisreset` + testar `/login/`
 
 ---
 
