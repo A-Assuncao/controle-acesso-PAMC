@@ -31,6 +31,38 @@ function Step([string]$msg) {
     Write-Host "=== $msg ===" -ForegroundColor Cyan
 }
 
+function Test-VenvCompativelIIS {
+    if (-not (Test-Path $pythonExe)) { return }
+
+    $pyvenvCfg = Join-Path $projectRoot "venv\pyvenv.cfg"
+    if (Test-Path $pyvenvCfg) {
+        $cfg = Get-Content $pyvenvCfg -ErrorAction SilentlyContinue
+        $homeLine = $cfg | Where-Object { $_ -match '^\s*home\s*=' } | Select-Object -First 1
+        if ($homeLine -match 'Users\\.+\\AppData') {
+            Fail "venv aponta para Python em AppData do usuario - IIS nao acessa (Acesso negado)"
+            Write-Host "        Recrie o venv com Python de python.org em Program Files:" -ForegroundColor DarkGray
+            Write-Host "        Remove-Item -Recurse -Force venv" -ForegroundColor DarkGray
+            Write-Host "        `"C:\Program Files\Python312\python.exe`" -m venv venv" -ForegroundColor DarkGray
+            Write-Host "        .\venv\Scripts\pip install -r requirements.txt" -ForegroundColor DarkGray
+            return
+        }
+        if ($homeLine -match 'pythoncore-3\.14|Python314') {
+            Warn "Python 3.14 detectado - use 3.11 ou 3.12 em producao"
+        }
+    }
+
+    try {
+        $version = & $pythonExe --version 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Ok "venv executavel: $version"
+        } else {
+            Fail "venv\Scripts\python.exe nao executa: $version"
+        }
+    } catch {
+        Fail "venv\Scripts\python.exe inacessivel: $($_.Exception.Message)"
+    }
+}
+
 function Update-WebConfig {
     if (-not (Test-Path $pythonExe)) {
         Warn "web.config nao atualizado - venv ausente"
@@ -309,6 +341,7 @@ function Invoke-Verificacao {
 
     if (Test-Path $pythonExe) {
         Ok "venv\Scripts\python.exe existe"
+        Test-VenvCompativelIIS
     } else {
         Fail "venv ausente - rode: python -m venv venv; pip install -r requirements.txt"
     }

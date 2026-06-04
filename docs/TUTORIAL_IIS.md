@@ -171,20 +171,28 @@ cd controle-acesso-PAMC
 
 ## 8. Criar o `venv` e instalar dependências
 
-O `web.config` do repositório aponta para **`venv`** (não `.venv`). Use o mesmo nome.
+> **Crítico para IIS:** use Python instalado de **python.org** em `C:\Program Files\Python312\` (marque **"Install for all users"**).  
+> **Não use** o instalador da Microsoft Store nem o Python em `AppData\Local\Python\` — o IIS roda como `IIS AppPool\...` e **não acessa** a pasta do usuário.
+
+O `web.config` aponta para **`venv\Scripts\python.exe`**. Use o mesmo nome de pasta.
 
 ```powershell
 cd C:\inetpub\wwwroot\controle-acesso-PAMC
 
-python -m venv venv
+# Caminho tipico apos instalar python.org (ajuste a versao)
+& "C:\Program Files\Python312\python.exe" -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-Confirme:
+Confirme que o venv **nao** aponta para AppData:
 
 ```powershell
-Test-Path .\venv\Scripts\python.exe   # deve retornar True
+Get-Content .\venv\pyvenv.cfg
+# home = C:\Program Files\Python312\   <- correto
+# home = C:\Users\...\AppData\Local\Python\...   <- ERRADO para IIS
+
+Test-Path .\venv\Scripts\python.exe   # True
 python manage.py check
 ```
 
@@ -429,6 +437,36 @@ powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1
 ```
+
+### Erro: `pythoncore-3.14` / `AppData` / **Acesso negado** no log uvicorn
+
+Log tipico:
+
+```text
+did not find executable at 'C:\Users\Usuario\AppData\Local\Python\pythoncore-3.14-64\python.exe': Acesso negado.
+```
+
+**Causa:** o `venv` foi criado com Python do perfil do usuario. O IIS (conta `IIS AppPool\controle-acesso-PAMC`) **nao pode ler** `C:\Users\...\AppData\`.
+
+**Correcao:**
+
+1. Instale Python **3.11 ou 3.12** de https://www.python.org/downloads/windows/  
+   - Marque **Install for all users**  
+   - Caminho sugerido: `C:\Program Files\Python312\`
+
+2. Recrie o ambiente:
+
+```powershell
+cd C:\inetpub\wwwroot\controle-acesso-PAMC
+Remove-Item -Recurse -Force venv
+& "C:\Program Files\Python312\python.exe" -m venv venv
+.\venv\Scripts\pip install -r requirements.txt
+python manage.py migrate
+python manage.py collectstatic --noinput
+powershell -ExecutionPolicy Bypass -File .\scripts\configurar_iis.ps1
+```
+
+3. Confirme: `Get-Content .\venv\pyvenv.cfg` — `home` deve estar em `Program Files`, nao em `AppData`.
 
 ### Erro 502.3
 
