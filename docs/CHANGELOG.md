@@ -10,7 +10,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 ## [Unreleased] - **Próximas Melhorias**
 
 ### 🐛 Corrigido
-- **IIS Acesso negado AppData**: deteccao de venv apontando para Python do usuario; guia para recriar com python.org em Program Files
+- **Migrações ausentes no deploy**: removido `migrations/` do `.gitignore`; arquivos `0011`–`0018` (incl. `PerfilUsuario`) versionados; `migrate` sempre executado no configurador IIS deteccao de venv apontando para Python do usuario; guia para recriar com python.org em Program Files
 - **IIS alinhado aos guias oficiais**: `web.config` gerado localmente; `--port %HTTP_PLATFORM_PORT%`; `appcmd unlock`; app pool 64-bit; remocao de handlers FastCGI; permissoes no venv inteiro
 - **IIS HTTP timeout (cold start)**: retentativas de aquecimento e leitura de `logs\uvicorn*.log`
 - **Guia IIS — instalação nova**: checklist do que não vem do Git (`.env`, caminhos do `web.config`, HttpPlatformHandler, permissões, firewall)

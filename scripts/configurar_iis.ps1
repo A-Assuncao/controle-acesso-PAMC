@@ -319,11 +319,9 @@ function Invoke-DjangoSetup {
 
     Push-Location $projectRoot
 
-    $dbFile = Join-Path $projectRoot "db.sqlite3"
-    if (-not (Test-Path $dbFile)) {
-        & $pythonExe manage.py migrate --noinput 2>&1 | Out-Null
-        if ($LASTEXITCODE -eq 0) { Fix "migrate executado - db.sqlite3 criado" }
-    }
+    & $pythonExe manage.py migrate --noinput 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) { Fix "migrate executado (aplica migracoes pendentes)" }
+    else { Warn "migrate falhou - verifique core/migrations no repositorio" }
 
     $staticDir = Join-Path $projectRoot "staticfiles"
     if (-not ((Test-Path $staticDir) -and (Get-ChildItem $staticDir -ErrorAction SilentlyContinue))) {

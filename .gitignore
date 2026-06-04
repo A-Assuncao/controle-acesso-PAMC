@@ -57,4 +57,3 @@ Thumbs.db
 .cursor
 .coverage
 htmlcov/
-migrations/
