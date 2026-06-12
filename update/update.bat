@@ -1,95 +1,173 @@
 @echo off
 setlocal EnableDelayedExpansion
+goto :main
 
-:: Diretórios e arquivos
-set "LOG_DIR=%~dp0logs"
-set "LOG_FILE=%LOG_DIR%\update_%date:~-4,4%-%date:~-10,2%-%date:~-7,2%.log"
-set "TEMP_FILE=%TEMP%\git_pull_output.txt"
+:: ---------------------------------------------------------------------------
+:: Subrotinas (devem ficar antes do :main apenas com goto :main no inicio)
+:: ---------------------------------------------------------------------------
 
-:: Função de log
 :log
-    echo [%date:~-4,4%/%date:~-10,2%/%date:~-7,2% %time:~0,8%] %~1 >> "%LOG_FILE%"
-    echo [%date:~-4,4%/%date:~-10,2%/%date:~-7,2% %time:~0,8%] %~1
+    echo [%date% %time:~0,8%] %~1
+    echo [%date% %time:~0,8%] %~1>> "%LOG_FILE%"
     goto :eof
 
-:: Verifica internet
 :check_internet
     ping -n 1 8.8.8.8 >nul 2>nul
-    if %ERRORLEVEL% neq 0 (
-        call :log "ERRO: Sem conexão com a internet."
-        goto :error
-    )
-    goto :eof
-
-:: Verifica permissão de escrita
-:check_write_permission
-    echo. > "%LOG_DIR%\test.tmp" 2>nul
-    if %ERRORLEVEL% neq 0 (
-        call :log "ERRO: Sem permissão de escrita. Execute como administrador."
-        goto :error
-    )
-    del "%LOG_DIR%\test.tmp" >nul 2>nul
-    goto :eof
-
-:: Cria pasta de logs
-if not exist "%LOG_DIR%" (
-    mkdir "%LOG_DIR%" || (
-        echo ERRO: Não foi possível criar a pasta de logs.
+    if errorlevel 1 (
+        call :log "ERRO: Sem conexao com a internet."
         exit /b 1
     )
-    call :log "Diretório de logs criado: %LOG_DIR%"
-)
+    exit /b 0
 
-cls
-call :log "=== Iniciando atualização do projeto ==="
+:check_write_permission
+    echo.>"%LOG_DIR%\test.tmp" 2>nul
+    if errorlevel 1 (
+        call :log "ERRO: Sem permissao de escrita em %LOG_DIR%. Execute como administrador."
+        exit /b 1
+    )
+    del "%LOG_DIR%\test.tmp" >nul 2>nul
+    exit /b 0
 
-:: Verificações
-call :check_internet
-call :check_write_permission
-where git >nul 2>nul || (call :log "ERRO: Git não instalado."; goto :error)
-if not exist "%~dp0\.git" (call :log "ERRO: Não é um repositório Git."; goto :error)
+:main
+    :: Pasta deste script: ...\controle-acesso-PAMC\update\
+    set "SCRIPT_DIR=%~dp0"
+    for %%I in ("%SCRIPT_DIR%..") do set "PROJECT_ROOT=%%~fI"
 
-cd /d "%~dp0"
-call :log "Executando git pull..."
-git pull > "%TEMP_FILE%" 2>&1
-set "PULL_ERROR=%ERRORLEVEL%"
+    set "LOG_DIR=%SCRIPT_DIR%logs"
+    set "LOG_FILE=%LOG_DIR%\update.log"
+    set "TEMP_FILE=%TEMP%\controle_acesso_git_pull.txt"
+    set "VENV_ACTIVATE=%PROJECT_ROOT%\venv\Scripts\activate.bat"
 
-:: Trata falhas do git pull
-if %PULL_ERROR% neq 0 (
-    type "%TEMP_FILE%" | findstr /i "not a git repository" >nul && (call :log "ERRO: Repositório inválido."; goto :error)
-    type "%TEMP_FILE%" | findstr /i "Authentication failed" >nul && (call :log "ERRO: Autenticação falhou."; goto :error)
-    type "%TEMP_FILE%" | findstr /i "unable to access" >nul && (call :log "ERRO: Falha ao acessar o repositório remoto."; goto :error)
-    type "%TEMP_FILE%" | findstr /i "would be overwritten" >nul && (call :log "ERRO: Mudanças locais não commitadas."; goto :error)
-    type "%TEMP_FILE%" | findstr /i "unrelated histories" >nul && (call :log "ERRO: Históricos incompatíveis."; goto :error)
-    call :log "ERRO: Falha no git pull. Veja detalhes abaixo:"
-    type "%TEMP_FILE%" >> "%LOG_FILE%"
-    goto :error
-)
+    if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" 2>nul
 
-:: Verifica se houve atualização real
-type "%TEMP_FILE%" | findstr /i "Already up to date." >nul
-if %ERRORLEVEL% equ 0 (
-    call :log "Nenhuma atualização detectada no repositório."
+    cls
+    call :log "=== Iniciando atualizacao do Controle de Acesso ==="
+    call :log "Projeto: %PROJECT_ROOT%"
+
+    call :check_internet
+    if errorlevel 1 goto :error
+
+    call :check_write_permission
+    if errorlevel 1 goto :error
+
+    where git >nul 2>nul
+    if errorlevel 1 (
+        call :log "ERRO: Git nao instalado ou fora do PATH."
+        goto :error
+    )
+
+    if not exist "%PROJECT_ROOT%\.git" (
+        call :log "ERRO: Pasta do projeto nao e um repositorio Git: %PROJECT_ROOT%"
+        goto :error
+    )
+
+    cd /d "%PROJECT_ROOT%"
+    call :log "Executando git pull origin main..."
+    git pull origin main>"%TEMP_FILE%" 2>&1
+    set "PULL_ERROR=!ERRORLEVEL!"
+
+    if !PULL_ERROR! neq 0 (
+        findstr /i "not a git repository" "%TEMP_FILE%" >nul && (
+            call :log "ERRO: Repositorio Git invalido."
+            goto :error
+        )
+        findstr /i "Authentication failed" "%TEMP_FILE%" >nul && (
+            call :log "ERRO: Autenticacao Git falhou."
+            goto :error
+        )
+        findstr /i "unable to access" "%TEMP_FILE%" >nul && (
+            call :log "ERRO: Falha ao acessar o repositorio remoto."
+            goto :error
+        )
+        findstr /i "would be overwritten" "%TEMP_FILE%" >nul && (
+            call :log "ERRO: Mudancas locais conflitam com o pull."
+            goto :error
+        )
+        findstr /i "unrelated histories" "%TEMP_FILE%" >nul && (
+            call :log "ERRO: Historicos Git incompativeis."
+            goto :error
+        )
+        call :log "ERRO: git pull falhou. Detalhes:"
+        type "%TEMP_FILE%">>"%LOG_FILE%"
+        type "%TEMP_FILE%"
+        goto :error
+    )
+
+    findstr /i "Already up to date" "%TEMP_FILE%" >nul
+    set "HAD_CHANGES=1"
+    if not errorlevel 1 (
+        call :log "Repositorio ja estava atualizado (git)."
+        set "HAD_CHANGES=0"
+    ) else (
+        type "%TEMP_FILE%"
+        call :log "Atualizacao Git detectada."
+    )
+
+    call :log "Limpando cache Python (.pyc)..."
+    for /d /r "%PROJECT_ROOT%\core" %%D in (__pycache__) do (
+        if exist "%%D" rd /s /q "%%D" 2>nul
+    )
+
+    if not exist "%VENV_ACTIVATE%" (
+        call :log "ERRO: venv nao encontrado em %VENV_ACTIVATE%"
+        goto :error
+    )
+
+    call "%VENV_ACTIVATE%"
+    if errorlevel 1 (
+        call :log "ERRO: Falha ao ativar o ambiente virtual."
+        goto :error
+    )
+
+    if "!HAD_CHANGES!"=="1" (
+        call :log "Aplicando dependencias e migracoes..."
+        python -m pip install -r requirements.txt >>"%LOG_FILE%" 2>&1
+        if errorlevel 1 (
+            call :log "ERRO: pip install falhou. Veja %LOG_FILE%"
+            goto :error
+        )
+        call :log "Dependencias OK."
+
+        python manage.py migrate --noinput >>"%LOG_FILE%" 2>&1
+        if errorlevel 1 (
+            call :log "ERRO: migrate falhou. Veja %LOG_FILE%"
+            goto :error
+        )
+        call :log "Migracoes aplicadas."
+
+        python manage.py collectstatic --noinput >>"%LOG_FILE%" 2>&1
+        if errorlevel 1 (
+            call :log "AVISO: collectstatic falhou (ver log). Continuando..."
+        ) else (
+            call :log "Arquivos estaticos atualizados."
+        )
+    ) else (
+        call :log "Pulando pip/migrate/collectstatic (sem mudancas no Git)."
+    )
+
+    where iisreset >nul 2>nul
+    if not errorlevel 1 (
+        call :log "Reciclando IIS (iisreset) para recarregar codigo Python..."
+        iisreset /restart >>"%LOG_FILE%" 2>&1
+        if errorlevel 1 (
+            call :log "AVISO: iisreset falhou. Recicle o App Pool manualmente."
+        ) else (
+            call :log "IIS reiniciado."
+        )
+    ) else (
+        call :log "AVISO: iisreset nao encontrado. Reinicie o site/App Pool manualmente."
+    )
+
     goto :fim
-)
-
-:: Ativa ambiente virtual e roda migrações
-call :log "Atualização detectada. Rodando migrações..."
-call "%~dp0venv\Scripts\activate.bat"
-python manage.py makemigrations >> "%LOG_FILE%" 2>>&1
-python manage.py migrate >> "%LOG_FILE%" 2>>&1
-call :log "Migrações aplicadas com sucesso."
 
 :fim
-call :log "=== Finalizado com sucesso ==="
-if exist "%TEMP_FILE%" del "%TEMP_FILE%" >nul 2>nul
-
-:: Se rodado com argumento "console", pausa ao final
-if "%1"=="console" pause
-exit /b 0
+    call :log "=== Finalizado com sucesso ==="
+    if exist "%TEMP_FILE%" del "%TEMP_FILE%" >nul 2>nul
+    if /i not "%~1"=="silent" pause
+    exit /b 0
 
 :error
-call :log "=== Atualização encerrada com erro ==="
-if exist "%TEMP_FILE%" del "%TEMP_FILE%" >nul 2>nul
-if "%1"=="console" pause
-exit /b 1
+    call :log "=== Atualizacao encerrada com erro ==="
+    if exist "%TEMP_FILE%" del "%TEMP_FILE%" >nul 2>nul
+    if /i not "%~1"=="silent" pause
+    exit /b 1

@@ -14,7 +14,8 @@ Melhorias implementadas:
 """
 
 from django.contrib import admin
-from django.utils.html import format_html, mark_safe
+from django.utils.html import format_html
+from django.utils.safestring import SafeString
 from django.urls import reverse, path
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -31,6 +32,11 @@ from .models import (
     LogAuditoria, VideoTutorial, PerfilUsuario
 )
 from .utils import get_unidade_prisional
+
+
+def _html_estatico(conteudo: str) -> SafeString:
+    """HTML fixo para colunas do admin (Django 6+ rejeita format_html sem args)."""
+    return SafeString(conteudo)
 
 # =============================================================================
 # WIDGETS E FORMULÁRIOS CUSTOMIZADOS
@@ -451,15 +457,15 @@ class ServidorAdmin(admin.ModelAdmin):
                 '<span style="background: #17a2b8; color: white; padding: 2px 6px; border-radius: 8px; font-size: 10px;">🚗 {}</span>',
                 obj.veiculo
             )
-        return mark_safe('<span style="color: #6c757d;">-</span>')
+        return _html_estatico('<span style="color: #6c757d;">-</span>')
     veiculo_badge.short_description = '🚗 Veículo'
     
     def status_visual(self, obj):
         if obj.ativo:
-            return mark_safe(
+            return _html_estatico(
                 '<span style="color: #28a745; font-size: 16px;" title="Ativo">●</span>'
             )
-        return mark_safe(
+        return _html_estatico(
             '<span style="color: #dc3545; font-size: 16px;" title="Inativo">●</span>'
         )
     status_visual.short_description = '🔄 Status'
@@ -498,11 +504,84 @@ class ServidorAdmin(admin.ModelAdmin):
     acoes_rapidas.short_description = '⚡ Ações'
 
 # =============================================================================
+# MIXIN: colunas visuais compartilhadas (RegistroAcesso + RegistroDashboard)
+# =============================================================================
+
+class ColunasRegistroMixin:
+    """Metodos de list_display reutilizados no admin de registros."""
+
+    def data_hora_formatada(self, obj):
+        return format_html(
+            '<div style="text-align: center; line-height: 1.3;">'
+            '<strong style="color: #007bff;">{}</strong><br>'
+            '<small style="color: #6c757d;">{}</small>'
+            '</div>',
+            obj.data_hora.strftime("%d/%m/%Y"),
+            obj.data_hora.strftime("%H:%M"),
+        )
+
+    data_hora_formatada.short_description = '📅 Data/Hora'
+
+    def servidor_info(self, obj):
+        url = reverse('admin:core_servidor_change', args=[obj.servidor.id])
+        return format_html(
+            '<a href="{}" style="text-decoration: none;">'
+            '<div style="line-height: 1.3;">'
+            '<strong style="color: #28a745;">{}</strong><br>'
+            '<small style="color: #6c757d;">{}</small>'
+            '</div></a>',
+            url,
+            obj.servidor.nome[:25],
+            obj.servidor.numero_documento,
+        )
+
+    servidor_info.short_description = '👤 Servidor'
+
+    def tipo_acesso_visual(self, obj):
+        if obj.tipo_acesso == 'ENTRADA':
+            return _html_estatico(
+                '<span style="background: #28a745; color: white; padding: 4px 8px; '
+                'border-radius: 12px; font-weight: bold;">ENTRADA</span>'
+            )
+        return _html_estatico(
+            '<span style="background: #dc3545; color: white; padding: 4px 8px; '
+            'border-radius: 12px; font-weight: bold;">SAIDA</span>'
+        )
+
+    tipo_acesso_visual.short_description = '🚪 Tipo'
+
+    def operador_badge(self, obj):
+        nome = obj.operador.get_full_name() or obj.operador.username
+        return format_html(
+            '<span style="background: #6f42c1; color: white; padding: 2px 6px; '
+            'border-radius: 8px; font-size: 11px;">{}</span>',
+            nome[:15],
+        )
+
+    operador_badge.short_description = '👨‍💼 Operador'
+
+    def status_completo(self, obj):
+        if obj.tipo_acesso == 'SAIDA':
+            return _html_estatico(
+                '<span style="color: #6f42c1; font-weight: bold;">Definitiva</span>'
+            )
+        if obj.saida_pendente:
+            return _html_estatico(
+                '<span style="color: #dc3545; font-weight: bold;">Pendente</span>'
+            )
+        return _html_estatico(
+            '<span style="color: #28a745; font-weight: bold;">Concluido</span>'
+        )
+
+    status_completo.short_description = '📊 Status'
+
+
+# =============================================================================
 # ADMIN CUSTOMIZADO: REGISTRO DE ACESSO
 # =============================================================================
 
 @admin.register(RegistroAcesso)
-class RegistroAcessoAdmin(admin.ModelAdmin):
+class RegistroAcessoAdmin(ColunasRegistroMixin, admin.ModelAdmin):
     
     list_display = (
         'data_hora_formatada', 'servidor_info', 'tipo_acesso_visual', 
@@ -557,68 +636,13 @@ class RegistroAcessoAdmin(admin.ModelAdmin):
     
     readonly_fields = ('data_hora_alteracao',)
     
-    # Métodos de exibição customizados
-    def data_hora_formatada(self, obj):
-        return format_html(
-            '<div style="text-align: center; line-height: 1.3;">'
-            '<strong style="color: #007bff;">{}</strong><br>'
-            '<small style="color: #6c757d;">{}</small>'
-            '</div>',
-            obj.data_hora.strftime("%d/%m/%Y"),
-            obj.data_hora.strftime("%H:%M")
-        )
-    data_hora_formatada.short_description = '📅 Data/Hora'
-    
-    def servidor_info(self, obj):
-        url = reverse('admin:core_servidor_change', args=[obj.servidor.id])
-        return format_html(
-            '<a href="{}" style="text-decoration: none;">'
-            '<div style="line-height: 1.3;">'
-            '<strong style="color: #28a745;">{}</strong><br>'
-            '<small style="color: #6c757d;">{}</small>'
-            '</div></a>',
-            url, obj.servidor.nome[:25], obj.servidor.numero_documento
-        )
-    servidor_info.short_description = '👤 Servidor'
-    
-    def tipo_acesso_visual(self, obj):
-        if obj.tipo_acesso == 'ENTRADA':
-            return mark_safe(
-                '<span style="background: #28a745; color: white; padding: 4px 8px; border-radius: 12px; font-weight: bold;">↗️ ENTRADA</span>'
-            )
-        return mark_safe(
-            '<span style="background: #dc3545; color: white; padding: 4px 8px; border-radius: 12px; font-weight: bold;">↙️ SAÍDA</span>'
-        )
-    tipo_acesso_visual.short_description = '🚪 Tipo'
-    
-    def operador_badge(self, obj):
-        nome = obj.operador.get_full_name() or obj.operador.username
-        return format_html(
-            '<span style="background: #6f42c1; color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px;">👤 {}</span>',
-            nome[:15]
-        )
-    operador_badge.short_description = '👨‍💼 Operador'
-    
-    def status_completo(self, obj):
-        if obj.tipo_acesso == 'SAIDA':
-            return mark_safe(
-                '<span style="color: #6f42c1; font-weight: bold;">🏁 Definitiva</span>'
-            )
-        elif obj.saida_pendente:
-            return mark_safe(
-                '<span style="color: #dc3545; font-weight: bold;">⏳ Pendente</span>'
-            )
-        return mark_safe(
-            '<span style="color: #28a745; font-weight: bold;">✅ Concluído</span>'
-        )
-    status_completo.short_description = '📊 Status'
-    
     def isv_badge(self, obj):
         if obj.isv:
-            return mark_safe(
-                '<span style="background: #fd7e14; color: white; padding: 2px 4px; border-radius: 6px; font-size: 10px;">🔒 ISV</span>'
+            return _html_estatico(
+                '<span style="background: #fd7e14; color: white; padding: 2px 4px; '
+                'border-radius: 6px; font-size: 10px;">ISV</span>'
             )
-        return mark_safe('<span style="color: #6c757d;">-</span>')
+        return _html_estatico('<span style="color: #6c757d;">-</span>')
     isv_badge.short_description = '🔒 ISV'
     
     def acoes_registro(self, obj):
@@ -653,7 +677,7 @@ class PerfilUsuarioInline(admin.StackedInline):
 # =============================================================================
 
 @admin.register(RegistroDashboard)
-class RegistroDashboardAdmin(admin.ModelAdmin):
+class RegistroDashboardAdmin(ColunasRegistroMixin, admin.ModelAdmin):
     list_display = (
         'data_hora_formatada', 'servidor_info', 'tipo_acesso_visual', 
         'operador_badge', 'status_completo'
@@ -668,13 +692,6 @@ class RegistroDashboardAdmin(admin.ModelAdmin):
     actions = [
         'exportar_registros_selecionados'
     ]
-    
-    # Usando os mesmos métodos do RegistroAcessoAdmin
-    data_hora_formatada = RegistroAcessoAdmin.data_hora_formatada
-    servidor_info = RegistroAcessoAdmin.servidor_info
-    tipo_acesso_visual = RegistroAcessoAdmin.tipo_acesso_visual
-    operador_badge = RegistroAcessoAdmin.operador_badge
-    status_completo = RegistroAcessoAdmin.status_completo
 
 @admin.register(LogAuditoria)
 class LogAuditoriaAdmin(admin.ModelAdmin):
@@ -808,10 +825,10 @@ class VideoTutorialAdmin(admin.ModelAdmin):
     
     def status_ativo(self, obj):
         if obj.ativo:
-            return mark_safe(
+            return _html_estatico(
                 '<span style="color: #28a745; font-size: 16px;">●</span> Ativo'
             )
-        return mark_safe(
+        return _html_estatico(
             '<span style="color: #dc3545; font-size: 16px;">●</span> Inativo'
         )
     status_ativo.short_description = '🔄 Status'
@@ -838,12 +855,12 @@ class VideoTutorialAdmin(admin.ModelAdmin):
 
 # Títulos e cabeçalhos personalizados
 unidade = get_unidade_prisional()
-admin.site.site_header = mark_safe(
-    f'<span style="color: #007bff; font-weight: bold;">🚀 Sistema de Controle de Acesso {unidade}</span>'
+admin.site.site_header = _html_estatico(
+    f'<span style="color: #007bff; font-weight: bold;">Sistema de Controle de Acesso {unidade}</span>'
 )
 admin.site.site_title = f'Controle de Acesso {unidade}'
-admin.site.index_title = mark_safe(
-    '<span style="color: #28a745;">📊 Painel de Administração Avançado</span>'
+admin.site.index_title = _html_estatico(
+    '<span style="color: #28a745;">Painel de Administracao Avancado</span>'
 )
 
 # CSS customizado para melhorar a aparência
