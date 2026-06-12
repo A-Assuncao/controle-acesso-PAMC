@@ -39,6 +39,32 @@
             background-color: #fff;
             border-top: 1px solid #dee2e6;
         }
+
+        .footer-line {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-whatsapp {
+            color: #25D366;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            line-height: 1;
+            transition: color 0.2s ease, transform 0.2s ease;
+        }
+
+        .footer-whatsapp:hover {
+            color: #128C7E;
+            transform: scale(1.1);
+        }
+
+        .footer-whatsapp i {
+            font-size: 1.1rem;
+        }
         
         .messages {
             position: fixed;
@@ -197,10 +223,22 @@
         </a>
     </div>
 
-    <!-- Footer -->
+    <!-- Footer (rodape) -->
     <footer class="footer">
-        <div class="container text-center text-muted">
-            <small>&copy; {% now "Y" %} Controle de Acesso. Todos os direitos reservados.</small>
+        <div class="container text-center">
+            <small class="text-muted footer-line">
+                <span>&copy; {% now "Y" %} Controle de Acesso. Todos os direitos reservados.</span>
+                {% if user.is_authenticated %}
+                <a href="{{ whatsapp_suporte_url }}"
+                   class="footer-whatsapp"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   title="Reportar bug ou sugestão"
+                   aria-label="Reportar bug ou sugestão via WhatsApp">
+                    <i class="fab fa-whatsapp" aria-hidden="true"></i>
+                </a>
+                {% endif %}
+            </small>
         </div>
     </footer>
 

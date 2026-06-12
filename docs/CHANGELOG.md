@@ -25,6 +25,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 - **Dependência `pytz`**: adicionada ao `requirements.txt` (usada em `core/utils.py` e views, mas não estava declarada)
 
 ### ✨ Adicionado
+- **Rodape — WhatsApp do desenvolvedor**: icone na linha do copyright (usuario logado); link `api.whatsapp.com/send` com mensagem pre-preenchida (nome, tipo, unidade)
 - **Dashboard — botão admin Django**: banner destacado no topo do dashboard, visível apenas para `is_staff`/`is_superuser`, com link para `/admin/`
 - **Documentacao unificada**: `docs/INSTALACAO_PRODUCAO.md` (IIS, update, deploy CI, nova unidade); removidos guias duplicados, `ADMIN_MELHORIAS.md` e `GUIA_INSTALACAO_ADMIN.md` (admin vem com o codigo no git pull)
 - **Update automatico sem usuario novo**: `configurar_update_automatico.ps1` (SYSTEM + Administradores); `instalar_runner_github.ps1` (token interativo + link GitHub)
