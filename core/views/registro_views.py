@@ -27,7 +27,8 @@ from ..decorators import (
 )
 from ..utils import (
     processar_registro_acesso_helper, exportar_excel_helper,
-    saida_definitiva_helper, limpar_dashboard_helper
+    saida_definitiva_helper, limpar_dashboard_helper,
+    dashboard_registros_ativos,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ def registro_manual_create(request):
         observacao = request.POST.get('observacao', '')
         isv = request.POST.get('isv') == 'on'
         
-        servidor = get_object_or_404(Servidor, id=servidor_id)
+        servidor = get_object_or_404(Servidor, id=servidor_id, ativo=True)
         
         # Cria o registro manual
         registro = RegistroAcesso.objects.create(
@@ -98,7 +99,9 @@ def registro_manual_create(request):
 def registros_plantao(request):
     """API que retorna todos os registros do dashboard em JSON."""
     # Obtém todos os registros do dashboard
-    registros = RegistroDashboard.objects.all().select_related('servidor', 'operador', 'operador_saida').order_by('data_hora', 'id')
+    registros = dashboard_registros_ativos().select_related(
+        'servidor', 'operador', 'operador_saida'
+    ).order_by('data_hora', 'id')
     
     # Define o timezone UTC-4
     tz = pytz.timezone('America/Manaus')
@@ -234,7 +237,7 @@ def excluir_registro(request, registro_id):
 @login_required
 def exportar_excel(request):
     """Exporta os registros do dashboard para Excel."""
-    registros = RegistroDashboard.objects.all().select_related(
+    registros = dashboard_registros_ativos().select_related(
         'servidor', 'operador', 'operador_saida'
     ).order_by('data_hora', 'id')
     

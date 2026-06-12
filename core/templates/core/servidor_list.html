@@ -76,13 +76,11 @@
                                 <a href="{% url 'servidor_update' servidor.id %}" class="btn btn-sm btn-outline-primary">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                {% if user.is_staff %}
                                 <button type="button" class="btn btn-sm btn-outline-danger" 
                                         data-bs-toggle="modal" 
                                         data-bs-target="#excluirServidorModal{{ servidor.id }}">
                                     <i class="bi bi-trash"></i>
                                 </button>
-                                {% endif %}
                             </div>
                             
                             <!-- Modal Excluir Servidor -->

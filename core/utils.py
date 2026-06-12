@@ -92,6 +92,26 @@ def servidor_corresponde_busca(servidor, query, query_normalizada):
     return nome_match or documento_match or setor_match
 
 
+def dashboard_registros_ativos():
+    """Registros do dashboard cujo servidor ainda está ativo no cadastro."""
+    from .models import RegistroDashboard
+
+    return RegistroDashboard.objects.filter(servidor__ativo=True)
+
+
+def desativar_servidor(servidor):
+    """
+    Exclusão operacional: inativa o cadastro e remove do dashboard atual.
+
+    O histórico (RegistroAcesso) permanece intacto para consulta e relatórios.
+    """
+    from .models import RegistroDashboard
+
+    RegistroDashboard.objects.filter(servidor=servidor).delete()
+    servidor.ativo = False
+    servidor.save(update_fields=['ativo'])
+
+
 def extrair_plantao_do_setor(setor):
     """
     Extrai o nome do plantão do campo setor.
@@ -663,7 +683,7 @@ def processar_registro_acesso_helper(request, is_treinamento=False):
         from .models import Servidor, ServidorTreinamento
         
         # Obtém o servidor original
-        servidor_original = get_object_or_404(Servidor, id=servidor_id)
+        servidor_original = get_object_or_404(Servidor, id=servidor_id, ativo=True)
         
         # Busca ou cria um ServidorTreinamento correspondente
         servidor, created = ServidorTreinamento.objects.get_or_create(
@@ -678,7 +698,7 @@ def processar_registro_acesso_helper(request, is_treinamento=False):
         )
     else:
         from .models import Servidor
-        servidor = get_object_or_404(Servidor, id=servidor_id)
+        servidor = get_object_or_404(Servidor, id=servidor_id, ativo=True)
     
     # Processa entrada ou saída
     if tipo_acesso == 'ENTRADA':

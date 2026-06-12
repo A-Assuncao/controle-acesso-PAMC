@@ -19,7 +19,7 @@ from django.db.models import Q
 from ..models import Servidor, RegistroDashboard, LogAuditoria
 from ..forms import ServidorForm
 from ..decorators import pode_gerenciar_servidores, admin_required
-from ..utils import buscar_servidores_helper
+from ..utils import buscar_servidores_helper, desativar_servidor
 
 
 @login_required
@@ -29,7 +29,7 @@ def servidor_list(request):
     from ..utils import normalizar_texto
     
     query = request.GET.get('q', '')
-    servidores = Servidor.objects.all().order_by('nome')
+    servidores = Servidor.objects.filter(ativo=True).order_by('nome')
     
     if query:
         print(f"Busca realizada com o termo: '{query}'")
@@ -111,34 +111,31 @@ def servidor_update(request, pk):
 
 
 @login_required
-@admin_required
 @pode_gerenciar_servidores
 def servidor_delete(request, pk):
-    """Exclui um servidor."""
+    """Exclui um servidor do cadastro ativo (desativa; histórico preservado)."""
     if request.method == 'POST':
         try:
-            servidor = get_object_or_404(Servidor, pk=pk)
+            servidor = get_object_or_404(Servidor, pk=pk, ativo=True)
             nome_servidor = servidor.nome
-            
-            # Registra a ação no log de auditoria
+
             LogAuditoria.objects.create(
                 usuario=request.user,
                 tipo_acao='EXCLUSAO',
                 modelo='Servidor',
                 objeto_id=servidor.id,
-                detalhes=f'Exclusão do servidor {nome_servidor}'
+                detalhes=f'Exclusão do servidor {nome_servidor}',
             )
-            
-            # Exclui o servidor
-            servidor.delete()
-            
+
+            desativar_servidor(servidor)
+
             messages.success(request, f'Servidor {nome_servidor} excluído com sucesso!')
             return redirect('servidor_list')
-            
+
         except Exception as e:
             messages.error(request, f'Erro ao excluir servidor: {str(e)}')
             return redirect('servidor_list')
-    
+
     return redirect('servidor_list')
 
 
@@ -159,8 +156,9 @@ def verificar_entrada(request, servidor_id):
     """Verifica se existe uma entrada sem saída para o servidor."""
     tem_entrada = RegistroDashboard.objects.filter(
         servidor_id=servidor_id,
+        servidor__ativo=True,
         tipo_acesso='ENTRADA',
-        saida_pendente=True
+        saida_pendente=True,
     ).exists()
     
     return JsonResponse({'tem_entrada': tem_entrada})

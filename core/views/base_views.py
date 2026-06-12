@@ -21,7 +21,7 @@ import pytz
 
 from core.authentication import CanaimeAuthBackend
 from core.models import PerfilUsuario, RegistroDashboard, Servidor
-from core.utils import calcular_plantao_atual
+from core.utils import calcular_plantao_atual, dashboard_registros_ativos
 
 
 def login_view(request):
@@ -174,7 +174,7 @@ def home(request):
     plantao_atual = calcular_plantao_atual()
     
     # Filtra registros do plantão atual
-    registros = RegistroDashboard.objects.all().select_related('servidor', 'operador')
+    registros = dashboard_registros_ativos().select_related('servidor', 'operador')
     
     # Calcula totais para os cards
     total_entradas = registros.filter(tipo_acesso='ENTRADA').count()  # Total de entradas

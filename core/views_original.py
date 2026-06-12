@@ -1120,15 +1120,14 @@ def limpar_banco_servidores(request):
     return redirect('servidor_list')
 
 @login_required
-@admin_required
 @pode_gerenciar_servidores
 def servidor_delete(request, pk):
     if request.method == 'POST':
         try:
-            servidor = get_object_or_404(Servidor, pk=pk)
+            from .utils import desativar_servidor
+            servidor = get_object_or_404(Servidor, pk=pk, ativo=True)
             nome_servidor = servidor.nome
-            
-            # Registra a ação no log de auditoria
+
             LogAuditoria.objects.create(
                 usuario=request.user,
                 tipo_acao='EXCLUSAO',
@@ -1136,17 +1135,16 @@ def servidor_delete(request, pk):
                 objeto_id=servidor.id,
                 detalhes=f'Exclusão do servidor {nome_servidor}'
             )
-            
-            # Exclui o servidor
-            servidor.delete()
-            
+
+            desativar_servidor(servidor)
+
             messages.success(request, f'Servidor {nome_servidor} excluído com sucesso!')
             return redirect('servidor_list')
-            
+
         except Exception as e:
             messages.error(request, f'Erro ao excluir servidor: {str(e)}')
             return redirect('servidor_list')
-    
+
     return redirect('servidor_list')
 
 @login_required
