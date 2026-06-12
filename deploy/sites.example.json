@@ -1,0 +1,28 @@
+{
+  "_comentario": "Copie para deploy/sites.json e ajuste caminhos. Nao commite sites.json com dados reais.",
+  "sites": [
+    {
+      "id": "pamc",
+      "nome": "PAMC",
+      "tipo": "local",
+      "caminho": "C:\\inetpub\\wwwroot\\controle-acesso-PAMC",
+      "ativo": true
+    },
+    {
+      "id": "cpbv",
+      "nome": "CPBV",
+      "tipo": "remoto",
+      "computador": "NOME-OU-IP-DO-SERVIDOR-CPBV",
+      "caminho": "C:\\inetpub\\wwwroot\\controle-acesso-PAMC",
+      "ativo": true
+    },
+    {
+      "id": "cpfbv",
+      "nome": "CPFBV",
+      "tipo": "remoto",
+      "computador": "NOME-OU-IP-DO-SERVIDOR-CPFBV",
+      "caminho": "C:\\inetpub\\wwwroot\\controle-acesso-PAMC",
+      "ativo": true
+    }
+  ]
+}
