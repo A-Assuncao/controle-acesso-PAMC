@@ -1,4 +1,4 @@
 @echo off
-REM Wrapper na raiz do projeto para a Tarefa Agendada (AtualizarControleAcesso.xml)
-call "%~dp0update\update.bat" silent
+REM Wrapper na raiz — usado pela Tarefa Agendada (ControleAcesso-AtualizacaoDiaria)
+call "%~dp0update\update.bat" -NoElevate silent
 exit /b %ERRORLEVEL%

@@ -120,6 +120,8 @@ function Set-PermissoesIIS {
         New-Item -ItemType Directory -Force -Path $caminho | Out-Null
         icacls $caminho /grant "IIS_IUSRS:(OI)(CI)M" /T | Out-Null
         icacls $caminho /grant "${identidadePool}:(OI)(CI)M" /T | Out-Null
+        icacls $caminho /grant "*S-1-5-18:(OI)(CI)M" /T | Out-Null
+        icacls $caminho /grant "*S-1-5-32-544:(OI)(CI)M" /T | Out-Null
     }
 
     icacls $projectRoot /grant "${identidadePool}:(CI)M" | Out-Null
@@ -477,6 +479,14 @@ if (-not $SomenteVerificar) {
     Remove-HandlersConflitantes
     Set-PortaSite -PortaDestino $Porta
     Invoke-DjangoSetup
+
+    Step "Atualizacao automatica diaria (00:00)"
+    $agendarScript = Join-Path $PSScriptRoot "agendar_atualizacao.ps1"
+    if (Test-Path $agendarScript) {
+        & $agendarScript -ProjectRoot $projectRoot -Horario "00:00"
+    } else {
+        Warn "scripts\agendar_atualizacao.ps1 nao encontrado — tarefa agendada nao criada"
+    }
 
     if ($script:correcoes -gt 0) {
         Write-Host ""

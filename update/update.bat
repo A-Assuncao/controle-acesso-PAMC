@@ -111,9 +111,10 @@ goto :main
     set "SCRIPT_DIR=%~dp0"
     for %%I in ("%SCRIPT_DIR%..") do set "PROJECT_ROOT=%%~fI"
 
-    :: Log sempre em %%TEMP%% (inetpub\update\logs costuma bloquear usuario comum)
-    set "LOG_FILE=%TEMP%\controle-acesso-update.log"
-    set "TEMP_FILE=%TEMP%\controle_acesso_git_pull.txt"
+    set "LOG_DIR=%PROJECT_ROOT%\logs"
+    if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" 2>nul
+    set "LOG_FILE=%LOG_DIR%\update.log"
+    set "TEMP_FILE=%LOG_DIR%\update_git_pull.tmp"
     set "VENV_ACTIVATE=%PROJECT_ROOT%\venv\Scripts\activate.bat"
     set "HAD_CHANGES=0"
     set "SKIP_GIT=0"
