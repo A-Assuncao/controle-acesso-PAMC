@@ -6,7 +6,32 @@
 {% block content %}
 {% csrf_token %}
 
-
+{% if user.is_staff or user.is_superuser %}
+<!-- Acesso ao painel admin Django (apenas administradores) -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-dark shadow">
+            <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3 py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="rounded-circle bg-dark text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                          style="width: 52px; height: 52px; font-size: 1.6rem;">
+                        <i class="bi bi-gear-wide-connected"></i>
+                    </span>
+                    <div>
+                        <h5 class="mb-0 fw-bold">Administração do Sistema</h5>
+                        <p class="mb-0 text-muted small">
+                            Gerencie modelos, usuários e configurações avançadas no painel Django.
+                        </p>
+                    </div>
+                </div>
+                <a href="{% url 'admin:index' %}" class="btn btn-dark btn-lg px-4 fw-semibold">
+                    <i class="bi bi-box-arrow-up-right"></i> Abrir Painel Admin
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Cards de resumo -->
 <div class="row mb-4">

@@ -25,6 +25,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 - **Dependência `pytz`**: adicionada ao `requirements.txt` (usada em `core/utils.py` e views, mas não estava declarada)
 
 ### ✨ Adicionado
+- **Dashboard — botão admin Django**: banner destacado no topo do dashboard, visível apenas para `is_staff`/`is_superuser`, com link para `/admin/`
 - **Documentacao unificada**: `docs/INSTALACAO_PRODUCAO.md` (IIS, update, deploy CI, nova unidade); removidos guias duplicados, `ADMIN_MELHORIAS.md` e `GUIA_INSTALACAO_ADMIN.md` (admin vem com o codigo no git pull)
 - **Update automatico sem usuario novo**: `configurar_update_automatico.ps1` (SYSTEM + Administradores); `instalar_runner_github.ps1` (token interativo + link GitHub)
 - **Upgrade stack v3.2**: Django **6.0.6**, Python **3.12–3.14**, `pyproject.toml` (uv), `django-bootstrap5` 26.2, `pandas` 3.x
