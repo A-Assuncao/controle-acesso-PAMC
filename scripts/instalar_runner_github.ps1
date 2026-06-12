@@ -181,25 +181,27 @@ function Register-Runner {
         throw "config.cmd nao encontrado em $Destino"
     }
 
+    if ([string]::IsNullOrWhiteSpace($RegistrationToken)) {
+        throw "Token de registro vazio. Gere um novo token no GitHub e rode o script novamente."
+    }
+
     Push-Location $Destino
     try {
         Write-Host "[INFO]  Registrando runner '$RunnerName' (labels: $Labels) como servico SYSTEM..." -ForegroundColor Cyan
 
-        $proc = Start-Process -FilePath "cmd.exe" -ArgumentList @(
-            "/c", "config.cmd",
-            "--url", $Url,
-            "--token", $RegistrationToken,
-            "--name", $RunnerName,
-            "--labels", $Labels,
-            "--unattended",
-            "--replace",
-            "--runasservice",
-            "--windowsLogonAccount", "NT AUTHORITY\SYSTEM",
-            "--windowsLogonPassword", ""
-        ) -Wait -PassThru -NoNewWindow
+        # SYSTEM nao usa senha — nao passar --windowsLogonPassword vazio (Start-Process rejeita)
+        & $configCmd `
+            --url $Url `
+            --token $RegistrationToken `
+            --name $RunnerName `
+            --labels $Labels `
+            --unattended `
+            --replace `
+            --runasservice `
+            --windowsLogonAccount 'NT AUTHORITY\SYSTEM'
 
-        if ($proc.ExitCode -ne 0) {
-            throw "config.cmd falhou (codigo $($proc.ExitCode)). Token expirado ou runner ja registrado?"
+        if ($LASTEXITCODE -ne 0) {
+            throw "config.cmd falhou (codigo $LASTEXITCODE). Token expirado ou runner ja registrado?"
         }
     } finally {
         Pop-Location
