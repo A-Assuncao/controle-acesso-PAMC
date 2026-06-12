@@ -54,9 +54,6 @@ Thumbs.db
 # Pytest
 .pytest_cache
 
-# Deploy multi-site (caminhos locais/remotos por unidade)
-deploy/sites.json
-
 .cursor
 .coverage
 htmlcov/
