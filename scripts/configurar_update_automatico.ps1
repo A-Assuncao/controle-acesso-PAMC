@@ -87,7 +87,7 @@ function Set-PermissoesUpdate {
 
 function Set-GitConfigUpdate {
     if (-not (Test-Path $gitDir)) {
-        Warn ".git ausente — clone o repositorio antes do update automatico"
+        Warn '.git ausente - clone o repositorio antes do update automatico'
         return
     }
 
@@ -108,7 +108,7 @@ function Set-GitConfigUpdate {
     }
 
     if ($origin -match "^git@") {
-        Warn "Remote SSH detectado — configure chave em C:\Windows\System32\config\systemprofile\.ssh para SYSTEM"
+        Warn 'Remote SSH detectado - configure chave em C:\Windows\System32\config\systemprofile\.ssh para SYSTEM'
         Write-Host "        Repo publico HTTPS nao precisa de chave. Veja docs/INSTALACAO_PRODUCAO.md" -ForegroundColor DarkGray
     } elseif ($origin) {
         Ok "Remote Git: $origin"
@@ -193,14 +193,14 @@ function Invoke-VerificacaoUpdate {
     if ($safeDirs -contains $pathNorm) {
         Ok "git safe.directory inclui este projeto"
     } else {
-        Warn "git safe.directory nao inclui $pathNorm — rode sem -SomenteVerificar"
+        Warn "git safe.directory nao inclui $pathNorm - rode sem -SomenteVerificar"
     }
 
     $runner = Get-Service -Name "actions.runner.*" -ErrorAction SilentlyContinue
     if ($runner) {
         Ok "Servico GitHub Runner: $($runner.Name) ($($runner.Status))"
     } else {
-        Write-Host "[INFO]  GitHub Runner nao instalado (opcional — deploy imediato no push)" -ForegroundColor DarkGray
+        Write-Host '[INFO]  GitHub Runner nao instalado (opcional - deploy imediato no push)' -ForegroundColor DarkGray
     }
 }
 

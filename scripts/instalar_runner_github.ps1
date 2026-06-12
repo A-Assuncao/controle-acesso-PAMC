@@ -1,6 +1,6 @@
 # Instala o GitHub Actions self-hosted runner (Windows) de forma interativa.
 # Pede o token de registro e mostra como obtê-lo no GitHub (com link).
-# Usa conta SYSTEM — nao cria usuario local.
+# Usa conta SYSTEM - nao cria usuario local.
 #
 # Uso (PowerShell como Administrador):
 #   powershell -ExecutionPolicy Bypass -File .\scripts\instalar_runner_github.ps1
