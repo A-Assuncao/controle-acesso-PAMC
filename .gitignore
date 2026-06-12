@@ -51,6 +51,9 @@ ENV/
 .DS_Store
 Thumbs.db 
 
+# Logs gerados em runtime (nao versionar)
+logs/*.html
+
 # Pytest
 .pytest_cache
 

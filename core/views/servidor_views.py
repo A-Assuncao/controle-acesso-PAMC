@@ -19,7 +19,12 @@ from django.db.models import Q
 from ..models import Servidor, RegistroDashboard, LogAuditoria
 from ..forms import ServidorForm
 from ..decorators import pode_gerenciar_servidores, admin_required
-from ..utils import buscar_servidores_helper, desativar_servidor
+from ..utils import buscar_servidores_helper, desativar_servidor, colapsar_espacos
+
+
+def _normalizar_nome_coluna_csv(coluna: str | None) -> str:
+    """Normaliza cabecalhos e celulas CSV (BOM, NBSP, espacos extras)."""
+    return colapsar_espacos(coluna)
 
 
 @login_required
@@ -172,8 +177,8 @@ def importar_servidores(request):
         try:
             arquivo = request.FILES['arquivo']
             
-            # Tentativa de leitura com diferentes codificações
-            encodings = ['utf-8', 'latin1', 'iso-8859-1', 'windows-1252']
+            # Tentativa de leitura com diferentes codificações (utf-8-sig remove BOM do Excel)
+            encodings = ['utf-8-sig', 'utf-8', 'latin1', 'iso-8859-1', 'windows-1252']
             decoded_file = None
             successful_encoding = None
             
@@ -204,23 +209,31 @@ def importar_servidores(request):
             # Verificação e normalização dos nomes das colunas
             colunas_esperadas = ['Nome', 'Número do Documento', 'Setor', 'Veículo']
             colunas_reader = reader.fieldnames
-            
+
             # Verificar se há colunas necessárias no CSV
             if not colunas_reader:
                 raise Exception("Arquivo CSV não contém cabeçalhos de colunas")
-                
-            # Criar mapeamento para normalizar nomes de colunas
+
+            # Criar mapeamento para normalizar nomes de colunas (BOM, espacos, acentos)
             mapeamento_colunas = {}
+            colunas_limpas = {
+                _normalizar_nome_coluna_csv(col): col for col in colunas_reader if col
+            }
+
             for coluna_esperada in colunas_esperadas:
-                # Verifica coluna exata
                 if coluna_esperada in colunas_reader:
                     mapeamento_colunas[coluna_esperada] = coluna_esperada
                     continue
-                
-                # Verifica variação sem acentos e case insensitive
+
+                coluna_limpa_esperada = _normalizar_nome_coluna_csv(coluna_esperada)
+                if coluna_limpa_esperada in colunas_limpas:
+                    mapeamento_colunas[coluna_esperada] = colunas_limpas[coluna_limpa_esperada]
+                    continue
+
                 coluna_normalizada = coluna_esperada.lower().replace('ú', 'u').replace('í', 'i')
                 for coluna in colunas_reader:
-                    if coluna and coluna.lower().replace('ú', 'u').replace('í', 'i') == coluna_normalizada:
+                    coluna_cmp = _normalizar_nome_coluna_csv(coluna).lower().replace('ú', 'u').replace('í', 'i')
+                    if coluna_cmp == coluna_normalizada:
                         mapeamento_colunas[coluna_esperada] = coluna
                         break
             
@@ -239,13 +252,21 @@ def importar_servidores(request):
                     # Verifica se a linha tem dados válidos
                     if not row[mapeamento_colunas['Nome']] or not row[mapeamento_colunas['Número do Documento']]:
                         continue  # Pula linhas vazias ou sem dados essenciais
-                        
+
+                    nome = _normalizar_nome_coluna_csv(row[mapeamento_colunas['Nome']])
+                    documento = _normalizar_nome_coluna_csv(
+                        row[mapeamento_colunas['Número do Documento']]
+                    )
+                    setor = _normalizar_nome_coluna_csv(row[mapeamento_colunas['Setor']])
+                    veiculo_raw = row.get(mapeamento_colunas['Veículo']) or ''
+                    veiculo = _normalizar_nome_coluna_csv(veiculo_raw) or None
+
                     servidor, created = Servidor.objects.update_or_create(
-                        numero_documento=row[mapeamento_colunas['Número do Documento']],
+                        numero_documento=documento,
                         defaults={
-                            'nome': row[mapeamento_colunas['Nome']],
-                            'setor': row[mapeamento_colunas['Setor']],
-                            'veiculo': row[mapeamento_colunas['Veículo']],
+                            'nome': nome,
+                            'setor': setor,
+                            'veiculo': veiculo,
                             'ativo': True
                         }
                     )

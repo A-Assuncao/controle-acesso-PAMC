@@ -170,8 +170,8 @@ goto :main
         type "%TEMP_FILE%"
         type "%TEMP_FILE%">>"%LOG_FILE%"
         findstr /i /c:"Permission denied" "%TEMP_FILE%" >nul && (
-            call :log "Causa: sem permissao em .git — confirme que o script rodou como Administrador."
-            call :log "No CMD Admin: icacls .git /grant Administradores:(OI)(CI)F /T"
+            call :log "Causa: sem permissao em .git — rode configurar_update_automatico.ps1 como Admin"
+            call :log "  powershell -ExecutionPolicy Bypass -File .\scripts\configurar_update_automatico.ps1"
         )
         findstr /i /c:"Authentication failed" "%TEMP_FILE%" >nul && (
             call :log "Causa provavel: autenticacao Git."

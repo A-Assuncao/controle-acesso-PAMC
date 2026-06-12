@@ -30,6 +30,7 @@ from ..utils import (
     saida_definitiva_helper, limpar_dashboard_helper,
     dashboard_registros_ativos,
 )
+from .registro_extended import registro_acesso_update, retirar_faltas
 
 logger = logging.getLogger(__name__)
 
@@ -168,19 +169,6 @@ def registro_detalhe(request, registro_id):
         'servidor_nome': registro.servidor.nome,
         'saida_pendente': registro.saida_pendente
     })
-
-
-@login_required
-def registro_acesso_update(request, registro_id):
-    """
-    Atualiza um registro de acesso existente.
-    
-    Esta view é complexa pois permite edição completa de data/hora de entrada e saída.
-    Por ser muito extensa (~200 linhas), mantém a implementação original.
-    """
-    # Importa a view original para manter funcionalidade completa
-    from ..views_original import registro_acesso_update as original_update
-    return original_update(request, registro_id)
 
 
 @login_required
@@ -323,16 +311,4 @@ def registrar_saida(request, registro_id):
                 'message': str(e)
             }, status=400)
     
-    return JsonResponse({'status': 'error', 'message': 'Método não permitido'}, status=405)
-
-
-@login_required
-def retirar_faltas(request):
-    """
-    View para listar e exportar as faltas do plantão atual.
-    
-    Lista servidores que deveriam estar presentes mas não estão registrados.
-    """
-    # Implementação complexa mantida do original
-    from ..views_original import retirar_faltas as original_retirar_faltas
-    return original_retirar_faltas(request) 
+    return JsonResponse({'status': 'error', 'message': 'Método não permitido'}, status=405) 

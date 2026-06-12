@@ -10,18 +10,25 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 ## [Unreleased] - **Próximas Melhorias**
 
 ### 🐛 Corrigido
+- **Importacao CSV servidores**: leitura com `utf-8-sig`, normalizacao de BOM nos cabecalhos e `colapsar_espacos()` (espacos duplos entre palavras)
+- **Scripts legados removidos**: wrappers IIS/update, `iis_startup.py`, `validate_changelog.py`, `AtualizarControleAcesso.xml`
+- **Debug Canaimé**: removido dump de HTML em `logs/` durante autenticação
+- **Views**: removido `views_original.py`; lógica migrada para `registro_extended.py` e `treinamento_extended.py`
+- **README**: enxugado; documentação operacional centralizada em `docs/`
 - **Migrações ausentes no deploy**: removido `migrations/` do `.gitignore`; arquivos `0011`–`0018` versionados; `migrate` sempre executado no configurador IIS
 - **IIS Acesso negado AppData**: deteccao de venv apontando para Python do usuario; guia para recriar com python.org em caminho global
 - **IIS alinhado aos guias oficiais**: `web.config` gerado localmente; `--port %HTTP_PLATFORM_PORT%`; `appcmd unlock`; app pool 64-bit; remocao de handlers FastCGI; permissoes no venv inteiro
 - **IIS HTTP timeout (cold start)**: retentativas de aquecimento e leitura de `logs\uvicorn*.log`
 - **Guia IIS — instalação nova**: checklist do que não vem do Git (`.env`, caminhos do `web.config`, HttpPlatformHandler, permissões, firewall)
 - **IIS**: script unificado inicia servicos WAS e W3SVC automaticamente
-- **Tutorial IIS**: reescrito como `docs/TUTORIAL_IIS.md` — ambiente `venv`, desbloqueio do erro 0x80070021, remoção do localhost.run
+- **Guia IIS / producao**: conteudo em `docs/INSTALACAO_PRODUCAO.md` — ambiente `venv`, desbloqueio do erro 0x80070021, HttpPlatformHandler
 - **Dependência `pytz`**: adicionada ao `requirements.txt` (usada em `core/utils.py` e views, mas não estava declarada)
 
 ### ✨ Adicionado
+- **Documentacao unificada**: `docs/INSTALACAO_PRODUCAO.md` (IIS, update, deploy CI, nova unidade); removidos guias duplicados, `ADMIN_MELHORIAS.md` e `GUIA_INSTALACAO_ADMIN.md` (admin vem com o codigo no git pull)
+- **Update automatico sem usuario novo**: `configurar_update_automatico.ps1` (SYSTEM + Administradores); `instalar_runner_github.ps1` (token interativo + link GitHub)
 - **Upgrade stack v3.2**: Django **6.0.6**, Python **3.12–3.14**, `pyproject.toml` (uv), `django-bootstrap5` 26.2, `pandas` 3.x
-- **Deploy CI multi-unidade**: workflow GitHub Actions (`deploy-producao.yml`) com runners self-hosted (pamc, cpbv, cpfbv); guia em `docs/DEPLOY_CI.md`
+- **Deploy CI multi-unidade**: workflow GitHub Actions (`deploy-producao.yml`) com runners self-hosted (pamc, cpbv, cpfbv); guia em `docs/INSTALACAO_PRODUCAO.md`
 - **Busca no dashboard**: egressos excluídos da busca de servidores; nomes exigem todas as palavras digitadas; documento ignora pontos e traços
 
 ### 🎯 **Planejado para v3.2.0**
@@ -228,7 +235,7 @@ Este projeto segue o [Versionamento Semântico](https://semver.org/):
 
 - [README.md](README.md) - Documentação principal
 - [CONFIGURACAO_AMBIENTE.md](CONFIGURACAO_AMBIENTE.md) - Guia de configuração
-- [docs/TUTORIAL_IIS.md](docs/TUTORIAL_IIS.md) - Tutorial de deploy no IIS
+- [INSTALACAO_PRODUCAO.md](INSTALACAO_PRODUCAO.md) - Instalação IIS, update e deploy CI
 
 ---
 

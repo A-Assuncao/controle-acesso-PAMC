@@ -1,12 +1,8 @@
 """
 Views modulares do sistema de controle de acesso.
 
-REFATORAÇÃO COMPLETA - Arquitetura modular bem estruturada.
-Todas as views foram organizadas em módulos específicos por responsabilidade.
+Organizadas por responsabilidade em submodulos de core/views/.
 """
-
-# ===== ARQUITETURA MODULAR COMPLETA =====
-# Importa views já refatoradas dos módulos específicos
 from .base_views import welcome, home
 from .servidor_views import (
     servidor_list, servidor_create, servidor_update, servidor_delete,
@@ -46,13 +42,4 @@ from .treinamento_views import (
 # Views de autenticação Canaimé (experimental)
 from .canaime_views import (
     canaime_login, test_canaime_connection, canaime_user_info, logout_canaime
-)
-
-# ===== REFATORAÇÃO 100% COMPLETA =====
-# Todas as 44 views foram organizadas em módulos específicos:
-# - base_views.py: Views básicas (welcome, home)
-# - servidor_views.py: CRUD completo de servidores  
-# - registro_views.py: Sistema de registros de produção
-# - user_views.py: Gerenciamento de usuários
-# - relatorio_views.py: Histórico e relatórios
-# - treinamento_views.py: Ambiente de treinamento + funções auxiliares 
+) 

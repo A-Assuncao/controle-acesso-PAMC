@@ -8,6 +8,27 @@ from typing import Dict, Any
 PREFIXO_EGRESSO = 'Egresso: '
 
 
+from datetime import datetime, date, time, timedelta
+from django.utils import timezone
+import os
+import re
+import pytz
+import unicodedata
+from typing import Dict, Any
+
+PREFIXO_EGRESSO = 'Egresso: '
+
+
+def colapsar_espacos(texto: str | None) -> str:
+    """
+    Remove BOM, NBSP e reduz espacos/tabs/quebras repetidos a um unico espaco.
+    """
+    if texto is None:
+        return ''
+    valor = str(texto).replace('\ufeff', '').replace('\u00a0', ' ')
+    return re.sub(r'\s+', ' ', valor).strip()
+
+
 def texto_caixa_alta(texto):
     """
     Converte texto para caixa alta (maiúsculas), removendo espaços nas pontas.
@@ -16,7 +37,7 @@ def texto_caixa_alta(texto):
     """
     if texto is None:
         return ''
-    valor = str(texto).strip()
+    valor = colapsar_espacos(texto)
     if not valor:
         return ''
     return valor.upper()
@@ -29,13 +50,13 @@ def texto_caixa_alta_nome_servidor(nome):
     """
     if nome is None:
         return ''
-    valor = str(nome).strip()
+    valor = colapsar_espacos(nome)
     if not valor:
         return ''
 
     if normalizar_texto(valor).startswith('egresso:'):
         _, _, resto = valor.partition(':')
-        resto = resto.strip()
+        resto = colapsar_espacos(resto)
         if resto:
             return f'{PREFIXO_EGRESSO}{resto.upper()}'
         return PREFIXO_EGRESSO.rstrip()

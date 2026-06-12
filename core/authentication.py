@@ -7,6 +7,7 @@ extraindo informações do usuário e criando/autenticando localmente.
 
 import logging
 import os
+import re
 import requests
 from django.contrib.auth.backends import BaseBackend
 from django.contrib.auth.models import User
@@ -143,53 +144,12 @@ class CanaimeAuthBackend(BaseBackend):
             try:
                 # Decodifica como ISO-8859-1 (que preserva todos os bytes como chars)
                 html_bruto = html_bytes.decode('iso-8859-1')
-                
-                # Debug: compara HTML bruto vs processado
-                logger.info(f"Tamanho HTML bytes: {len(html_bytes)}")
-                logger.info(f"Tamanho HTML bruto: {len(html_bruto)}")
-                logger.info(f"Tamanho HTML processado: {len(areas_response.text)}")
-                
-                # Procura por diferenças no nome especificamente
-                if 'tituloAmarelo' in html_bruto:
-                    # Extrai um trecho pequeno com o nome para comparar
-                    inicio = html_bruto.find('tituloAmarelo')
-                    if inicio != -1:
-                        trecho_bruto = html_bruto[inicio:inicio+200]
-                        logger.info(f"Trecho bruto: {repr(trecho_bruto)}")
-                        
-                if 'tituloAmarelo' in areas_response.text:
-                    inicio = areas_response.text.find('tituloAmarelo')
-                    if inicio != -1:
-                        trecho_processado = areas_response.text[inicio:inicio+200]
-                        logger.info(f"Trecho processado: {repr(trecho_processado)}")
-                
-                # Debug: salva HTML para análise
-                try:
-                    # Salva HTML bruto (preserva encoding original)
-                    with open('logs/canaime_areas_bruto.html', 'w', encoding='iso-8859-1') as f:
-                        f.write(html_bruto)
-                    logger.info("HTML bruto salvo em logs/canaime_areas_bruto.html")
-                    
-                    # Salva HTML processado para comparação
-                    with open('logs/canaime_areas_processado.html', 'w', encoding='utf-8') as f:
-                        f.write(areas_response.text)
-                    logger.info("HTML processado salvo em logs/canaime_areas_processado.html")
-                except Exception as e:
-                    logger.warning(f"Erro ao salvar HTML debug: {e}")
-                
+
                 # Busca por padrão no HTML bruto que contém o nome
-                import re
-                
-                # Padrão para capturar conteúdo da classe tituloAmarelo
                 padrao_titulo = r'class="tituloAmarelo"[^>]*>(.*?)</strong>'
                 matches = re.findall(padrao_titulo, html_bruto, re.DOTALL | re.IGNORECASE)
-                
-                logger.info(f"Total de matches encontrados: {len(matches)}")
-                
+
                 for i, match in enumerate(matches):
-                    logger.info(f"=== MATCH {i+1} ===")
-                    logger.info(f"Match bruto: {repr(match)}")
-                    
                     # Remove tags HTML
                     texto_limpo = re.sub(r'<br[^>]*>', '\n', match, flags=re.IGNORECASE)
                     texto_limpo = re.sub(r'<[^>]+>', '', texto_limpo)
@@ -200,28 +160,17 @@ class CanaimeAuthBackend(BaseBackend):
                         linha_limpa = re.sub(r'\s+', ' ', linha.strip())
                         if linha_limpa:
                             linhas.append(linha_limpa)
-                    
-                    logger.info(f"Linhas extraídas: {linhas}")
-                    
-                    # Procura pela linha que contém o nome (não é o username)
-                    for j, linha in enumerate(linhas):
-                        logger.info(f"  Linha {j+1}: '{linha}'")
-                        
-                        if (len(linha) > 10 and 
-                            ' ' in linha and 
+
+                    for linha in linhas:
+                        if (len(linha) > 10 and
+                            ' ' in linha and
                             linha != username and
                             not linha.isalnum()):
-                            
-                            logger.info(f"  ✅ LINHA APROVADA: {linha}")
-                            
-                            # CORREÇÃO: Usa a lógica que funciona no teste manual
-                            # Remove o username se estiver concatenado
+
                             nome_sem_username = linha
                             if username in linha:
                                 nome_sem_username = linha.replace(username, '')
-                                logger.info(f"  🔧 Username removido: '{linha}' -> '{nome_sem_username}'")
-                            
-                            # Aplica correção CP1252 apenas se detectar encoding corrompido
+
                             if '\x87' in nome_sem_username or 'Ã\x83' in nome_sem_username:
                                 try:
                                     # Correção genérica de encoding corrompido do Canaimé
@@ -247,20 +196,13 @@ class CanaimeAuthBackend(BaseBackend):
                                         nome_corrigido = nome_corrigido.replace(corrompido, correto)
                                     
                                     nome_completo = nome_corrigido.strip()
-                                    logger.info(f"  ✅ CORREÇÃO DE ENCODING APLICADA: '{nome_sem_username}' -> '{nome_completo}'")
-                                except Exception as e:
+                                except Exception:
                                     nome_completo = nome_sem_username.strip()
-                                    logger.info(f"  ⚠️ CORREÇÃO FALHOU ({e}): mantendo '{nome_sem_username}'")
                             else:
-                                # Nome já está correto, não precisa de correção
                                 nome_completo = nome_sem_username.strip()
-                                logger.info(f"  ✅ NOME JÁ CORRETO: '{nome_completo}'")
                             break
-                        else:
-                            logger.info(f"  ❌ Linha rejeitada")
-                            
+
                     if nome_completo:
-                        logger.info(f"✅ NOME ENCONTRADO NO MATCH {i+1}: {nome_completo}")
                         break
                         
             except Exception as e:

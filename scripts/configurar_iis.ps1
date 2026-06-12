@@ -193,7 +193,7 @@ function Show-LogsDiagnostico {
     $logDir = Join-Path $projectRoot "logs"
     if (-not (Test-Path $logDir)) { return }
 
-    foreach ($pattern in @("iis_startup.log", "uvicorn*.log", "django_errors.log")) {
+    foreach ($pattern in @("uvicorn*.log", "django_errors.log")) {
         Get-ChildItem $logDir -Filter $pattern -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 2 |
@@ -237,9 +237,9 @@ function Invoke-HttpWarmup {
             }
 
             if ($ehTimeout) {
-                Fail "HTTP timeout - Python nao respondeu. Veja logs\iis_startup.log"
+                Fail "HTTP timeout - Python nao respondeu. Veja logs\uvicorn*.log"
             } elseif ($msgErro -match "502") {
-                Fail "HTTP 502 - Python nao subiu. Veja logs\iis_startup.log"
+                Fail "HTTP 502 - Python nao subiu. Veja logs\uvicorn*.log"
             } elseif ($msgErro -match "conectar|connect") {
                 Fail "HTTP recusado na porta $PortaDestino"
             } else {
@@ -480,12 +480,12 @@ if (-not $SomenteVerificar) {
     Set-PortaSite -PortaDestino $Porta
     Invoke-DjangoSetup
 
-    Step "Atualizacao automatica diaria (00:00)"
-    $agendarScript = Join-Path $PSScriptRoot "agendar_atualizacao.ps1"
-    if (Test-Path $agendarScript) {
-        & $agendarScript -ProjectRoot $projectRoot -Horario "00:00"
+    Step "Atualizacao automatica (SYSTEM, sem usuario novo)"
+    $updateScript = Join-Path $PSScriptRoot "configurar_update_automatico.ps1"
+    if (Test-Path $updateScript) {
+        & $updateScript -ProjectRoot $projectRoot -Horario "00:00"
     } else {
-        Warn "scripts\agendar_atualizacao.ps1 nao encontrado — tarefa agendada nao criada"
+        Warn "scripts\configurar_update_automatico.ps1 nao encontrado"
     }
 
     if ($script:correcoes -gt 0) {
