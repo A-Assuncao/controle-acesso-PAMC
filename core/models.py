@@ -3,7 +3,28 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.validators import RegexValidator
 
-class Servidor(models.Model):
+from core.utils import texto_caixa_alta
+
+
+class CamposNomeSetorMaiusculasMixin:
+    """Normaliza nome e setor para caixa alta antes de persistir."""
+
+    def _aplicar_caixa_alta_nome_setor(self):
+        if self.nome:
+            self.nome = texto_caixa_alta(self.nome)
+        if self.setor:
+            self.setor = texto_caixa_alta(self.setor)
+
+
+class CampoSetorMaiusculasMixin:
+    """Normaliza setor para caixa alta antes de persistir."""
+
+    def _aplicar_caixa_alta_setor(self):
+        if self.setor:
+            self.setor = texto_caixa_alta(self.setor)
+
+
+class Servidor(CamposNomeSetorMaiusculasMixin, models.Model):
     TIPO_FUNCIONARIO_CHOICES = [
         ('PLANTONISTA', 'Plantonista'),
         ('EXPEDIENTE', 'Expediente'),
@@ -36,6 +57,10 @@ class Servidor(models.Model):
         ]
     )
     ativo = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        self._aplicar_caixa_alta_nome_setor()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.nome} ({self.numero_documento})"
@@ -45,7 +70,7 @@ class Servidor(models.Model):
         verbose_name_plural = 'Servidores'
         ordering = ['nome']
 
-class RegistroAcesso(models.Model):
+class RegistroAcesso(CampoSetorMaiusculasMixin, models.Model):
     TIPO_ACESSO_CHOICES = [
         ('ENTRADA', 'Entrada'),
         ('SAIDA', 'Saída'),
@@ -78,6 +103,7 @@ class RegistroAcesso(models.Model):
         return f"{self.servidor.nome} - {self.get_tipo_acesso_display()} em {self.data_hora}"
     
     def save(self, *args, **kwargs):
+        self._aplicar_caixa_alta_setor()
         if not self.data_hora:
             self.data_hora = timezone.now()
         super().save(*args, **kwargs)
@@ -87,7 +113,7 @@ class RegistroAcesso(models.Model):
         verbose_name_plural = 'Histórico'
         ordering = ['-data_hora']
 
-class RegistroDashboard(models.Model):
+class RegistroDashboard(CampoSetorMaiusculasMixin, models.Model):
     """
     Modelo para registros ativos no dashboard.
     Este modelo é uma cópia simplificada do RegistroAcesso, contendo apenas
@@ -114,6 +140,7 @@ class RegistroDashboard(models.Model):
         return f"{self.servidor.nome} - {self.get_tipo_acesso_display()} em {self.data_hora}"
     
     def save(self, *args, **kwargs):
+        self._aplicar_caixa_alta_setor()
         if not self.data_hora:
             self.data_hora = timezone.now()
         super().save(*args, **kwargs)
@@ -145,7 +172,7 @@ class LogAuditoria(models.Model):
         verbose_name_plural = 'Logs de Auditoria'
         ordering = ['-data_hora']
 
-class ServidorTreinamento(models.Model):
+class ServidorTreinamento(CamposNomeSetorMaiusculasMixin, models.Model):
     """
     Versão de treinamento do modelo Servidor para ambiente de aprendizagem
     """
@@ -181,6 +208,10 @@ class ServidorTreinamento(models.Model):
         ]
     )
     ativo = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        self._aplicar_caixa_alta_nome_setor()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.nome} ({self.numero_documento})"
@@ -190,7 +221,7 @@ class ServidorTreinamento(models.Model):
         verbose_name_plural = 'Servidores (Treinamento)'
         ordering = ['nome']
 
-class RegistroAcessoTreinamento(models.Model):
+class RegistroAcessoTreinamento(CampoSetorMaiusculasMixin, models.Model):
     """
     Versão de treinamento do modelo RegistroAcesso para ambiente de aprendizagem
     """
@@ -216,6 +247,7 @@ class RegistroAcessoTreinamento(models.Model):
         return f"{self.servidor.nome} - {self.get_tipo_acesso_display()} em {self.data_hora}"
     
     def save(self, *args, **kwargs):
+        self._aplicar_caixa_alta_setor()
         if not self.data_hora:
             self.data_hora = timezone.now()
         super().save(*args, **kwargs)

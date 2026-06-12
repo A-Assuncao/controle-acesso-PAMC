@@ -71,9 +71,15 @@ class ServidorForm(ModelForm):
         model = Servidor
         fields = '__all__'
         widgets = {
-            'nome': ModernTextInput(attrs={'placeholder': 'Nome completo do servidor'}),
+            'nome': ModernTextInput(attrs={
+                'placeholder': 'Nome completo do servidor',
+                'style': 'text-transform: uppercase',
+            }),
             'numero_documento': ModernTextInput(attrs={'placeholder': 'CPF ou matrícula'}),
-            'setor': ModernTextInput(attrs={'placeholder': 'Setor de trabalho'}),
+            'setor': ModernTextInput(attrs={
+                'placeholder': 'Setor de trabalho',
+                'style': 'text-transform: uppercase',
+            }),
             'veiculo': ModernTextInput(attrs={'placeholder': 'Placa do veículo (opcional)'}),
         }
 

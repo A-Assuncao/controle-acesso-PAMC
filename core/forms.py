@@ -1,17 +1,27 @@
 from django import forms
 from django.utils import timezone
 from .models import Servidor, RegistroAcesso
+from .utils import texto_caixa_alta
+
+_CAMPOS_TEXTO_MAIUSCULAS = {'class': 'form-control', 'style': 'text-transform: uppercase'}
+
 
 class ServidorForm(forms.ModelForm):
     class Meta:
         model = Servidor
         fields = ['nome', 'numero_documento', 'veiculo', 'setor']
         widgets = {
-            'nome': forms.TextInput(attrs={'class': 'form-control'}),
+            'nome': forms.TextInput(attrs=_CAMPOS_TEXTO_MAIUSCULAS),
             'numero_documento': forms.TextInput(attrs={'class': 'form-control'}),
             'veiculo': forms.TextInput(attrs={'class': 'form-control'}),
-            'setor': forms.TextInput(attrs={'class': 'form-control'})
+            'setor': forms.TextInput(attrs=_CAMPOS_TEXTO_MAIUSCULAS),
         }
+
+    def clean_nome(self):
+        return texto_caixa_alta(self.cleaned_data.get('nome'))
+
+    def clean_setor(self):
+        return texto_caixa_alta(self.cleaned_data.get('setor'))
 
     def clean(self):
         cleaned_data = super().clean()

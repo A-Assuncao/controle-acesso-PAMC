@@ -6,6 +6,20 @@ import unicodedata
 from typing import Dict, Any
 
 
+def texto_caixa_alta(texto):
+    """
+    Converte texto para caixa alta (maiúsculas), removendo espaços nas pontas.
+
+    Usado em nome e setor de servidores para padronizar cadastro e exibição.
+    """
+    if texto is None:
+        return ''
+    valor = str(texto).strip()
+    if not valor:
+        return ''
+    return valor.upper()
+
+
 def normalizar_texto(texto):
     """
     Normaliza texto removendo acentos e convertendo para minúsculas.
