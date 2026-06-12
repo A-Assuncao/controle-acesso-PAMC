@@ -19,6 +19,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 - **Dependência `pytz`**: adicionada ao `requirements.txt` (usada em `core/utils.py` e views, mas não estava declarada)
 
 ### ✨ Adicionado
+- **Deploy CI multi-unidade**: workflow GitHub Actions (`deploy-producao.yml`) com runners self-hosted (pamc, cpbv, cpfbv); guia em `docs/DEPLOY_CI.md`
 - **Busca no dashboard**: egressos excluídos da busca de servidores; nomes exigem todas as palavras digitadas; documento ignora pontos e traços
 
 ### 🎯 **Planejado para v3.2.0**

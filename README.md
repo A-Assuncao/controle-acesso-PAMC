@@ -129,7 +129,7 @@ Este tutorial aborda:
 - **Importação em Massa**: Upload de planilhas Excel para cadastro automático
 - **Sistema de Backup**: Scripts automáticos de backup e restauração
 - **Limpeza de Dados**: Ferramentas para manutenção da base de dados
-- **Atualização Automática**: Scripts de atualização via Git com logs
+- **Atualização Automática**: Scripts de atualização via Git com logs; deploy imediato multi-unidade via [GitHub Actions](docs/DEPLOY_CI.md)
 
 ---
 
@@ -698,17 +698,20 @@ logger.debug("Informação técnica detalhada")
 
 ### 🔄 **Backup Automático**
 
-#### **Script de Atualização (update.bat)**
+#### **Script de Atualização (update.bat / update_app.bat)**
 ```batch
-# Localização: update/update.bat
+# update/update.bat     — manual (pode pedir UAC) ou flags -NoElevate / -SemGit
+# update_app.bat        — raiz do projeto; tarefa 00:00, GitHub Actions (sem UAC)
 # Funcionalidades:
 - ✅ Verificação de internet
 - ✅ Git pull automático
 - ✅ Detecção de mudanças
 - ✅ Aplicação de migrações
-- ✅ Logs detalhados
+- ✅ Logs em logs\update.log
 - ✅ Tratamento de erros
 ```
+
+**Deploy imediato (PAMC + CPBV + CPFBV):** após `git push main`, runners self-hosted executam `update_app.bat` em cada unidade. Ver [docs/DEPLOY_CI.md](docs/DEPLOY_CI.md).
 
 #### **Backup Manual**
 ```bash
