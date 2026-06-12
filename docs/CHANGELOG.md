@@ -10,7 +10,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 ## [Unreleased] - **Próximas Melhorias**
 
 ### 🐛 Corrigido
-- **Migrações ausentes no deploy**: removido `migrations/` do `.gitignore`; arquivos `0011`–`0018` (incl. `PerfilUsuario`) versionados; `migrate` sempre executado no configurador IIS deteccao de venv apontando para Python do usuario; guia para recriar com python.org em Program Files
+- **Migrações ausentes no deploy**: removido `migrations/` do `.gitignore`; arquivos `0011`–`0018` versionados; `migrate` sempre executado no configurador IIS
+- **IIS Acesso negado AppData**: deteccao de venv apontando para Python do usuario; guia para recriar com python.org em caminho global
 - **IIS alinhado aos guias oficiais**: `web.config` gerado localmente; `--port %HTTP_PLATFORM_PORT%`; `appcmd unlock`; app pool 64-bit; remocao de handlers FastCGI; permissoes no venv inteiro
 - **IIS HTTP timeout (cold start)**: retentativas de aquecimento e leitura de `logs\uvicorn*.log`
 - **Guia IIS — instalação nova**: checklist do que não vem do Git (`.env`, caminhos do `web.config`, HttpPlatformHandler, permissões, firewall)
@@ -19,6 +20,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 - **Dependência `pytz`**: adicionada ao `requirements.txt` (usada em `core/utils.py` e views, mas não estava declarada)
 
 ### ✨ Adicionado
+- **Upgrade stack v3.2**: Django **6.0.6**, Python **3.12–3.14**, `pyproject.toml` (uv), `django-bootstrap5` 26.2, `pandas` 3.x
 - **Deploy CI multi-unidade**: workflow GitHub Actions (`deploy-producao.yml`) com runners self-hosted (pamc, cpbv, cpfbv); guia em `docs/DEPLOY_CI.md`
 - **Busca no dashboard**: egressos excluídos da busca de servidores; nomes exigem todas as palavras digitadas; documento ignora pontos e traços
 

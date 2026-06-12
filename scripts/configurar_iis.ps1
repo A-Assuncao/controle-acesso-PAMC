@@ -46,8 +46,8 @@ function Test-VenvCompativelIIS {
             Write-Host "        .\venv\Scripts\pip install -r requirements.txt" -ForegroundColor DarkGray
             return
         }
-        if ($homeLine -match 'pythoncore-3\.14|Python314') {
-            Warn "Python 3.14 detectado - use 3.11 ou 3.12 em producao"
+        if ($homeLine -match 'pythoncore-3\.(9|10|11)\b') {
+            Warn "Python antigo detectado - Django 6 exige Python 3.12+"
         }
     }
 

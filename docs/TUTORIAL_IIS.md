@@ -82,7 +82,7 @@ Outra porta: `-Porta 8080`
 
 - Windows 10/11 ou Windows Server
 - PowerShell **como Administrador**
-- **Python 3.11 ou 3.12** (evite 3.14+ em produção até validar dependências)
+- **Python 3.12, 3.13 ou 3.14** (Django 6.0 exige **3.12+**)
 
 ---
 
@@ -171,16 +171,17 @@ cd controle-acesso-PAMC
 
 ## 8. Criar o `venv` e instalar dependências
 
-> **Crítico para IIS:** use Python instalado de **python.org** em `C:\Program Files\Python312\` (marque **"Install for all users"**).  
-> **Não use** o instalador da Microsoft Store nem o Python em `AppData\Local\Python\` — o IIS roda como `IIS AppPool\...` e **não acessa** a pasta do usuário.
+> **Crítico para IIS:** use Python instalado de **python.org** em caminho global (ex.: `C:\Python314\` ou `C:\Program Files\Python312\`) com **"Install for all users"**.  
+> **Não use** Python só em `AppData\Local\Python\` — o IIS não acessa a pasta do usuário.
 
 O `web.config` aponta para **`venv\Scripts\python.exe`**. Use o mesmo nome de pasta.
 
 ```powershell
 cd C:\inetpub\wwwroot\controle-acesso-PAMC
 
-# Caminho tipico apos instalar python.org (ajuste a versao)
-& "C:\Program Files\Python312\python.exe" -m venv venv
+# Caminho tipico (ajuste a versao instalada)
+& "C:\Python314\python.exe" -m venv venv
+# ou: & "C:\Program Files\Python312\python.exe" -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```

@@ -1,7 +1,7 @@
 # Sistema de Controle de Acesso
 
-![Django](https://img.shields.io/badge/Django-4.2%2B-092E20?style=for-the-badge&logo=django)
-![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-6.0-092E20?style=for-the-badge&logo=django)
+![Python](https://img.shields.io/badge/Python-3.12--3.14-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Bootstrap](https://img.shields.io/badge/Bootstrap-5.0-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
@@ -226,8 +226,8 @@ core/
 ## 🛠 Tecnologias
 
 ### 💾 **Backend**
-- **Django 4.2+**: Framework web robusto e seguro
-- **Python 3.9+**: Linguagem de programação moderna
+- **Django 6.0**: Framework web robusto e seguro
+- **Python 3.12–3.14**: Linguagem de programação (Django 6.0 exige 3.12+)
 - **SQLite**: Banco de dados embarcado para máxima portabilidade
 - **UV**: Gerenciador moderno de dependências e ambientes virtuais
 
@@ -239,7 +239,8 @@ core/
 
 ### 🔧 **Ferramentas e Bibliotecas**
 ```python
-Django>=4.2.0          # Framework web principal
+Django==6.0.6           # Framework web principal
+django-bootstrap5==26.2 # Componentes Bootstrap 5
 django-bootstrap5       # Integração Bootstrap
 pandas>=2.0.0          # Manipulação de dados
 reportlab>=4.0.4       # Geração de PDFs
@@ -267,7 +268,7 @@ pytz                   # Manipulação de timezones
 - **Acesso Administrator** (apenas para instalação)
 
 ### 🐍 **Python e Dependências**
-- **Python 3.9+** com pip
+- **Python 3.12, 3.13 ou 3.14** com pip ou **uv**
 - **UV** (gerenciador moderno - instalado automaticamente)
 - **Git** (para atualizações automáticas)
 

@@ -1,0 +1,25 @@
+[project]
+name = "controle-acesso-pamc"
+version = "3.2.0"
+description = "Sistema de Controle de Acesso PAMC"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "Django==6.0.6",
+    "django-bootstrap5==26.2",
+    "pandas>=3.0.0,<4",
+    "reportlab>=4.5.0",
+    "python-dotenv>=1.2.0",
+    "requests>=2.34.0",
+    "openpyxl>=3.1.5",
+    "pytz>=2024.1",
+    "uvicorn>=0.49.0",
+    "whitenoise>=6.12.0",
+    "beautifulsoup4>=4.15.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.pip]
+python-version = "3.14"
