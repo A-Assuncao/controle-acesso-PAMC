@@ -56,10 +56,38 @@ def registro_detalhe_treinamento(request, registro_id):
 
 @login_required
 def buscar_servidor_treinamento(request):
-    """API para busca de servidores no ambiente de treinamento."""
-    query = request.GET.get('q', '')
-    resultados = buscar_servidores_helper(query, formato='simples')
-    return JsonResponse(resultados, safe=False)
+    """
+    API para busca de servidores no ambiente de treinamento.
+
+    Busca no cadastro principal (Servidor), sem alterar dashboard/historico de producao.
+    Contrato JSON compativel com static/js/shared.js: ?query=... -> {status, resultados}.
+    """
+    query = (request.GET.get('query') or request.GET.get('q') or '').strip()
+
+    if len(query) < 2:
+        return JsonResponse(
+            {
+                'status': 'error',
+                'message': 'Digite pelo menos 2 caracteres para buscar.',
+            },
+            status=400,
+        )
+
+    resultados_raw = buscar_servidores_helper(query, formato='detalhado')
+    resultados = [
+        {
+            'id': item['id'],
+            'nome': item['nome'],
+            'documento': item['documento'],
+            'setor': item['setor'],
+            'veiculo': item['veiculo'],
+            'tipo_funcionario': item.get('tipo_funcionario'),
+            'plantao': item.get('plantao'),
+        }
+        for item in resultados_raw
+    ]
+
+    return JsonResponse({'status': 'success', 'resultados': resultados})
 
 
 @login_required

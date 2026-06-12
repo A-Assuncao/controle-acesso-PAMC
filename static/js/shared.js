@@ -18,7 +18,7 @@ const buscarServidorDebounced = debounce((query, urlBusca) => {
     console.log('====== INÍCIO: buscarServidorDebounced() ======');
     console.log('Iniciando busca:', { query, urlBusca });
     
-    if (query.length >= 3) {
+    if (query.length >= 2) {
         const url = urlBusca + `?query=${encodeURIComponent(query)}`;
         console.log('URL da busca completa:', url);
         
