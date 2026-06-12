@@ -32,16 +32,16 @@ function Write-Passo([string]$numero, [string]$msg) {
 }
 
 function Show-InstrucoesToken {
-    Write-Titulo "Como obter o token de registro (valido por ~1 hora)"
+    Write-Titulo 'Como obter o token de registro (valido por ~1 hora)'
     Write-Passo "1" "Abra a pagina de novo runner no GitHub (precisa estar logado com permissao de admin no repo):"
     Write-Host ""
     Write-Host "      $TokenPageUrl" -ForegroundColor Cyan
     Write-Host ""
     Write-Passo "2" "Clique em ""New self-hosted runner"""
     Write-Passo "3" "Escolha sistema operacional: Windows e arquitetura: x64"
-    Write-Passo "4" "Na secao ""Configure the runner"", copie o token exibido apos --token"
+    Write-Passo '4' 'Na secao Configure the runner, copie o token exibido apos a opcao --token'
     Write-Host "      (ex.: AXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX)" -ForegroundColor DarkGray
-    Write-Passo "5" "Cole o token aqui quando o script pedir — use logo; expira em ~1 hora"
+    Write-Passo '5' 'Cole o token aqui quando o script pedir - use logo; expira em ~1 hora'
     Write-Host ""
     Write-Host "  Documentacao oficial:" -ForegroundColor DarkGray
     Write-Host "  https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/adding-self-hosted-runners" -ForegroundColor DarkGray
@@ -118,7 +118,7 @@ function Get-RegistrationToken {
     }
 
     Write-Host ""
-    $tokenInformado = Read-Host "Cole o token de registro (--token)"
+    $tokenInformado = Read-Host 'Cole o token de registro (valor apos --token no GitHub)'
     if ([string]::IsNullOrWhiteSpace($tokenInformado)) {
         throw "Token nao informado. Rode o script novamente apos gerar o token no GitHub."
     }
@@ -261,7 +261,7 @@ if (Test-Path $updateScript) {
     Write-Titulo "Preparando permissoes de update (SYSTEM)"
     & $updateScript -ProjectRoot $ProjectRoot -SemTarefaAgendada
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "[AVISO] configurar_update_automatico retornou avisos — verifique antes do primeiro deploy." -ForegroundColor Yellow
+        Write-Host '[AVISO] configurar_update_automatico retornou avisos - verifique antes do primeiro deploy.' -ForegroundColor Yellow
     }
 }
 
