@@ -1,16 +1,30 @@
 @echo off
 setlocal EnableDelayedExpansion
+
+:: update\update.bat — producao IIS (C:\inetpub\wwwroot\...)
+:: Requer Administrador: git pull precisa escrever em .git e iisreset precisa de elevacao.
+::
+:: Uso:
+::   update.bat              duplo clique (pede UAC se necessario)
+::   update.bat silent       tarefa agendada (conta SYSTEM/Admin)
+::   update.bat -SemGit      sem git pull (copia manual)
+
+if /i not "%~1"=="-NoElevate" (
+    net session >nul 2>&1
+    if errorlevel 1 (
+        echo Solicitando permissao de Administrador...
+        powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+            "Start-Process -FilePath 'cmd.exe' -ArgumentList '/c \"\"%~f0\" -NoElevate %*\"' -Verb RunAs"
+        exit /b 0
+    )
+)
+
 goto :main
 
-:: update\update.bat — atualiza controle-acesso-PAMC em producao (IIS)
-:: Uso:
-::   update.bat              duplo clique (pausa no final)
-::   update.bat silent       tarefa agendada
-::   update.bat -SemGit      sem git pull (copia manual de arquivos)
-
 :log
-    echo [%date% %time:~0,8%] %~1
-    echo [%date% %time:~0,8%] %~1>> "%LOG_FILE%"
+    set "LINE=[%date% %time:~0,8%] %~1"
+    echo !LINE!
+    >>"%LOG_FILE%" echo !LINE! 2>nul
     goto :eof
 
 :check_internet
@@ -19,15 +33,6 @@ goto :main
         call :log "ERRO: Sem conexao com a internet."
         exit /b 1
     )
-    exit /b 0
-
-:check_write_permission
-    echo.>"%LOG_DIR%\test.tmp" 2>nul
-    if errorlevel 1 (
-        call :log "ERRO: Sem permissao de escrita em %LOG_DIR%. Execute como administrador."
-        exit /b 1
-    )
-    del "%LOG_DIR%\test.tmp" >nul 2>nul
     exit /b 0
 
 :limpar_pycache
@@ -106,31 +111,30 @@ goto :main
     set "SCRIPT_DIR=%~dp0"
     for %%I in ("%SCRIPT_DIR%..") do set "PROJECT_ROOT=%%~fI"
 
-    set "LOG_DIR=%SCRIPT_DIR%logs"
-    set "LOG_FILE=%LOG_DIR%\update.log"
+    :: Log sempre em %%TEMP%% (inetpub\update\logs costuma bloquear usuario comum)
+    set "LOG_FILE=%TEMP%\controle-acesso-update.log"
     set "TEMP_FILE=%TEMP%\controle_acesso_git_pull.txt"
     set "VENV_ACTIVATE=%PROJECT_ROOT%\venv\Scripts\activate.bat"
     set "HAD_CHANGES=0"
     set "SKIP_GIT=0"
     set "MODE=console"
 
+    if /i "%~1"=="-NoElevate" shift
     if /i "%~1"=="-SemGit" set "SKIP_GIT=1"
     if /i "%~1"=="silent" set "MODE=silent"
-
-    if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" 2>nul
+    if /i "%~2"=="-SemGit" set "SKIP_GIT=1"
+    if /i "%~2"=="silent" set "MODE=silent"
 
     cls
     call :log "=== Iniciando atualizacao do Controle de Acesso ==="
     call :log "Projeto: %PROJECT_ROOT%"
+    call :log "Log: %LOG_FILE%"
 
     call :check_internet
     if errorlevel 1 goto :error
 
-    call :check_write_permission
-    if errorlevel 1 goto :error
-
     if "!SKIP_GIT!"=="1" (
-        call :log "Modo -SemGit: pulando git pull (arquivos copiados manualmente)."
+        call :log "Modo -SemGit: pulando git pull."
         set "HAD_CHANGES=0"
         goto :after_git
     )
@@ -138,13 +142,12 @@ goto :main
     where git >nul 2>nul
     if errorlevel 1 (
         call :log "ERRO: Git nao instalado ou fora do PATH."
-        call :log "Dica: use update.bat -SemGit se voce copiou os arquivos manualmente."
         goto :error
     )
 
     if not exist "%PROJECT_ROOT%\.git" (
-        call :log "AVISO: %PROJECT_ROOT% nao e repositorio Git (.git ausente)."
-        call :log "Dica: clone o repo OU copie core\admin.py manualmente e rode: update.bat -SemGit"
+        call :log "ERRO: .git ausente em %PROJECT_ROOT%"
+        call :log "Use update.bat -SemGit apos copiar arquivos manualmente."
         goto :error
     )
 
@@ -165,11 +168,12 @@ goto :main
         call :log "ERRO: git pull falhou (codigo !PULL_ERROR!). Saida:"
         type "%TEMP_FILE%"
         type "%TEMP_FILE%">>"%LOG_FILE%"
-        findstr /i /c:"Authentication failed" "%TEMP_FILE%" >nul && (
-            call :log "Causa provavel: autenticacao Git (SSH/chave ou token)."
+        findstr /i /c:"Permission denied" "%TEMP_FILE%" >nul && (
+            call :log "Causa: sem permissao em .git — confirme que o script rodou como Administrador."
+            call :log "No CMD Admin: icacls .git /grant Administradores:(OI)(CI)F /T"
         )
-        findstr /i /c:"not a git repository" "%TEMP_FILE%" >nul && (
-            call :log "Causa provavel: pasta .git invalida ou corrompida."
+        findstr /i /c:"Authentication failed" "%TEMP_FILE%" >nul && (
+            call :log "Causa provavel: autenticacao Git."
         )
         findstr /i /c:"would be overwritten by merge" "%TEMP_FILE%" >nul && (
             call :log "Causa provavel: arquivos locais modificados no servidor."
@@ -203,6 +207,7 @@ goto :main
 
 :error
     call :log "=== Atualizacao encerrada com erro ==="
+    call :log "Log completo: %LOG_FILE%"
     if exist "%TEMP_FILE%" del "%TEMP_FILE%" >nul 2>nul
     if /i not "!MODE!"=="silent" pause
     exit /b 1
