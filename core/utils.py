@@ -5,6 +5,8 @@ import pytz
 import unicodedata
 from typing import Dict, Any
 
+PREFIXO_EGRESSO = 'Egresso: '
+
 
 def texto_caixa_alta(texto):
     """
@@ -17,6 +19,27 @@ def texto_caixa_alta(texto):
     valor = str(texto).strip()
     if not valor:
         return ''
+    return valor.upper()
+
+
+def texto_caixa_alta_nome_servidor(nome):
+    """
+    Converte nome do servidor para caixa alta, preservando o prefixo fixo
+    "Egresso: " (saída definitiva de interno) em caixa baixa/mista original.
+    """
+    if nome is None:
+        return ''
+    valor = str(nome).strip()
+    if not valor:
+        return ''
+
+    if normalizar_texto(valor).startswith('egresso:'):
+        _, _, resto = valor.partition(':')
+        resto = resto.strip()
+        if resto:
+            return f'{PREFIXO_EGRESSO}{resto.upper()}'
+        return PREFIXO_EGRESSO.rstrip()
+
     return valor.upper()
 
 

@@ -1,7 +1,7 @@
 from django import forms
 from django.utils import timezone
 from .models import Servidor, RegistroAcesso
-from .utils import texto_caixa_alta
+from .utils import texto_caixa_alta, texto_caixa_alta_nome_servidor
 
 _CAMPOS_TEXTO_MAIUSCULAS = {'class': 'form-control', 'style': 'text-transform: uppercase'}
 
@@ -18,7 +18,7 @@ class ServidorForm(forms.ModelForm):
         }
 
     def clean_nome(self):
-        return texto_caixa_alta(self.cleaned_data.get('nome'))
+        return texto_caixa_alta_nome_servidor(self.cleaned_data.get('nome'))
 
     def clean_setor(self):
         return texto_caixa_alta(self.cleaned_data.get('setor'))

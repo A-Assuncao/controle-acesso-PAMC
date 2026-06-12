@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.validators import RegexValidator
 
-from core.utils import texto_caixa_alta
+from core.utils import texto_caixa_alta, texto_caixa_alta_nome_servidor
 
 
 class CamposNomeSetorMaiusculasMixin:
@@ -11,7 +11,7 @@ class CamposNomeSetorMaiusculasMixin:
 
     def _aplicar_caixa_alta_nome_setor(self):
         if self.nome:
-            self.nome = texto_caixa_alta(self.nome)
+            self.nome = texto_caixa_alta_nome_servidor(self.nome)
         if self.setor:
             self.setor = texto_caixa_alta(self.setor)
 
