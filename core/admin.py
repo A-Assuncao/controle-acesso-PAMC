@@ -451,15 +451,15 @@ class ServidorAdmin(admin.ModelAdmin):
                 '<span style="background: #17a2b8; color: white; padding: 2px 6px; border-radius: 8px; font-size: 10px;">🚗 {}</span>',
                 obj.veiculo
             )
-        return format_html('<span style="color: #6c757d;">-</span>')
+        return mark_safe('<span style="color: #6c757d;">-</span>')
     veiculo_badge.short_description = '🚗 Veículo'
     
     def status_visual(self, obj):
         if obj.ativo:
-            return format_html(
+            return mark_safe(
                 '<span style="color: #28a745; font-size: 16px;" title="Ativo">●</span>'
             )
-        return format_html(
+        return mark_safe(
             '<span style="color: #dc3545; font-size: 16px;" title="Inativo">●</span>'
         )
     status_visual.short_description = '🔄 Status'
@@ -583,10 +583,10 @@ class RegistroAcessoAdmin(admin.ModelAdmin):
     
     def tipo_acesso_visual(self, obj):
         if obj.tipo_acesso == 'ENTRADA':
-            return format_html(
+            return mark_safe(
                 '<span style="background: #28a745; color: white; padding: 4px 8px; border-radius: 12px; font-weight: bold;">↗️ ENTRADA</span>'
             )
-        return format_html(
+        return mark_safe(
             '<span style="background: #dc3545; color: white; padding: 4px 8px; border-radius: 12px; font-weight: bold;">↙️ SAÍDA</span>'
         )
     tipo_acesso_visual.short_description = '🚪 Tipo'
@@ -601,24 +601,24 @@ class RegistroAcessoAdmin(admin.ModelAdmin):
     
     def status_completo(self, obj):
         if obj.tipo_acesso == 'SAIDA':
-            return format_html(
+            return mark_safe(
                 '<span style="color: #6f42c1; font-weight: bold;">🏁 Definitiva</span>'
             )
         elif obj.saida_pendente:
-            return format_html(
+            return mark_safe(
                 '<span style="color: #dc3545; font-weight: bold;">⏳ Pendente</span>'
             )
-        return format_html(
+        return mark_safe(
             '<span style="color: #28a745; font-weight: bold;">✅ Concluído</span>'
         )
     status_completo.short_description = '📊 Status'
     
     def isv_badge(self, obj):
         if obj.isv:
-            return format_html(
+            return mark_safe(
                 '<span style="background: #fd7e14; color: white; padding: 2px 4px; border-radius: 6px; font-size: 10px;">🔒 ISV</span>'
             )
-        return format_html('<span style="color: #6c757d;">-</span>')
+        return mark_safe('<span style="color: #6c757d;">-</span>')
     isv_badge.short_description = '🔒 ISV'
     
     def acoes_registro(self, obj):
@@ -808,10 +808,10 @@ class VideoTutorialAdmin(admin.ModelAdmin):
     
     def status_ativo(self, obj):
         if obj.ativo:
-            return format_html(
+            return mark_safe(
                 '<span style="color: #28a745; font-size: 16px;">●</span> Ativo'
             )
-        return format_html(
+        return mark_safe(
             '<span style="color: #dc3545; font-size: 16px;">●</span> Inativo'
         )
     status_ativo.short_description = '🔄 Status'
