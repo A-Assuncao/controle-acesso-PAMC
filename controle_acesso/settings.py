@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management.utils import get_random_secret_key
 
 # Carrega variáveis de ambiente do arquivo .env
@@ -26,7 +27,9 @@ LOGS_DIR = os.path.join(BASE_DIR, 'logs')
 os.makedirs(LOGS_DIR, exist_ok=True)
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# Usa a chave do .env se definida, senão gera uma automaticamente
+# Em desenvolvimento, gera uma chave aleatória a cada restart (ok para dev).
+# Em produção (DEBUG=False), DJANGO_SECRET_KEY é OBRIGATÓRIO e o sistema
+# falha no boot se não estiver definido — evita sessões inválidas a cada iisreset.
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY') or get_random_secret_key()
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -42,6 +45,20 @@ if allowed_hosts_env == '*':
     ALLOWED_HOSTS = ['*']
 else:
     ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',')]
+
+# Fail-fast em produção: evita deploys acidentais com defaults inseguros.
+# Em dev, o fallback abaixo não dispara (DEBUG=True).
+if not DEBUG:
+    if not os.getenv('DJANGO_SECRET_KEY'):
+        raise ImproperlyConfigured(
+            "DJANGO_SECRET_KEY é obrigatória em produção. "
+            "Gere uma com: python manage.py check_secret_key --generate"
+        )
+    if allowed_hosts_env == '*' or not allowed_hosts_env.strip():
+        raise ImproperlyConfigured(
+            "DJANGO_ALLOWED_HOSTS não pode ser '*' em produção. "
+            "Defina o(s) domínio(s) (ex.: DJANGO_ALLOWED_HOSTS=controle.exemplo.gov.br,www.exemplo.gov.br)"
+        )
 
 # Application definition
 INSTALLED_APPS = [
