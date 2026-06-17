@@ -505,11 +505,11 @@
             Senha temporária
         </div>
         <div class="password-display">
-            <code id="senha-temp" class="password-text" role="textbox" aria-readonly="true"
-                  aria-label="Senha temporária. Use os botões ao lado para copiar ou alternar visibilidade.">{{ senha }}</code>
+            <code id="senha-temp" class="password-text masked" role="textbox" aria-readonly="true"
+                  aria-label="Senha temporária oculta. Use os botões ao lado para copiar ou revelar.">{{ senha }}</code>
             <button type="button" class="btn-icon" id="btn-revelar"
-                    aria-pressed="false" aria-controls="senha-temp" aria-label="Ocultar senha" title="Ocultar senha">
-                <i class="bi bi-eye-slash" aria-hidden="true"></i>
+                    aria-pressed="true" aria-controls="senha-temp" aria-label="Revelar senha" title="Revelar senha">
+                <i class="bi bi-eye" aria-hidden="true"></i>
             </button>
             <button type="button" class="btn-icon" id="btn-copiar" aria-label="Copiar senha" title="Copiar senha">
                 <i class="bi bi-clipboard" aria-hidden="true"></i>
@@ -517,7 +517,7 @@
         </div>
         <div class="btn-row">
             <i class="bi bi-shield-check" aria-hidden="true"></i>
-            <span id="status-senha">Texto selecionado — Ctrl+C copia</span>
+            <span id="status-senha">Senha oculta — clique no olho para mostrar</span>
         </div>
     </section>
 
@@ -637,7 +637,7 @@
     if (!senhaEl || !btnCopiar || !btnRevelar) return;
 
     const senhaOriginal = senhaEl.textContent.trim();
-    let revelada = true;
+    let revelada = false;  // comeca oculta (blur); admin clica no olho para ver
 
     // === Toast ===
     function showToast(msg, tipo) {
@@ -745,8 +745,8 @@
         });
     }
 
-    // === Selecionar senha ao carregar ===
-    selecionarTexto();
+    // === Selecionar senha ao carregar (se ja estiver revelada) ===
+    if (revelada) selecionarTexto();
 
     // === Ctrl/Cmd+C copia a senha quando nada esta selecionado ===
     document.addEventListener('keydown', function(e) {
