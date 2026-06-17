@@ -5,367 +5,729 @@
 
 {% block extra_head %}
 <style>
-    .password-hero {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-        border-radius: 16px;
-        padding: 2rem 2rem 2.5rem;
-        color: #fff;
-        position: relative;
-        overflow: hidden;
+    /* === Design tokens (consistente com login.html) === */
+    :root {
+        --surface: #ffffff;
+        --surface-muted: #f8f9fb;
+        --border: #e6e8ec;
+        --border-strong: #d0d4dc;
+        --text: #1a1f36;
+        --text-muted: #6b7280;
+        --text-subtle: #9aa1ad;
+        --primary: #0d6efd;
+        --primary-hover: #0b5ed7;
+        --success: #198754;
+        --warning-bg: #fff8e1;
+        --warning-border: #ffe69c;
+        --warning-text: #664d03;
+        --code-bg: #f3f4f6;
+        --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+        --shadow-md: 0 4px 6px rgba(15, 23, 42, 0.04), 0 10px 15px rgba(15, 23, 42, 0.08);
+        --radius: 12px;
+        --radius-sm: 8px;
     }
-    .password-hero::before {
-        content: "";
-        position: absolute;
-        top: -50%;
-        right: -20%;
-        width: 60%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 60%);
-        pointer-events: none;
+
+    /* === Layout === */
+    .confirm-page {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 2rem 1rem 4rem;
     }
-    .password-hero h1 {
-        font-size: 1.5rem;
-        font-weight: 600;
-        margin: 0;
+
+    /* === Header === */
+    .confirm-header {
+        text-align: center;
+        margin-bottom: 2rem;
     }
-    .password-hero .lead {
-        opacity: 0.85;
-        margin: 0.5rem 0 0;
-    }
-    .password-box {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 12px;
-        padding: 1.25rem 1.5rem;
-        margin-top: 1.5rem;
-        backdrop-filter: blur(8px);
-    }
-    .password-display {
-        font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
-        font-size: 1.75rem;
-        font-weight: 600;
-        letter-spacing: 1px;
-        color: #ffd166;
-        word-break: break-all;
-        user-select: all;
-        cursor: text;
-        padding: 0.75rem 1rem;
-        background: rgba(0, 0, 0, 0.25);
-        border-radius: 8px;
-        border: 1px dashed rgba(255, 209, 102, 0.4);
-    }
-    .info-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.6rem 0;
-        border-bottom: 1px solid #f0f0f0;
-    }
-    .info-row:last-child { border-bottom: none; }
-    .info-row .label {
-        color: #6c757d;
-        font-size: 0.9rem;
-    }
-    .info-row .value {
-        font-weight: 500;
-        text-align: right;
-    }
-    .step-list {
-        counter-reset: step;
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-    .step-list li {
-        counter-increment: step;
-        padding: 0.5rem 0 0.5rem 2.5rem;
-        position: relative;
-        color: #495057;
-    }
-    .step-list li::before {
-        content: counter(step);
-        position: absolute;
-        left: 0;
-        top: 0.5rem;
-        width: 1.75rem;
-        height: 1.75rem;
-        background: #0f3460;
-        color: #fff;
+    .confirm-header .icon-circle {
+        width: 56px;
+        height: 56px;
         border-radius: 50%;
+        background: #d1fae5;
+        color: #047857;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+        animation: pop-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes pop-in {
+        from { transform: scale(0.5); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+    .confirm-header h1 {
+        font-size: 1.625rem;
+        font-weight: 600;
+        color: var(--text);
+        margin: 0 0 0.375rem;
+        letter-spacing: -0.01em;
+    }
+    .confirm-header p {
+        color: var(--text-muted);
+        margin: 0;
+        font-size: 0.95rem;
+    }
+
+    /* === Banner de alerta (single-use) === */
+    .alert-banner {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        background: var(--warning-bg);
+        border: 1px solid var(--warning-border);
+        border-radius: var(--radius-sm);
+        padding: 0.875rem 1rem;
+        color: var(--warning-text);
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+    .alert-banner i { flex-shrink: 0; margin-top: 2px; }
+    .alert-banner strong { display: block; margin-bottom: 0.125rem; color: #523f02; }
+
+    /* === Card de senha === */
+    .password-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 2rem 1.75rem;
+        margin-bottom: 1rem;
+        box-shadow: var(--shadow-sm);
+        text-align: center;
+    }
+    .password-card .label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-subtle);
+        margin-bottom: 0.875rem;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.85rem;
-        font-weight: 600;
+        gap: 0.375rem;
     }
+    .password-display {
+        position: relative;
+        background: var(--code-bg);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.25rem;
+        min-height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .password-text {
+        font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', 'Monaco', monospace;
+        font-size: 1.625rem;
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: 0.05em;
+        word-break: break-all;
+        line-height: 1.3;
+        transition: filter 200ms ease;
+    }
+    .password-text.masked {
+        filter: blur(6px);
+        user-select: none;
+    }
+    .password-text.masked::after {
+        content: '••••••••••••';
+        letter-spacing: 0.1em;
+    }
+    .password-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    .btn-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--border-strong);
+        background: var(--surface);
+        color: var(--text);
+        border-radius: var(--radius-sm);
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 150ms ease;
+    }
+    .btn-action:hover { background: var(--surface-muted); border-color: var(--text-subtle); }
+    .btn-action:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+    .btn-action.copied {
+        background: #d1fae5;
+        border-color: #6ee7b7;
+        color: #047857;
+    }
+
+    /* === Detalhes do usuário === */
+    .details-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+    .details-card .header {
+        padding: 0.875rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        background: var(--surface-muted);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .details-card dl {
+        margin: 0;
+        padding: 0;
+    }
+    .details-card .row {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 1rem;
+        padding: 0.75rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+        align-items: center;
+    }
+    .details-card .row:last-child { border-bottom: none; }
+    .details-card dt {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .details-card dt i { color: var(--text-subtle); font-size: 0.95rem; }
+    .details-card dd {
+        font-size: 0.9375rem;
+        color: var(--text);
+        margin: 0;
+        font-weight: 500;
+    }
+    .details-card dd code {
+        background: var(--code-bg);
+        padding: 0.125rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+
+    /* === Email card === */
     .email-card {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-left: 4px solid #0d6efd;
-        border-radius: 8px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
         padding: 1.25rem;
+        margin-bottom: 1rem;
+    }
+    .email-card .form-check-input {
+        width: 1.15em;
+        height: 1.15em;
+        margin-top: 0.15em;
+        cursor: pointer;
     }
     .email-card .form-check-input:checked {
-        background-color: #0d6efd;
-        border-color: #0d6efd;
+        background-color: var(--primary);
+        border-color: var(--primary);
+    }
+    .email-card .form-check-label {
+        cursor: pointer;
+        font-weight: 500;
+        color: var(--text);
+        user-select: none;
+    }
+    .email-card .form-check-label small {
+        font-weight: 400;
+        color: var(--text-muted);
+    }
+    .email-card .smtp-warning {
+        margin-top: 0.625rem;
+        padding: 0.5rem 0.625rem;
+        background: #fef3c7;
+        border-radius: 6px;
+        font-size: 0.8125rem;
+        color: #78350f;
+        display: none;
+    }
+    .email-card .smtp-warning.visible { display: flex; align-items: center; gap: 0.375rem; }
+    .email-card .smtp-warning i { color: #d97706; }
+
+    /* === Passos === */
+    .steps-card {
+        background: var(--surface-muted);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .steps-card h2 {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin: 0 0 0.875rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .steps-card ol {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: step-counter;
+    }
+    .steps-card li {
+        counter-increment: step-counter;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.5rem 0;
+        font-size: 0.9rem;
+        color: var(--text);
+        line-height: 1.5;
+    }
+    .steps-card li::before {
+        content: counter(step-counter);
+        flex-shrink: 0;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 50%;
+        background: var(--primary);
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .steps-card li + li { border-top: 1px dashed var(--border); }
+
+    /* === Botão de confirmação === */
+    .confirm-action {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+    }
+    .btn-confirm {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        background: var(--success);
+        color: white;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-size: 0.9375rem;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 150ms ease;
+        box-shadow: var(--shadow-sm);
+    }
+    .btn-confirm:hover { background: #157347; transform: translateY(-1px); box-shadow: var(--shadow-md); }
+    .btn-confirm:focus-visible { outline: 2px solid var(--success); outline-offset: 2px; }
+    .btn-confirm:active { transform: translateY(0); }
+
+    /* === Footer === */
+    .page-footer {
+        text-align: center;
+        font-size: 0.8125rem;
+        color: var(--text-subtle);
+    }
+
+    /* === Toasts === */
+    .toast-stack {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        z-index: 1080;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        max-width: 360px;
+    }
+    .toast-item {
+        background: var(--text);
+        color: white;
+        padding: 0.75rem 1rem;
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-md);
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        animation: toast-in 200ms ease;
+    }
+    .toast-item.success { background: var(--success); }
+    .toast-item.warning { background: #d97706; }
+    .toast-item.error { background: #dc2626; }
+    @keyframes toast-in {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .toast-item.fade-out {
+        animation: toast-out 200ms ease forwards;
+    }
+    @keyframes toast-out {
+        to { transform: translateY(20px); opacity: 0; }
+    }
+
+    /* === Responsivo === */
+    @media (max-width: 576px) {
+        .confirm-page { padding: 1rem 0.75rem 3rem; }
+        .password-card { padding: 1.5rem 1rem; }
+        .password-text { font-size: 1.25rem; }
+        .details-card .row { grid-template-columns: 1fr; gap: 0.25rem; padding: 0.625rem 1rem; }
+        .details-card dt { font-size: 0.8125rem; }
+    }
+
+    /* === Reduced motion === */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-lg-8 col-xl-7">
+<div class="confirm-page">
 
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
-                        <i class="bi bi-info-circle me-2"></i>{{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-
-            <!-- Hero com a senha em destaque -->
-            <div class="password-hero shadow-lg mb-4">
-                <div class="d-flex align-items-start justify-content-between position-relative">
-                    <div>
-                        <h1>
-                            <i class="bi bi-shield-check me-2"></i>
-                            Usuário {{ acao }} com sucesso
-                        </h1>
-                        <p class="lead">
-                            {% if acao == 'criado' %}
-                                Uma senha temporária foi gerada para este usuário.
-                            {% else %}
-                                A senha deste usuário foi redefinida.
-                            {% endif %}
-                        </p>
-                    </div>
-                    <span class="badge bg-warning text-dark fs-6">
-                        <i class="bi bi-clock me-1"></i> Exibição única
-                    </span>
+    {# === Flash messages (Django messages framework) === #}
+    {% if messages %}
+        <div class="mb-3">
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
                 </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 
-                <div class="password-box">
-                    <small class="text-uppercase d-block mb-2" style="opacity: 0.7; letter-spacing: 1px;">
-                        Senha temporária
-                    </small>
-                    <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <code id="senha-temp" class="password-display flex-grow-1 mb-0">{{ senha }}</code>
-                        <button type="button" class="btn btn-warning fw-bold" id="btn-copiar" onclick="copiarSenhaTemp()">
-                            <i class="bi bi-clipboard me-1"></i> <span id="btn-copiar-text">Copiar</span>
-                        </button>
-                    </div>
-                    <small class="d-block mt-2" style="opacity: 0.7;">
-                        <i class="bi bi-hand-index me-1"></i>
-                        Clique no texto para selecionar tudo, ou use o botão. <strong>Esta senha não foi salva no banco</strong> — anote antes de sair.
-                    </small>
-                </div>
-            </div>
-
-            <!-- Dados do usuário -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body p-4">
-                    <h5 class="card-title mb-3">
-                        <i class="bi bi-person-vcard me-2 text-primary"></i>
-                        Dados do usuário
-                    </h5>
-                    <div class="info-row">
-                        <span class="label"><i class="bi bi-person me-1"></i> Nome completo</span>
-                        <span class="value">{{ usuario.get_full_name|default:usuario.username }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label"><i class="bi bi-at me-1"></i> Login</span>
-                        <span class="value"><code>{{ usuario.username }}</code></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label"><i class="bi bi-envelope me-1"></i> Email</span>
-                        <span class="value">
-                            {% if usuario.email %}
-                                <code>{{ usuario.email }}</code>
-                            {% else %}
-                                <span class="text-muted"><em>Não cadastrado</em></span>
-                            {% endif %}
-                        </span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label"><i class="bi bi-shield-lock me-1"></i> Tipo</span>
-                        <span class="value"><span class="badge bg-primary">{{ tipo_nome }}</span></span>
-                    </div>
-                    {% if perfil %}
-                    <div class="info-row">
-                        <span class="label"><i class="bi bi-arrow-repeat me-1"></i> Precisa trocar senha?</span>
-                        <span class="value">
-                            {% if perfil.precisa_trocar_senha %}
-                                <span class="badge bg-warning text-dark">Sim, no próximo login</span>
-                            {% else %}
-                                <span class="badge bg-secondary">Não</span>
-                            {% endif %}
-                        </span>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Envio por email (opcional) -->
-            {% if usuario.email %}
-            <div class="email-card mb-4">
-                <form method="post" id="form-enviar-email">
-                    {% csrf_token %}
-                    <input type="hidden" name="enviar_email" value="1">
-                    <div class="d-flex align-items-start gap-3">
-                        <div class="form-check flex-grow-1">
-                            <input class="form-check-input mt-1" type="checkbox" id="confirmar-email" name="confirmar_email">
-                            <label class="form-check-label fw-semibold" for="confirmar-email">
-                                Enviar credenciais por email para o usuário
-                            </label>
-                            <div class="text-muted small mt-1">
-                                <i class="bi bi-envelope me-1"></i>
-                                Será enviado para <code>{{ usuario.email }}</code> com login, senha temporária e link de acesso.
-                                {% if not user_email_configurado %}
-                                    <br><span class="text-warning">
-                                        <i class="bi bi-exclamation-triangle me-1"></i>
-                                        SMTP não configurado no servidor — o envio falhará.
-                                    </span>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <button type="button" class="btn btn-primary flex-shrink-0" onclick="enviarEmail()" id="btn-enviar">
-                            <i class="bi bi-send me-1"></i> Enviar
-                        </button>
-                    </div>
-                </form>
-            </div>
+    {# === Header com ícone + título + subtítulo === #}
+    <header class="confirm-header" role="status" aria-live="polite">
+        <div class="icon-circle" aria-hidden="true">
+            <i class="bi bi-check-lg"></i>
+        </div>
+        <h1>Usuário {{ acao }} com sucesso</h1>
+        <p>
+            {% if acao == 'criado' %}
+                Uma senha temporária foi gerada. Envie-a ao usuário por canal seguro.
             {% else %}
-            <div class="alert alert-light border mb-4" role="alert">
-                <div class="d-flex align-items-start">
-                    <i class="bi bi-info-circle text-muted me-2 mt-1"></i>
-                    <div>
-                        <strong>Email não cadastrado.</strong>
-                        <div class="small text-muted">
-                            Se quiser enviar a senha por email no futuro, edite o usuário e preencha o campo de email.
-                        </div>
-                    </div>
-                </div>
-            </div>
+                A senha deste usuário foi redefinida. Comunique a nova senha ao usuário.
             {% endif %}
+        </p>
+    </header>
 
-            <!-- Próximos passos -->
-            <div class="card border-0 bg-light mb-4">
-                <div class="card-body p-4">
-                    <h6 class="mb-3"><i class="bi bi-list-check me-2 text-success"></i> Próximos passos</h6>
-                    <ol class="step-list">
-                        <li>Copie a senha temporária acima (Ctrl+C ou clique no botão).</li>
-                        <li>Envie a senha ao usuário por canal seguro (pessoalmente, telefone ou email).</li>
-                        {% if usuario.email and user_email_configurado %}
-                        <li>Ou marque a caixa "Enviar por email" e clique em <strong>Enviar</strong>.</li>
-                        {% endif %}
-                        <li>O usuário faz login e será obrigado a criar uma nova senha.</li>
-                    </ol>
-                </div>
-            </div>
-
-            <!-- Ação final -->
-            <div class="d-flex justify-content-between align-items-center">
-                <small class="text-muted">
-                    <i class="bi bi-shield-check me-1"></i>
-                    Esta página pode ser fechada. A senha não foi salva em banco.
-                </small>
-                <a href="{% url 'user_list' %}" class="btn btn-success btn-lg shadow-sm">
-                    <i class="bi bi-check-lg me-1"></i> Confirmar e voltar
-                </a>
-            </div>
-
-            <div class="text-center mt-4">
-                <small class="text-muted">
-                    <i class="bi bi-building me-1"></i>
-                    Controle de Acesso {{ unidade_prisional }}
-                </small>
-            </div>
+    {# === Banner de alerta: exibicao unica === #}
+    <div class="alert-banner" role="note">
+        <i class="bi bi-clock-history" aria-hidden="true"></i>
+        <div>
+            <strong>Esta senha é exibida apenas uma vez.</strong>
+            Anote-a em local seguro antes de sair desta tela. Não é possível recuperá-la depois.
         </div>
     </div>
+
+    {# === Card de senha em destaque === #}
+    <section class="password-card" aria-labelledby="senha-label">
+        <div class="label" id="senha-label">
+            <i class="bi bi-key-fill" aria-hidden="true"></i>
+            Senha temporária
+        </div>
+        <div class="password-display">
+            <code id="senha-temp" class="password-text" role="textbox" aria-readonly="true"
+                  aria-label="Senha temporária do usuário. Clique em Revelar para visualizar.">{{ senha }}</code>
+        </div>
+        <div class="password-actions">
+            <button type="button" class="btn-action" id="btn-revelar"
+                    aria-pressed="false" aria-controls="senha-temp">
+                <i class="bi bi-eye" aria-hidden="true"></i>
+                <span id="btn-revelar-text">Revelar</span>
+            </button>
+            <button type="button" class="btn-action" id="btn-copiar" onclick="copiarSenha()">
+                <i class="bi bi-clipboard" aria-hidden="true"></i>
+                <span id="btn-copiar-text">Copiar</span>
+            </button>
+        </div>
+    </section>
+
+    {# === Detalhes do usuário === #}
+    <section class="details-card" aria-labelledby="detalhes-label">
+        <div class="header" id="detalhes-label">
+            <i class="bi bi-person-vcard" aria-hidden="true"></i>
+            Detalhes do usuário
+        </div>
+        <dl>
+            <div class="row">
+                <dt><i class="bi bi-person" aria-hidden="true"></i> Nome completo</dt>
+                <dd>{{ usuario.get_full_name|default:usuario.username }}</dd>
+            </div>
+            <div class="row">
+                <dt><i class="bi bi-at" aria-hidden="true"></i> Login</dt>
+                <dd><code>{{ usuario.username }}</code></dd>
+            </div>
+            <div class="row">
+                <dt><i class="bi bi-envelope" aria-hidden="true"></i> Email</dt>
+                <dd>
+                    {% if usuario.email %}
+                        <code>{{ usuario.email }}</code>
+                    {% else %}
+                        <span style="color: var(--text-subtle); font-weight: 400;">Não cadastrado</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div class="row">
+                <dt><i class="bi bi-shield-lock" aria-hidden="true"></i> Tipo</dt>
+                <dd><span class="badge bg-primary-subtle text-primary">{{ tipo_nome }}</span></dd>
+            </div>
+            {% if perfil %}
+            <div class="row">
+                <dt><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Precisa trocar?</dt>
+                <dd>
+                    {% if perfil.precisa_trocar_senha %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis">Sim, no próximo login</span>
+                    {% else %}
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis">Não</span>
+                    {% endif %}
+                </dd>
+            </div>
+            {% endif %}
+        </dl>
+    </section>
+
+    {# === Envio por email (se aplicavel) === #}
+    {% if usuario.email %}
+    <section class="email-card" aria-labelledby="email-label">
+        <form method="post" id="form-enviar-email">
+            {% csrf_token %}
+            <input type="hidden" name="enviar_email" value="1">
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="confirmar-email" name="confirmar_email">
+                <label class="form-check-label" for="confirmar-email" id="email-label">
+                    Enviar credenciais por email
+                    <small class="d-block mt-1">
+                        Será enviado para <code>{{ usuario.email }}</code> com login, senha e link de acesso.
+                    </small>
+                </label>
+            </div>
+            {% if not user_email_configurado %}
+            <div class="smtp-warning visible">
+                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                <span>SMTP não configurado no servidor — o envio falhará. Use o botão Copiar para enviar a senha manualmente.</span>
+            </div>
+            {% else %}
+            <div class="smtp-warning" id="smtp-warning">
+                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                <span>Marque a caixa acima para habilitar o envio.</span>
+            </div>
+            {% endif %}
+            <button type="button" class="btn-action mt-3 w-100 justify-content-center" onclick="enviarEmail()" id="btn-enviar">
+                <i class="bi bi-send" aria-hidden="true"></i>
+                Enviar email
+            </button>
+        </form>
+    </section>
+    {% else %}
+    <section class="email-card" aria-labelledby="sem-email-label">
+        <div class="d-flex align-items-start gap-3">
+            <i class="bi bi-info-circle" style="color: var(--text-subtle); font-size: 1.25rem; margin-top: 2px;" aria-hidden="true"></i>
+            <div id="sem-email-label">
+                <strong style="color: var(--text);">Email não cadastrado.</strong>
+                <p style="margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--text-muted);">
+                    Se quiser enviar a senha por email no futuro, edite o usuário e preencha o campo de email.
+                </p>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    {# === Próximos passos === #}
+    <section class="steps-card" aria-labelledby="passos-label">
+        <h2 id="passos-label">
+            <i class="bi bi-list-check" aria-hidden="true"></i>
+            Próximos passos
+        </h2>
+        <ol>
+            <li>Clique em <strong>Copiar</strong> para copiar a senha.</li>
+            <li>Envie a senha ao usuário por canal seguro (pessoalmente ou por email).</li>
+            {% if usuario.email and user_email_configurado %}
+            <li>Ou marque a caixa de envio por email e clique em <strong>Enviar email</strong>.</li>
+            {% endif %}
+            <li>O usuário faz login e será obrigado a criar uma nova senha.</li>
+        </ol>
+    </section>
+
+    {# === Ação principal === #}
+    <div class="confirm-action">
+        <a href="{% url 'user_list' %}" class="btn-confirm" role="button">
+            <i class="bi bi-check-lg" aria-hidden="true"></i>
+            Confirmar e voltar à lista
+        </a>
+    </div>
+
+    <div class="page-footer">
+        <i class="bi bi-building" aria-hidden="true"></i>
+        Controle de Acesso {{ unidade_prisional }}
+    </div>
 </div>
+
+<div class="toast-stack" id="toast-stack" role="status" aria-live="polite"></div>
 {% endblock %}
 
 {% block extra_scripts %}
 {{ block.super }}
 <script>
-function copiarSenhaTemp() {
-    const senhaEl = document.getElementById('senha-temp');
-    const senha = senhaEl.textContent.trim();
-    const btn = document.getElementById('btn-copiar');
-    const btnText = document.getElementById('btn-copiar-text');
+(function() {
+    'use strict';
 
-    const copiarViaClipboard = (txt) => {
-        if (navigator.clipboard && window.isSecureContext) {
-            return navigator.clipboard.writeText(txt);
-        }
-        // Fallback para http (dev) ou navegadores antigos
+    const senhaEl = document.getElementById('senha-temp');
+    const btnCopiar = document.getElementById('btn-copiar');
+    const btnCopiarText = document.getElementById('btn-copiar-text');
+    const btnRevelar = document.getElementById('btn-revelar');
+    const btnRevelarText = document.getElementById('btn-revelar-text');
+    const toastStack = document.getElementById('toast-stack');
+
+    if (!senhaEl || !btnCopiar || !btnRevelar) return;
+
+    const senhaOriginal = senhaEl.textContent.trim();
+    let revelada = true;  // comeca revelada para UX mais direta
+    senhaEl.classList.remove('masked');
+
+    // === Copiar ===
+    function fallbackCopiar(txt) {
         const ta = document.createElement('textarea');
         ta.value = txt;
         ta.style.position = 'fixed';
+        ta.style.top = '-9999px';
         ta.style.opacity = '0';
         document.body.appendChild(ta);
+        ta.focus();
         ta.select();
         try {
-            document.execCommand('copy');
+            const ok = document.execCommand('copy');
             document.body.removeChild(ta);
-            return Promise.resolve();
+            return ok ? Promise.resolve() : Promise.reject(new Error('execCommand falhou'));
         } catch (e) {
             document.body.removeChild(ta);
             return Promise.reject(e);
         }
+    }
+
+    function copiarTexto(txt) {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(txt).catch(fallbackCopiar.bind(null, txt));
+        }
+        return fallbackCopiar(txt);
+    }
+
+    function showToast(msg, tipo = 'success') {
+        if (!toastStack) return;
+        const t = document.createElement('div');
+        t.className = 'toast-item ' + tipo;
+        t.setAttribute('role', 'status');
+        const icon = tipo === 'success' ? 'check-circle-fill' :
+                     tipo === 'warning' ? 'exclamation-triangle-fill' :
+                     tipo === 'error' ? 'x-circle-fill' : 'info-circle-fill';
+        t.innerHTML = '<i class="bi bi-' + icon + '" aria-hidden="true"></i><span></span>';
+        t.querySelector('span').textContent = msg;
+        toastStack.appendChild(t);
+        setTimeout(() => {
+            t.classList.add('fade-out');
+            setTimeout(() => t.remove(), 220);
+        }, 3200);
+    }
+
+    window.copiarSenha = function() {
+        const senha = senhaOriginal;
+        copiarTexto(senha)
+            .then(() => {
+                btnCopiar.classList.add('copied');
+                const originalText = btnCopiarText.textContent;
+                btnCopiarText.textContent = 'Copiado!';
+                showToast('Senha copiada para a área de transferência.', 'success');
+                setTimeout(() => {
+                    btnCopiar.classList.remove('copied');
+                    btnCopiarText.textContent = originalText;
+                }, 2200);
+            })
+            .catch(() => {
+                // Fallback final: seleciona o texto
+                const range = document.createRange();
+                range.selectNodeContents(senhaEl);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                showToast('Não foi possível copiar automaticamente. Texto selecionado: use Ctrl+C.', 'warning');
+            });
     };
 
-    copiarViaClipboard(senha)
-        .then(() => {
-            const original = btnText.textContent;
-            btnText.textContent = 'Copiado!';
-            btn.classList.remove('btn-warning');
-            btn.classList.add('btn-success');
-            setTimeout(() => {
-                btnText.textContent = original;
-                btn.classList.remove('btn-success');
-                btn.classList.add('btn-warning');
-            }, 2000);
-        })
-        .catch(() => {
-            // Seleciona o texto para o admin copiar manualmente
-            const range = document.createRange();
-            range.selectNodeContents(senhaEl);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-            btnText.textContent = 'Pressione Ctrl+C';
-        });
-}
+    // === Revelar/Ocultar ===
+    window.toggleRevelar = function() {
+        revelada = !revelada;
+        if (revelada) {
+            senhaEl.classList.remove('masked');
+            senhaEl.textContent = senhaOriginal;
+            btnRevelarText.textContent = 'Ocultar';
+            btnRevelar.setAttribute('aria-pressed', 'false');
+            btnRevelar.querySelector('i').className = 'bi bi-eye-slash';
+        } else {
+            senhaEl.classList.add('masked');
+            btnRevelarText.textContent = 'Revelar';
+            btnRevelar.setAttribute('aria-pressed', 'true');
+            btnRevelar.querySelector('i').className = 'bi bi-eye';
+        }
+    };
+    btnRevelar.addEventListener('click', toggleRevelar);
 
-function enviarEmail() {
-    const checkbox = document.getElementById('confirmar-email');
-    if (!checkbox.checked) {
-        // Mostrar alerta inline em vez de submeter
-        checkbox.closest('label').classList.add('text-danger');
-        setTimeout(() => checkbox.closest('label').classList.remove('text-danger'), 2000);
-        return;
-    }
-    const form = document.getElementById('form-enviar-email');
-    const btn = document.getElementById('btn-enviar');
-    const original = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando...';
-    form.submit();
-}
+    // === Enviar email ===
+    window.enviarEmail = function() {
+        const checkbox = document.getElementById('confirmar-email');
+        if (!checkbox || !checkbox.checked) {
+            showToast('Marque a caixa "Enviar credenciais por email" antes de enviar.', 'warning');
+            checkbox && checkbox.focus();
+            return;
+        }
+        const form = document.getElementById('form-enviar-email');
+        const btn = document.getElementById('btn-enviar');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Enviando...';
+        form.submit();
+    };
 
-// Seleciona o texto da senha ao carregar a página
-document.addEventListener('DOMContentLoaded', function() {
-    const senhaEl = document.getElementById('senha-temp');
-    if (senhaEl) {
+    // === Selecionar texto da senha ao carregar ===
+    document.addEventListener('DOMContentLoaded', function() {
         const range = document.createRange();
         range.selectNodeContents(senhaEl);
         const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
-    }
-});
+    });
+
+    // === Ctrl/Cmd+C copia a senha quando nada esta selecionado ===
+    document.addEventListener('keydown', function(e) {
+        const isCopy = (e.ctrlKey || e.metaKey) && e.key === 'c';
+        const sel = window.getSelection();
+        if (isCopy && (!sel || sel.toString().length === 0)) {
+            e.preventDefault();
+            copiarSenha();
+        }
+    });
+})();
 </script>
 {% endblock %}
