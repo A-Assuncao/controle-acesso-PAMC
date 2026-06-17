@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 @login_required
 def registro_acesso_update(request, registro_id):
     """Atualiza registro do dashboard e espelha alterações no histórico."""
-    tz_sp = pytz.timezone('America/Sao_Paulo')
+    tz_manaus = pytz.timezone('America/Manaus')
 
     try:
         dashboard = RegistroDashboard.objects.select_related(
@@ -55,13 +55,13 @@ def registro_acesso_update(request, registro_id):
     try:
         entrada_datetime = dashboard.data_hora
         if data_entrada and hora_entrada:
-            entrada_datetime = tz_sp.localize(
+            entrada_datetime = tz_manaus.localize(
                 datetime.strptime(f"{data_entrada} {hora_entrada}", "%Y-%m-%d %H:%M")
             )
 
         saida_datetime = None
         if data_saida and hora_saida:
-            saida_datetime = tz_sp.localize(
+            saida_datetime = tz_manaus.localize(
                 datetime.strptime(f"{data_saida} {hora_saida}", "%Y-%m-%d %H:%M")
             )
 

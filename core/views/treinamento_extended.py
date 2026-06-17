@@ -487,20 +487,20 @@ def registro_acesso_treinamento_update(request, registro_id):
                 if data_entrada and hora_entrada:
                     try:
                         entrada_datetime = datetime.strptime(f"{data_entrada} {hora_entrada}", "%Y-%m-%d %H:%M")
-                        entrada_datetime = pytz.timezone('America/Sao_Paulo').localize(entrada_datetime)
+                        entrada_datetime = pytz.timezone('America/Manaus').localize(entrada_datetime)
                         registro.data_hora = entrada_datetime
                     except ValueError as e:
                         return JsonResponse({
                             'status': 'error',
                             'message': f'Formato de data/hora de entrada inválido: {e}'
                         }, status=400)
-                
+
                 # Processa a data e hora de saída, se fornecidas
                 saida_datetime = None
                 if data_saida and hora_saida:
                     try:
                         saida_datetime = datetime.strptime(f"{data_saida} {hora_saida}", "%Y-%m-%d %H:%M")
-                        saida_datetime = pytz.timezone('America/Sao_Paulo').localize(saida_datetime)
+                        saida_datetime = pytz.timezone('America/Manaus').localize(saida_datetime)
                         registro.data_hora_saida = saida_datetime
                         registro.saida_pendente = False
                     except ValueError as e:
