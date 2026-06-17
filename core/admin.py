@@ -1,16 +1,7 @@
 # -*- coding: utf-8 -*-
-"""
-Admin personalizado com interface moderna e funcionalidades avançadas.
+"""Admin customizado (Servidor, RegistroAcesso, LogAuditoria, etc).
 
-Melhorias implementadas:
-- 📊 Dashboard estatístico personalizado
-- 🎨 Interface moderna com cores e ícones
-- 🔧 Ações em massa personalizadas
-- 📋 Filtros avançados e widgets customizados
-- 📈 Gráficos e visualizações
-- 🔍 Busca avançada com múltiplos campos
-- 📱 Layout responsivo e intuitivo
-- 🛠️ Ferramentas de administração
+UI em admin_custom.css/js — ver static/.
 """
 
 from django.contrib import admin

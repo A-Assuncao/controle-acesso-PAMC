@@ -216,14 +216,4 @@ def home(request):
         'tipo_usuario': tipo_usuario,
     }
     
-    return render(request, 'core/home.html', context)
-
-
-def trocar_senha_view(request):
-    """View para trocar senha"""
-    return render(request, 'core/trocar_senha.html')
-
-
-def tutoriais_view(request):
-    """View de tutoriais"""
-    return render(request, 'core/tutoriais.html') 
+    return render(request, 'core/home.html', context) 

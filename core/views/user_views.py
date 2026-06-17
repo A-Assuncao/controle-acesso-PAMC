@@ -22,7 +22,6 @@ from django.db.models import Case, When, IntegerField
 from django.urls import reverse
 
 from ..models import LogAuditoria, PerfilUsuario
-from ..decorators import log_errors
 from ..utils import enviar_senha_usuario, get_unidade_prisional
 
 
@@ -130,7 +129,6 @@ def user_list(request):
 
 @login_required
 @user_passes_test(is_staff)
-@log_errors
 def user_create(request):
     """Cria um novo usuário."""
     if request.method == 'POST':
