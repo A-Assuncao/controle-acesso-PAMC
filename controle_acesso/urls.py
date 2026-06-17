@@ -19,10 +19,10 @@ from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.static import serve
 from core.views.base_views import login_view, logout_view
 
 # Handlers de erro personalizados
+handler404 = 'core.views.handler404'
 handler500 = 'core.views.handler500'
 
 urlpatterns = [
@@ -30,10 +30,6 @@ urlpatterns = [
     path('', include('core.urls')),
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
-    
-    # Adicionando rota explícita para arquivos estáticos em produção local
-    # path('static/<path:path>', serve, {'document_root': settings.STATIC_ROOT}),
-    # path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
 
 # Configuração para servir arquivos estáticos e de mídia em desenvolvimento
@@ -43,5 +39,5 @@ if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 else:
     # Em produção, adicionamos os caminhos de mídia
-    # Os arquivos estáticos já são tratados acima
+    # Os arquivos estáticos já são tratados pelo WhiteNoise (ver settings.py STORAGES)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

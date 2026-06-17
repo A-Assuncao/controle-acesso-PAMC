@@ -130,3 +130,8 @@ def tutoriais_treinamento(request):
 def handler500(request):
     """Handler customizado para erros 500."""
     return render(request, '500.html', status=500)
+
+
+def handler404(request, exception=None):
+    """Handler customizado para erros 404 (página não encontrada)."""
+    return render(request, '404.html', status=404)
