@@ -8,6 +8,7 @@ Responsável por:
 - Reset de senhas por administradores
 - Troca de senha pelos próprios usuários
 - Perfis de usuário
+- Tela de confirmação de senha com envio opcional por email
 """
 
 import random
@@ -17,14 +18,63 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.db.models import Case, When, IntegerField
+from django.urls import reverse
 
 from ..models import LogAuditoria, PerfilUsuario
 from ..decorators import log_errors
+from ..utils import enviar_senha_usuario, get_unidade_prisional
 
 
 def is_staff(user):
     """Verifica se o usuário é staff."""
     return user.is_staff
+
+
+@login_required
+@user_passes_test(is_staff)
+def user_confirmacao_senha(request):
+    """
+    Tela de confirmação exibida apos criar/resetar usuario.
+    Mostra a senha temporaria em destaque + botao copiar + opcao de
+    envio por email. A senha vem da sessao (request.session['pending_password'])
+    e NAO e persistida em banco.
+    """
+    pending = request.session.pop('pending_password', None)
+    if not pending:
+        messages.info(request, 'Nenhuma senha pendente para exibir.')
+        return redirect('user_list')
+
+    try:
+        user = User.objects.select_related('perfil').get(pk=pending['user_id'])
+    except User.DoesNotExist:
+        messages.error(request, 'Usuário não encontrado.')
+        return redirect('user_list')
+
+    perfil = getattr(user, 'perfil', None)
+    tipo_nome = perfil.get_tipo_usuario_display() if perfil else 'N/A'
+    senha = pending['senha']
+    acao = pending.get('acao', 'criado')
+
+    if request.method == 'POST':
+        # Reenvio por email solicitado
+        if 'enviar_email' in request.POST:
+            sucesso, msg = enviar_senha_usuario(user, senha, request)
+            if sucesso:
+                messages.success(request, msg)
+            else:
+                messages.warning(request, msg)
+        # Confirmacao manual (admin ja anotou)
+        return redirect('user_list')
+
+    context = {
+        'usuario': user,
+        'perfil': perfil,
+        'tipo_nome': tipo_nome,
+        'senha': senha,
+        'acao': acao,
+        'unidade_prisional': get_unidade_prisional(),
+    }
+    return render(request, 'core/user_confirmacao_senha.html', context)
 
 
 @login_required
@@ -134,13 +184,14 @@ def user_create(request):
             detalhes=f'Criação do usuário {username} ({first_name} {last_name})'
         )
 
-        # Obtém o nome amigável do tipo de usuário
-        tipo_nome = dict(PerfilUsuario.TIPO_USUARIO_CHOICES)[tipo_usuario]
-        messages.success(request, 
-            f'Usuário {username} ({first_name} {last_name}) criado como "{tipo_nome}" com sucesso! '
-            f'A senha temporária é: {password}'
-        )
-        return redirect('user_list')
+        # Armazena a senha temporária na sessão para a tela de confirmação.
+        # Não persiste no banco - sessão é descartada após o admin visualizar.
+        request.session['pending_password'] = {
+            'user_id': user.id,
+            'senha': password,
+            'acao': 'criado',
+        }
+        return redirect('user_confirmacao_senha')
 
     return render(request, 'core/user_form.html')
 
@@ -187,7 +238,13 @@ def user_update(request, pk):
             usuario.set_password(nova_senha)
             perfil.precisa_trocar_senha = True
             perfil.save()
-            messages.success(request, f'Usuário atualizado! Nova senha temporária: {nova_senha}')
+            # Redireciona para a tela de confirmação com a senha na sessão
+            request.session['pending_password'] = {
+                'user_id': usuario.id,
+                'senha': nova_senha,
+                'acao': 'resetado',
+            }
+            return redirect('user_confirmacao_senha')
         elif forcar_troca:
             perfil.precisa_trocar_senha = True
             perfil.save()
@@ -262,8 +319,13 @@ def user_reset_password(request, pk):
         detalhes=f'Reset de senha do usuário {user.username}'
     )
 
-    messages.success(request, f'Senha resetada com sucesso! A nova senha temporária é: {temp_password}')
-    return redirect('user_list')
+    # Redireciona para a tela de confirmação (senha na sessão, nunca persistida)
+    request.session['pending_password'] = {
+        'user_id': user.id,
+        'senha': temp_password,
+        'acao': 'resetado',
+    }
+    return redirect('user_confirmacao_senha')
 
 
 @login_required

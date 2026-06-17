@@ -1,10 +1,13 @@
 from datetime import datetime, date, time, timedelta
 from django.utils import timezone
+import logging
 import os
 import re
 import pytz
 import unicodedata
 from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
 
 PREFIXO_EGRESSO = 'Egresso: '
 
@@ -963,4 +966,116 @@ def get_unidade_prisional():
     Retorna o nome da unidade prisional das variáveis de ambiente.
     Padrão: PAMC se não estiver configurado.
     """
-    return os.getenv('UNIDADE_PRISIONAL', 'PAMC') 
+    return os.getenv('UNIDADE_PRISIONAL', 'PAMC')
+
+
+def enviar_senha_usuario(user, senha, request=None):
+    """
+    Envia email transacional com a senha temporária do usuário.
+
+    Retorna tupla (sucesso: bool, mensagem: str).
+    Falha silenciosa em log de warning se SMTP nao estiver configurado
+    ou se o envio retornar erro - a view de chamada deve mostrar o
+    feedback no template e nao quebrar o fluxo de criacao/reset.
+    """
+    from django.core.mail import send_mail, BadHeaderError, get_connection
+    from django.conf import settings
+    from django.utils.html import escape
+
+    if not user.email:
+        return False, 'Usuário sem email cadastrado - não foi possível enviar.'
+
+    if not getattr(settings, 'EMAIL_HOST', ''):
+        return False, (
+            'SMTP não configurado (EMAIL_HOST ausente no .env). '
+            'A senha foi exibida na tela, copie e envie por outro canal.'
+        )
+
+    unidade = get_unidade_prisional()
+    login_url = ''
+    if request is not None:
+        try:
+            login_url = request.build_absolute_uri('/login/')
+        except Exception:
+            login_url = '/login/'
+
+    full_name = user.get_full_name() or user.username
+
+    assunto = f'[{unidade}] Suas credenciais de acesso ao Controle de Acesso'
+
+    texto_plano = (
+        f'Olá {full_name},\n\n'
+        f'Sua conta no sistema de Controle de Acesso da {unidade} foi criada/resetada.\n\n'
+        f'Login: {user.username}\n'
+        f'Senha temporária: {senha}\n\n'
+        f'Acesse o sistema em: {login_url}\n\n'
+        f'Por segurança, troque a senha no primeiro acesso.\n\n'
+        f'--\n'
+        f'Controle de Acesso {unidade}\n'
+        f'Este é um email automático, não responda.'
+    )
+
+    html = f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"></head>
+<body style="font-family: 'Segoe UI', Tahoma, sans-serif; background: #f4f6f9; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background: linear-gradient(135deg, #003366, #2c3e50); color: white; padding: 24px; text-align: center;">
+      <h1 style="margin: 0; font-size: 22px;">Controle de Acesso</h1>
+      <p style="margin: 8px 0 0; opacity: 0.9;">{escape(unidade)}</p>
+    </div>
+    <div style="padding: 32px;">
+      <p style="font-size: 16px; color: #333;">Olá <strong>{escape(full_name)}</strong>,</p>
+      <p style="color: #555; line-height: 1.6;">
+        Sua conta foi criada/resetada. Use as credenciais abaixo para acessar o sistema.
+        <strong>Por segurança, troque a senha no primeiro acesso.</strong>
+      </p>
+      <table style="width: 100%; border-collapse: collapse; margin: 24px 0;">
+        <tr>
+          <td style="padding: 12px; background: #f8f9fa; border: 1px solid #e0e6ed; font-weight: bold; width: 30%;">Login</td>
+          <td style="padding: 12px; background: white; border: 1px solid #e0e6ed; font-family: monospace; font-size: 16px;">{escape(user.username)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px; background: #f8f9fa; border: 1px solid #e0e6ed; font-weight: bold;">Senha temporária</td>
+          <td style="padding: 12px; background: white; border: 1px solid #e0e6ed; font-family: monospace; font-size: 16px; color: #dc3545;">{escape(senha)}</td>
+        </tr>
+      </table>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="{escape(login_url)}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #003366, #2c3e50); color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+          Acessar Sistema
+        </a>
+      </div>
+      <p style="color: #888; font-size: 13px; line-height: 1.5; border-top: 1px solid #e0e6ed; padding-top: 16px; margin-top: 24px;">
+        Se você não reconhece esta solicitação, ignore este email ou entre em contato com o administrador.
+      </p>
+    </div>
+    <div style="background: #f8f9fa; padding: 16px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #e0e6ed;">
+      Controle de Acesso {escape(unidade)} • Email automático
+    </div>
+  </div>
+</body>
+</html>"""
+
+    try:
+        connection = get_connection() if settings.EMAIL_HOST else None
+        sent = send_mail(
+            subject=assunto,
+            message=texto_plano,
+            from_email=None,  # usa DEFAULT_FROM_EMAIL
+            recipient_list=[user.email],
+            html_message=html,
+            connection=connection,
+            fail_silently=False,
+        )
+        if sent:
+            return True, f'Email enviado para {user.email}.'
+        return False, 'Falha desconhecida ao enviar email.'
+    except BadHeaderError as e:
+        logger.warning('enviar_senha_usuario: BadHeaderError %s', e)
+        return False, f'Cabeçalho de email inválido: {e}'
+    except Exception as e:
+        logger.warning('enviar_senha_usuario: falha SMTP %s', e)
+        return False, (
+            f'Não foi possível enviar email: {e}. '
+            'A senha foi exibida na tela, copie e envie por outro canal.'
+        ) 

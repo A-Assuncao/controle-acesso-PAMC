@@ -1,0 +1,224 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Senha temporária - Controle de Acesso{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="card border-success shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        Usuário {{ acao }} com sucesso
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning border-warning mb-4" role="alert">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-exclamation-triangle-fill me-2 mt-1" style="font-size: 1.3rem;"></i>
+                            <div>
+                                <strong>Esta senha é exibida apenas uma vez.</strong><br>
+                                Anote-a em local seguro antes de sair desta tela. Não é possível recuperá-la depois.
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 class="mb-3">Dados do usuário</h5>
+                    <table class="table table-sm table-borderless mb-4">
+                        <tbody>
+                            <tr>
+                                <th class="text-muted" style="width: 30%;">Nome completo</th>
+                                <td>{{ usuario.get_full_name|default:usuario.username }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Login</th>
+                                <td><code class="fs-6">{{ usuario.username }}</code></td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Email</th>
+                                <td>
+                                    {% if usuario.email %}
+                                        <code>{{ usuario.email }}</code>
+                                    {% else %}
+                                        <span class="text-muted">Não cadastrado</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Tipo de usuário</th>
+                                <td><span class="badge bg-primary">{{ tipo_nome }}</span></td>
+                            </tr>
+                            {% if perfil %}
+                            <tr>
+                                <th class="text-muted">Precisa trocar no próximo login?</th>
+                                <td>
+                                    {% if perfil.precisa_trocar_senha %}
+                                        <span class="badge bg-warning text-dark">Sim</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Não</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+
+                    <h5 class="mb-3">
+                        <i class="bi bi-key-fill me-2"></i>
+                        Senha temporária
+                    </h5>
+                    <div class="bg-light border rounded p-3 mb-3">
+                        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                            <code id="senha-temp" class="fs-4 fw-bold text-danger user-select-all" style="font-family: 'Consolas', 'Monaco', monospace; word-break: break-all;">{{ senha }}</code>
+                            <button type="button" class="btn btn-outline-primary" id="btn-copiar" onclick="copiarSenhaTemp()">
+                                <i class="bi bi-clipboard me-1"></i> Copiar
+                            </button>
+                        </div>
+                        <small class="text-muted d-block mt-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Clique no texto ou no botão para copiar. A senha é <strong>{{ senha|length }} caracteres</strong>.
+                        </small>
+                    </div>
+
+                    {% if usuario.email %}
+                    <div class="card border-info mb-3">
+                        <div class="card-body">
+                            <form method="post" id="form-enviar-email" class="mb-0">
+                                {% csrf_token %}
+                                <input type="hidden" name="enviar_email" value="1">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="confirmar-email" checked>
+                                    <label class="form-check-label" for="confirmar-email">
+                                        <strong>Enviar esta senha por email para o usuário</strong>
+                                    </label>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <small class="text-muted me-auto">
+                                        <i class="bi bi-envelope me-1"></i>
+                                        Será enviado para <code>{{ usuario.email }}</code>
+                                    </small>
+                                    <button type="button" class="btn btn-info" onclick="enviarEmail()">
+                                        <i class="bi bi-send me-1"></i> Enviar Email
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-3" role="alert">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Email não cadastrado para este usuário. A senha deve ser comunicada por outro canal.
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                        <small class="text-muted">
+                            <i class="bi bi-shield-check me-1"></i>
+                            Esta página pode ser fechada. A senha não foi salva em banco.
+                        </small>
+                        <a href="{% url 'user_list' %}" class="btn btn-success">
+                            <i class="bi bi-check-lg me-1"></i> Confirmar e voltar à lista
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-3">
+                <small class="text-muted">
+                    <i class="bi bi-building me-1"></i>
+                    Controle de Acesso {{ unidade_prisional }}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+function copiarSenhaTemp() {
+    const senhaEl = document.getElementById('senha-temp');
+    const senha = senhaEl.textContent.trim();
+    const btn = document.getElementById('btn-copiar');
+
+    const copiarViaClipboard = (txt) => {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(txt);
+        }
+        // Fallback para http (dev) ou navegadores antigos
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            return Promise.resolve();
+        } catch (e) {
+            document.body.removeChild(ta);
+            return Promise.reject(e);
+        }
+    };
+
+    copiarViaClipboard(senha)
+        .then(() => {
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Copiado!';
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-success');
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-primary');
+            }, 2000);
+        })
+        .catch(() => {
+            // Seleciona o texto para o admin copiar manualmente
+            const range = document.createRange();
+            range.selectNodeContents(senhaEl);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        });
+}
+
+function enviarEmail() {
+    const form = document.getElementById('form-enviar-email');
+    const btn = event.target.closest('button');
+    if (!form) return;
+
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando...';
+
+    // Submete o form para a mesma view (POST) que processa o envio
+    form.submit();
+}
+
+// Seleciona o texto da senha ao carregar a página para ctrl+c imediato
+document.addEventListener('DOMContentLoaded', function() {
+    const senhaEl = document.getElementById('senha-temp');
+    if (senhaEl) {
+        const range = document.createRange();
+        range.selectNodeContents(senhaEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+});
+</script>
+{% endblock %}

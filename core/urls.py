@@ -37,6 +37,7 @@ urlpatterns = [
     path('usuarios/<int:pk>/editar/', views.user_update, name='user_update'),
     path('usuarios/<int:pk>/atualizar/', views.user_reset_password, name='user_reset_password'),
     path('usuarios/<int:pk>/excluir/', views.user_delete, name='user_delete'),
+    path('usuarios/confirmacao-senha/', views.user_confirmacao_senha, name='user_confirmacao_senha'),
     path('historico/', views.historico, name='historico'),
     path('registro/saida-definitiva/', views.saida_definitiva, name='saida_definitiva'),
     path('importar-servidores/', views.importar_servidores, name='importar_servidores'),
