@@ -9,6 +9,11 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 
 ## [Unreleased] - **Próximas Melhorias**
 
+### ✨ Adicionado
+- **Tela de confirmacao de senha**: apos criar/resetar usuario, abre pagina dedicada com a senha em destaque (hero gradient + fonte mono), botao "Copiar" e cartao opcional de envio por email. Substitui o flash message que era facil de perder.
+- **Envio de credenciais por email (SMTP)**: funcao `core.utils.enviar_senha_usuario` com template HTML (nome, login, senha, link de login). Configuracao SMTP generica no `settings.py` (funciona com Mailgun, Hostinger, Gmail, Office365 ou servidor interno). Guia passo a passo para Mailgun em `docs/SMTP_MAILGUN.md`.
+- **Campo de email no cadastro de usuarios**: opcional, captura o email para o envio de credenciais.
+
 ### 🐛 Corrigido
 - **Importacao CSV servidores**: leitura com `utf-8-sig`, normalizacao de BOM nos cabecalhos e `colapsar_espacos()` (espacos duplos entre palavras)
 - **Scripts legados removidos**: wrappers IIS/update, `iis_startup.py`, `validate_changelog.py`, `AtualizarControleAcesso.xml`

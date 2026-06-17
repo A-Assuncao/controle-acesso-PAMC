@@ -1,0 +1,172 @@
+# Configuração SMTP com Mailgun
+
+Este guia explica como configurar o Mailgun para o envio de emails
+transacionais (credenciais de novos usuários / reset de senha).
+
+## Por que Mailgun?
+
+- **Free tier generoso**: 5.000 emails/mês (≈ 150 senhas/dia).
+- **Entregabilidade alta**: SPF/DKIM/DMARC gerenciados pelo Mailgun.
+- **SMTP simples**: porta 587 com TLS, autenticação por usuário/senha.
+- **Painel de logs**: rastreia cada envio (entregue, bounce, spam).
+- **API HTTP alternativa** (não usada aqui - usamos SMTP puro).
+
+## Passo 1 — Criar a conta
+
+1. Acesse https://signup.mailgun.com/
+2. Plano recomendado para este projeto: **Flex** (pay-as-you-go) ou **Foundation** (até 50k/mês).
+   Para até 5k/mês, **não há custo** (free tier do plano Foundation).
+3. Confirme o email da conta.
+
+## Passo 2 — Escolher a região
+
+O Mailgun tem dois endpoints SMTP:
+
+| Região | Host | Quando usar |
+|---|---|---|
+| **US** (padrão) | `smtp.mailgun.org` | Accounts antigos ou novos sem seleção de região |
+| **EU** | `smtp.eu.mailgun.net` | Accounts criados após 2024 com região EU selecionada (recomendado para LGPD) |
+
+Para descobrir a sua: no painel, vá em **Sending > Domains**. O subdomínio
+mostrado indica a região (ex.: `sandboxXXXX.mailgun.org` é US,
+`sandboxXXXX.eu.mailgun.net` é EU).
+
+## Passo 3 — Adicionar e verificar o domínio
+
+> **Importante**: o Mailgun só envia para qualquer destinatário se o domínio
+> estiver verificado. Sem verificação, só envia para os "Authorized Recipients"
+> do sandbox.
+
+### 3.1 Adicionar domínio
+
+1. **Sending** (menu lateral) > **Domains** > **Add New Domain**
+2. Nome sugerido: `mg.controle.exemplo.gov.br` (use seu domínio real)
+3. Region: **US** ou **EU** (deve bater com a região da sua conta)
+4. Clique em **Add Domain**
+
+### 3.2 Configurar DNS
+
+O Mailgun mostra os registros DNS que você precisa adicionar no provedor
+do seu domínio (Registro.br, Cloudflare, Route53, etc.):
+
+| Tipo | Host | Valor | Prioridade |
+|---|---|---|---|
+| TXT | `mg.controle.exemplo.gov.br` | `v=spf1 include:mailgun.org ~all` | — |
+| TXT | `mailo._domainkey.mg.controle.exemplo.gov.br` | (valor DKIM longo, copiar do painel) | — |
+| MX | `mg.controle.exemplo.gov.br` | `mxa.mailgun.org` | 10 |
+| CNAME (opcional) | `email.mg.controle.exemplo.gov.br` | `mailgun.org` | — |
+
+Após adicionar, aguarde a propagação (5 min a 48h, geralmente < 1h).
+Volte no painel e clique em **Verify DNS settings**.
+
+### 3.3 Status OK
+
+Quando todos os registros passarem, o badge fica **Active** (verde).
+
+## Passo 4 — Criar credenciais SMTP
+
+1. **Sending** > **Domains** > `[seu domínio verificado]` > **SMTP credentials**
+2. Clique em **Add new SMTP credential** (ou use o `postmaster` que vem por padrão)
+3. Anote:
+   - **Login** (ex.: `postmaster@mg.controle.exemplo.gov.br`)
+   - **Password** — aparece **apenas uma vez**. Copie imediatamente.
+
+> **Não confundir**: o password SMTP NÃO é o password da conta Mailgun.
+> Cada credencial SMTP é gerada separadamente e tem seu próprio password.
+
+## Passo 5 — Configurar o `.env` no servidor
+
+Edite o `.env` do servidor de produção (em `C:\inetpub\wwwroot\controle-acesso-PAMC\.env`):
+
+```ini
+# E-MAIL - Mailgun US region
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.mailgun.org
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=postmaster@mg.controle.exemplo.gov.br
+EMAIL_HOST_PASSWORD=cole-aqui-o-password-smtp-gerado
+DEFAULT_FROM_EMAIL=Controle de Acesso <noreply@mg.controle.exemplo.gov.br>
+SERVER_EMAIL=noreply@mg.controle.exemplo.gov.br
+```
+
+> ⚠️ O `DEFAULT_FROM_EMAIL` **deve** ser um email do domínio verificado,
+> caso contrário o Mailgun rejeita o envio.
+
+Para região EU, troque `EMAIL_HOST` para `smtp.eu.mailgun.net`.
+
+## Passo 6 — Testar
+
+```bash
+# 1. Valida configuracao sem enviar
+python manage.py shell -c "
+from django.conf import settings
+print('Host:', settings.EMAIL_HOST)
+print('User:', settings.EMAIL_HOST_USER)
+print('From:', settings.DEFAULT_FROM_EMAIL)
+"
+
+# 2. Testa envio real (use seu email pessoal)
+python manage.py shell -c "
+from django.core.mail import send_mail
+send_mail(
+    subject='Teste Controle de Acesso',
+    message='Email de teste - se voce recebeu, SMTP esta OK.',
+    from_email=None,
+    recipient_list=['seu.email@exemplo.com'],
+    fail_silently=False,
+)
+"
+```
+
+Se receber o email, está tudo certo. Caso contrário, verifique:
+
+1. `EMAIL_HOST_PASSWORD` está correto (sem espaços, sem aspas a mais)
+2. O domínio está verificado (Active no painel)
+3. O `DEFAULT_FROM_EMAIL` é de um endereço do domínio verificado
+4. Logs do Mailgun em **Sending > Logs** mostram o motivo da falha
+   (Authentication failed, From not in domain, etc.)
+
+## Sandbox (domínio não verificado)
+
+Se você ainda não verificou o domínio e está usando o sandbox
+(`sandboxXXXX.mailgun.org`):
+
+1. O sandbox **só envia para até 5 destinatários autorizados**.
+2. Em **Sending > Domains** > `[sandbox]` > **Authorized Recipients**,
+   adicione seu email pessoal e confirme o convite.
+3. No `.env`, use:
+   ```ini
+   EMAIL_HOST_USER=postmaster@sandboxXXXX.mailgun.org
+   DEFAULT_FROM_EMAIL=sandboxXXXX.mailgun.org
+   ```
+4. Os envios de teste funcionam, mas emails para outros destinatários
+   serão rejeitados até você verificar o domínio real.
+
+**Recomendação**: para ambiente de produção real (PAMC, CPBV, etc.),
+verifique o domínio. Para testes em homologação, sandbox é suficiente.
+
+## Monitoramento
+
+- **Sending > Logs** no painel do Mailgun: cada envio aparece com status
+  (delivered, bounced, complained, failed). Bounces devem ser investigados.
+- **Suppressions** (em **Sending**): lista de emails que retornaram hard
+  bounce ou marcaram como spam. Limpe se necessário.
+- **Stats** (em **Sending**): gráficos de volume, taxa de abertura (se
+  tracking pixel estiver ativo), taxa de bounce.
+
+## Custos
+
+- Plano **Foundation Free**: 5.000 emails/mês, sem custo.
+- Plano **Foundation** pago: 50.000 emails/mês, $35/mês.
+- Plano **Flex** (pay-as-you-go): $0.80/1.000 emails extras.
+
+Para este projeto (1-10 senhas por dia, com crescimento futuro),
+o **Foundation Free** é suficiente por bastante tempo.
+
+## Referências oficiais
+
+- Quickstart: https://documentation.mailgun.com/en/latest/quickstart-sending.html
+- Add domain: https://documentation.mailgun.com/en/latest/user_manual.html#adding-domains
+- DNS records: https://documentation.mailgun.com/en/latest/user_manual.html#verifying-your-domain
+- SMTP credentials: https://documentation.mailgun.com/en/latest/user_manual.html#smtp-credentials
