@@ -672,10 +672,6 @@ class PerfilUsuarioInline(admin.StackedInline):
         ('🔐 Configurações de Acesso', {
             'fields': ('tipo_usuario', 'precisa_trocar_senha'),
         }),
-        ('🔑 Informações de Senha', {
-            'fields': ('senha_temporaria',),
-            'classes': ('collapse',),
-        }),
     )
 
 # =============================================================================

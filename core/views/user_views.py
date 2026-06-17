@@ -46,7 +46,10 @@ def user_list(request):
         )
     ).order_by('ordem_tipo', 'username')
 
-    # Prepara os dados para o template, incluindo informações do perfil
+    # Prepara os dados para o template, incluindo informações do perfil.
+    # A senha temporária NÃO é mais persistida: ela é mostrada uma única vez
+    # na flash message após user_create/user_reset_password/user_update.
+    # Listar usuários não regenera nem exibe a senha.
     users_data = []
     for user in users:
         # Obtém ou cria o perfil do usuário
@@ -59,33 +62,13 @@ def user_list(request):
                 tipo_usuario='OPERADOR'
             )
 
-        # Para usuários de visualização, sempre mostra a senha (mesmo que não seja temporária)
-        # Para outros tipos, só mostra se for senha temporária
-        if perfil.tipo_usuario == 'VISUALIZACAO':
-            # Se não tem senha temporária salva, gera uma nova no padrão
-            if not perfil.senha_temporaria:
-                numeros_aleatorios = ''.join([str(random.randint(0, 9)) for _ in range(4)])
-                senha_temporaria = f"{user.username}@{numeros_aleatorios}"
-                # Atualiza a senha do usuário e salva no perfil
-                user.set_password(senha_temporaria)
-                user.save()
-                perfil.senha_temporaria = senha_temporaria
-                perfil.save()
-            else:
-                senha_temporaria = perfil.senha_temporaria
-        else:
-            # Para outros tipos, só mostra se precisar trocar senha
-            senha_temporaria = perfil.senha_temporaria if perfil.precisa_trocar_senha else None
-
-        # Adiciona à lista de dados
         users_data.append({
             'user': user,
             'perfil': perfil,
-            'senha_temporaria': senha_temporaria
         })
 
     return render(request, 'core/user_list.html', {
-        'users_data': users_data, 
+        'users_data': users_data,
         'is_superuser': request.user.is_superuser
     })
 
@@ -135,11 +118,10 @@ def user_create(request):
             is_staff=is_staff
         )
 
-        # Cria o perfil do usuário com senha temporária
+        # Cria o perfil do usuário
         PerfilUsuario.objects.create(
             usuario=user,
             precisa_trocar_senha=True,  # Força a troca de senha no primeiro login
-            senha_temporaria=password,  # Salva a senha temporária
             tipo_usuario=tipo_usuario  # Usa o tipo selecionado
         )
 
@@ -203,7 +185,6 @@ def user_update(request, pk):
             numeros_aleatorios = ''.join([str(random.randint(0, 9)) for _ in range(4)])
             nova_senha = f"{usuario.username}@{numeros_aleatorios}"
             usuario.set_password(nova_senha)
-            perfil.senha_temporaria = nova_senha
             perfil.precisa_trocar_senha = True
             perfil.save()
             messages.success(request, f'Usuário atualizado! Nova senha temporária: {nova_senha}')
@@ -264,13 +245,12 @@ def user_reset_password(request, pk):
         perfil = PerfilUsuario.objects.create(usuario=user, tipo_usuario='OPERADOR')
 
     # Para usuários de visualização, não força a troca de senha
-    # A senha fica sempre visível e pode ser usada diretamente
+    # A senha é exibida uma única vez na flash message abaixo.
     if perfil.tipo_usuario == 'VISUALIZACAO':
         perfil.precisa_trocar_senha = False
     else:
         perfil.precisa_trocar_senha = True
 
-    perfil.senha_temporaria = temp_password
     perfil.save()
 
     # Registra a ação no log de auditoria
@@ -340,7 +320,6 @@ def trocar_senha(request):
         # Atualiza o perfil do usuário
         try:
             perfil.precisa_trocar_senha = False
-            perfil.senha_temporaria = None  # Limpa a senha temporária
             perfil.save()
         except Exception as e:
             # Se houver erro ao atualizar o perfil, registra o erro mas permite continuar
