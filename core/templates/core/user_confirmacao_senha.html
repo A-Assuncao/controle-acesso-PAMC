@@ -1,140 +1,282 @@
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block title %}Senha temporária - Controle de Acesso{% endblock %}
+{% block title %}Senha temporária gerada - Controle de Acesso{% endblock %}
+
+{% block extra_head %}
+<style>
+    .password-hero {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-radius: 16px;
+        padding: 2rem 2rem 2.5rem;
+        color: #fff;
+        position: relative;
+        overflow: hidden;
+    }
+    .password-hero::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 60%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 60%);
+        pointer-events: none;
+    }
+    .password-hero h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    .password-hero .lead {
+        opacity: 0.85;
+        margin: 0.5rem 0 0;
+    }
+    .password-box {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        margin-top: 1.5rem;
+        backdrop-filter: blur(8px);
+    }
+    .password-display {
+        font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 1.75rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+        color: #ffd166;
+        word-break: break-all;
+        user-select: all;
+        cursor: text;
+        padding: 0.75rem 1rem;
+        background: rgba(0, 0, 0, 0.25);
+        border-radius: 8px;
+        border: 1px dashed rgba(255, 209, 102, 0.4);
+    }
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.6rem 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row .label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    .info-row .value {
+        font-weight: 500;
+        text-align: right;
+    }
+    .step-list {
+        counter-reset: step;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .step-list li {
+        counter-increment: step;
+        padding: 0.5rem 0 0.5rem 2.5rem;
+        position: relative;
+        color: #495057;
+    }
+    .step-list li::before {
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        top: 0.5rem;
+        width: 1.75rem;
+        height: 1.75rem;
+        background: #0f3460;
+        color: #fff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .email-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-left: 4px solid #0d6efd;
+        border-radius: 8px;
+        padding: 1.25rem;
+    }
+    .email-card .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container py-4">
     <div class="row justify-content-center">
-        <div class="col-lg-7">
+        <div class="col-lg-8 col-xl-7">
+
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
-                        {{ message }}
+                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+                        <i class="bi bi-info-circle me-2"></i>{{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 {% endfor %}
             {% endif %}
 
-            <div class="card border-success shadow-sm">
-                <div class="card-header bg-success text-white">
-                    <h4 class="mb-0">
-                        <i class="bi bi-check-circle-fill me-2"></i>
-                        Usuário {{ acao }} com sucesso
-                    </h4>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-warning border-warning mb-4" role="alert">
-                        <div class="d-flex align-items-start">
-                            <i class="bi bi-exclamation-triangle-fill me-2 mt-1" style="font-size: 1.3rem;"></i>
-                            <div>
-                                <strong>Esta senha é exibida apenas uma vez.</strong><br>
-                                Anote-a em local seguro antes de sair desta tela. Não é possível recuperá-la depois.
-                            </div>
-                        </div>
-                    </div>
-
-                    <h5 class="mb-3">Dados do usuário</h5>
-                    <table class="table table-sm table-borderless mb-4">
-                        <tbody>
-                            <tr>
-                                <th class="text-muted" style="width: 30%;">Nome completo</th>
-                                <td>{{ usuario.get_full_name|default:usuario.username }}</td>
-                            </tr>
-                            <tr>
-                                <th class="text-muted">Login</th>
-                                <td><code class="fs-6">{{ usuario.username }}</code></td>
-                            </tr>
-                            <tr>
-                                <th class="text-muted">Email</th>
-                                <td>
-                                    {% if usuario.email %}
-                                        <code>{{ usuario.email }}</code>
-                                    {% else %}
-                                        <span class="text-muted">Não cadastrado</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <th class="text-muted">Tipo de usuário</th>
-                                <td><span class="badge bg-primary">{{ tipo_nome }}</span></td>
-                            </tr>
-                            {% if perfil %}
-                            <tr>
-                                <th class="text-muted">Precisa trocar no próximo login?</th>
-                                <td>
-                                    {% if perfil.precisa_trocar_senha %}
-                                        <span class="badge bg-warning text-dark">Sim</span>
-                                    {% else %}
-                                        <span class="badge bg-secondary">Não</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
+            <!-- Hero com a senha em destaque -->
+            <div class="password-hero shadow-lg mb-4">
+                <div class="d-flex align-items-start justify-content-between position-relative">
+                    <div>
+                        <h1>
+                            <i class="bi bi-shield-check me-2"></i>
+                            Usuário {{ acao }} com sucesso
+                        </h1>
+                        <p class="lead">
+                            {% if acao == 'criado' %}
+                                Uma senha temporária foi gerada para este usuário.
+                            {% else %}
+                                A senha deste usuário foi redefinida.
                             {% endif %}
-                        </tbody>
-                    </table>
+                        </p>
+                    </div>
+                    <span class="badge bg-warning text-dark fs-6">
+                        <i class="bi bi-clock me-1"></i> Exibição única
+                    </span>
+                </div>
 
-                    <h5 class="mb-3">
-                        <i class="bi bi-key-fill me-2"></i>
+                <div class="password-box">
+                    <small class="text-uppercase d-block mb-2" style="opacity: 0.7; letter-spacing: 1px;">
                         Senha temporária
-                    </h5>
-                    <div class="bg-light border rounded p-3 mb-3">
-                        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                            <code id="senha-temp" class="fs-4 fw-bold text-danger user-select-all" style="font-family: 'Consolas', 'Monaco', monospace; word-break: break-all;">{{ senha }}</code>
-                            <button type="button" class="btn btn-outline-primary" id="btn-copiar" onclick="copiarSenhaTemp()">
-                                <i class="bi bi-clipboard me-1"></i> Copiar
-                            </button>
-                        </div>
-                        <small class="text-muted d-block mt-2">
-                            <i class="bi bi-info-circle me-1"></i>
-                            Clique no texto ou no botão para copiar. A senha é <strong>{{ senha|length }} caracteres</strong>.
-                        </small>
+                    </small>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <code id="senha-temp" class="password-display flex-grow-1 mb-0">{{ senha }}</code>
+                        <button type="button" class="btn btn-warning fw-bold" id="btn-copiar" onclick="copiarSenhaTemp()">
+                            <i class="bi bi-clipboard me-1"></i> <span id="btn-copiar-text">Copiar</span>
+                        </button>
                     </div>
-
-                    {% if usuario.email %}
-                    <div class="card border-info mb-3">
-                        <div class="card-body">
-                            <form method="post" id="form-enviar-email" class="mb-0">
-                                {% csrf_token %}
-                                <input type="hidden" name="enviar_email" value="1">
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="confirmar-email" checked>
-                                    <label class="form-check-label" for="confirmar-email">
-                                        <strong>Enviar esta senha por email para o usuário</strong>
-                                    </label>
-                                </div>
-                                <div class="d-flex align-items-center gap-2 flex-wrap">
-                                    <small class="text-muted me-auto">
-                                        <i class="bi bi-envelope me-1"></i>
-                                        Será enviado para <code>{{ usuario.email }}</code>
-                                    </small>
-                                    <button type="button" class="btn btn-info" onclick="enviarEmail()">
-                                        <i class="bi bi-send me-1"></i> Enviar Email
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="alert alert-info mb-3" role="alert">
-                        <i class="bi bi-info-circle me-2"></i>
-                        Email não cadastrado para este usuário. A senha deve ser comunicada por outro canal.
-                    </div>
-                    {% endif %}
-
-                    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
-                        <small class="text-muted">
-                            <i class="bi bi-shield-check me-1"></i>
-                            Esta página pode ser fechada. A senha não foi salva em banco.
-                        </small>
-                        <a href="{% url 'user_list' %}" class="btn btn-success">
-                            <i class="bi bi-check-lg me-1"></i> Confirmar e voltar à lista
-                        </a>
-                    </div>
+                    <small class="d-block mt-2" style="opacity: 0.7;">
+                        <i class="bi bi-hand-index me-1"></i>
+                        Clique no texto para selecionar tudo, ou use o botão. <strong>Esta senha não foi salva no banco</strong> — anote antes de sair.
+                    </small>
                 </div>
             </div>
 
-            <div class="text-center mt-3">
+            <!-- Dados do usuário -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
+                    <h5 class="card-title mb-3">
+                        <i class="bi bi-person-vcard me-2 text-primary"></i>
+                        Dados do usuário
+                    </h5>
+                    <div class="info-row">
+                        <span class="label"><i class="bi bi-person me-1"></i> Nome completo</span>
+                        <span class="value">{{ usuario.get_full_name|default:usuario.username }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label"><i class="bi bi-at me-1"></i> Login</span>
+                        <span class="value"><code>{{ usuario.username }}</code></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label"><i class="bi bi-envelope me-1"></i> Email</span>
+                        <span class="value">
+                            {% if usuario.email %}
+                                <code>{{ usuario.email }}</code>
+                            {% else %}
+                                <span class="text-muted"><em>Não cadastrado</em></span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label"><i class="bi bi-shield-lock me-1"></i> Tipo</span>
+                        <span class="value"><span class="badge bg-primary">{{ tipo_nome }}</span></span>
+                    </div>
+                    {% if perfil %}
+                    <div class="info-row">
+                        <span class="label"><i class="bi bi-arrow-repeat me-1"></i> Precisa trocar senha?</span>
+                        <span class="value">
+                            {% if perfil.precisa_trocar_senha %}
+                                <span class="badge bg-warning text-dark">Sim, no próximo login</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Não</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Envio por email (opcional) -->
+            {% if usuario.email %}
+            <div class="email-card mb-4">
+                <form method="post" id="form-enviar-email">
+                    {% csrf_token %}
+                    <input type="hidden" name="enviar_email" value="1">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="form-check flex-grow-1">
+                            <input class="form-check-input mt-1" type="checkbox" id="confirmar-email" name="confirmar_email">
+                            <label class="form-check-label fw-semibold" for="confirmar-email">
+                                Enviar credenciais por email para o usuário
+                            </label>
+                            <div class="text-muted small mt-1">
+                                <i class="bi bi-envelope me-1"></i>
+                                Será enviado para <code>{{ usuario.email }}</code> com login, senha temporária e link de acesso.
+                                {% if not user_email_configurado %}
+                                    <br><span class="text-warning">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>
+                                        SMTP não configurado no servidor — o envio falhará.
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-primary flex-shrink-0" onclick="enviarEmail()" id="btn-enviar">
+                            <i class="bi bi-send me-1"></i> Enviar
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% else %}
+            <div class="alert alert-light border mb-4" role="alert">
+                <div class="d-flex align-items-start">
+                    <i class="bi bi-info-circle text-muted me-2 mt-1"></i>
+                    <div>
+                        <strong>Email não cadastrado.</strong>
+                        <div class="small text-muted">
+                            Se quiser enviar a senha por email no futuro, edite o usuário e preencha o campo de email.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Próximos passos -->
+            <div class="card border-0 bg-light mb-4">
+                <div class="card-body p-4">
+                    <h6 class="mb-3"><i class="bi bi-list-check me-2 text-success"></i> Próximos passos</h6>
+                    <ol class="step-list">
+                        <li>Copie a senha temporária acima (Ctrl+C ou clique no botão).</li>
+                        <li>Envie a senha ao usuário por canal seguro (pessoalmente, telefone ou email).</li>
+                        {% if usuario.email and user_email_configurado %}
+                        <li>Ou marque a caixa "Enviar por email" e clique em <strong>Enviar</strong>.</li>
+                        {% endif %}
+                        <li>O usuário faz login e será obrigado a criar uma nova senha.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Ação final -->
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                    <i class="bi bi-shield-check me-1"></i>
+                    Esta página pode ser fechada. A senha não foi salva em banco.
+                </small>
+                <a href="{% url 'user_list' %}" class="btn btn-success btn-lg shadow-sm">
+                    <i class="bi bi-check-lg me-1"></i> Confirmar e voltar
+                </a>
+            </div>
+
+            <div class="text-center mt-4">
                 <small class="text-muted">
                     <i class="bi bi-building me-1"></i>
                     Controle de Acesso {{ unidade_prisional }}
@@ -152,6 +294,7 @@ function copiarSenhaTemp() {
     const senhaEl = document.getElementById('senha-temp');
     const senha = senhaEl.textContent.trim();
     const btn = document.getElementById('btn-copiar');
+    const btnText = document.getElementById('btn-copiar-text');
 
     const copiarViaClipboard = (txt) => {
         if (navigator.clipboard && window.isSecureContext) {
@@ -176,14 +319,14 @@ function copiarSenhaTemp() {
 
     copiarViaClipboard(senha)
         .then(() => {
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Copiado!';
-            btn.classList.remove('btn-outline-primary');
+            const original = btnText.textContent;
+            btnText.textContent = 'Copiado!';
+            btn.classList.remove('btn-warning');
             btn.classList.add('btn-success');
             setTimeout(() => {
-                btn.innerHTML = originalHtml;
+                btnText.textContent = original;
                 btn.classList.remove('btn-success');
-                btn.classList.add('btn-outline-primary');
+                btn.classList.add('btn-warning');
             }, 2000);
         })
         .catch(() => {
@@ -193,23 +336,27 @@ function copiarSenhaTemp() {
             const sel = window.getSelection();
             sel.removeAllRanges();
             sel.addRange(range);
+            btnText.textContent = 'Pressione Ctrl+C';
         });
 }
 
 function enviarEmail() {
+    const checkbox = document.getElementById('confirmar-email');
+    if (!checkbox.checked) {
+        // Mostrar alerta inline em vez de submeter
+        checkbox.closest('label').classList.add('text-danger');
+        setTimeout(() => checkbox.closest('label').classList.remove('text-danger'), 2000);
+        return;
+    }
     const form = document.getElementById('form-enviar-email');
-    const btn = event.target.closest('button');
-    if (!form) return;
-
-    const originalHtml = btn.innerHTML;
+    const btn = document.getElementById('btn-enviar');
+    const original = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando...';
-
-    // Submete o form para a mesma view (POST) que processa o envio
     form.submit();
 }
 
-// Seleciona o texto da senha ao carregar a página para ctrl+c imediato
+// Seleciona o texto da senha ao carregar a página
 document.addEventListener('DOMContentLoaded', function() {
     const senhaEl = document.getElementById('senha-temp');
     if (senhaEl) {

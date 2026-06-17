@@ -12,7 +12,7 @@
             <div class="card-body">
                 <form method="post" class="needs-validation" novalidate>
                     {% csrf_token %}
-                    
+
                     {% if not usuario %}
                     <!-- Campos específicos para novo usuário -->
                     <div class="mb-3">
@@ -27,7 +27,7 @@
                         </div>
                     </div>
                     {% endif %}
-                    
+
                     {% if usuario %}
                     <!-- Campos específicos para edição -->
                     <div class="mb-3">
@@ -37,7 +37,7 @@
                             O nome de usuário não pode ser alterado.
                         </div>
                     </div>
-                    
+
                     <div class="mb-3">
                         <div class="form-check">
                             <input type="checkbox" name="redefinir_senha" class="form-check-input" id="redefinir_senha">
@@ -45,12 +45,12 @@
                                 Redefinir senha do usuário
                             </label>
                             <div class="form-text">
-                                Marque esta opção para gerar uma nova senha temporária. 
+                                Marque esta opção para gerar uma nova senha temporária.
                                 O usuário será obrigado a trocar a senha no próximo login.
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="mb-3">
                         <div class="form-check">
                             <input type="checkbox" name="forcar_troca" class="form-check-input" id="forcar_troca">
@@ -58,18 +58,13 @@
                                 Forçar troca de senha no próximo login
                             </label>
                             <div class="form-text">
-                                Marque esta opção para forçar o usuário a trocar sua senha atual 
+                                Marque esta opção para forçar o usuário a trocar sua senha atual
                                 no próximo login, sem redefinir a senha atual.
                             </div>
                         </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">E-mail (opcional)</label>
-                        <input type="email" name="email" class="form-control" value="{{ usuario.email|default:'' }}">
-                    </div>
                     {% endif %}
-                    
+
                     <!-- Campos comuns -->
                     <div class="mb-3">
                         <label class="form-label">Nome*</label>
@@ -78,7 +73,7 @@
                             Por favor, informe o nome.
                         </div>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="form-label">Sobrenome*</label>
                         <input type="text" name="last_name" class="form-control" value="{{ usuario.last_name|default:'' }}" required>
@@ -86,11 +81,20 @@
                             Por favor, informe o sobrenome.
                         </div>
                     </div>
-                    
+
+                    <div class="mb-3">
+                        <label class="form-label">E-mail</label>
+                        <input type="email" name="email" class="form-control" value="{{ usuario.email|default:'' }}" placeholder="usuario@exemplo.gov.br">
+                        <div class="form-text">
+                            Opcional. Se informado, você poderá enviar a senha temporária por email
+                            na tela de confirmação após criar/resetar o usuário.
+                        </div>
+                    </div>
+
                     <div class="mb-4">
                         <label class="form-label">Tipo de Usuário*</label>
                         <div class="form-check">
-                            <input type="radio" name="tipo_usuario" value="OPERADOR" class="form-check-input" id="tipo_operador" 
+                            <input type="radio" name="tipo_usuario" value="OPERADOR" class="form-check-input" id="tipo_operador"
                                    {% if not usuario or usuario.perfil.tipo_usuario == 'OPERADOR' %}checked{% endif %}>
                             <label class="form-check-label" for="tipo_operador">
                                 <strong>🔧 Operador</strong> - Acesso completo em ambos os ambientes

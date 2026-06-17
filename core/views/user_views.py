@@ -17,6 +17,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.contrib import messages
+from django.conf import settings
 from django.db.models import Case, When, IntegerField
 from django.urls import reverse
 
@@ -56,8 +57,9 @@ def user_confirmacao_senha(request):
     acao = pending.get('acao', 'criado')
 
     if request.method == 'POST':
-        # Reenvio por email solicitado
-        if 'enviar_email' in request.POST:
+        # Reenvio por email solicitado. So envia se o admin marcou
+        # explicitamente o checkbox de confirmacao.
+        if 'enviar_email' in request.POST and request.POST.get('confirmar_email') == 'on':
             sucesso, msg = enviar_senha_usuario(user, senha, request)
             if sucesso:
                 messages.success(request, msg)
@@ -66,6 +68,8 @@ def user_confirmacao_senha(request):
         # Confirmacao manual (admin ja anotou)
         return redirect('user_list')
 
+    user_email_configurado = bool(getattr(settings, 'EMAIL_HOST', ''))
+
     context = {
         'usuario': user,
         'perfil': perfil,
@@ -73,6 +77,7 @@ def user_confirmacao_senha(request):
         'senha': senha,
         'acao': acao,
         'unidade_prisional': get_unidade_prisional(),
+        'user_email_configurado': user_email_configurado,
     }
     return render(request, 'core/user_confirmacao_senha.html', context)
 
@@ -132,6 +137,7 @@ def user_create(request):
         username = request.POST.get('username')
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
+        email = (request.POST.get('email') or '').strip()
         tipo_usuario = request.POST.get('tipo_usuario', 'OPERADOR')
 
         # Define is_staff baseado no tipo de usuário
@@ -165,6 +171,7 @@ def user_create(request):
             password=password,
             first_name=first_name,
             last_name=last_name,
+            email=email,
             is_staff=is_staff
         )
 
