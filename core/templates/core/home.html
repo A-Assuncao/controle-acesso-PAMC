@@ -1,12 +1,70 @@
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block title %}Dashboard - Controle de Acesso{% endblock %}
+{% block title %}{% if modo_treinamento %}Treinamento - Controle de Acesso{% else %}Dashboard - Controle de Acesso{% endif %}{% endblock %}
 
 {% block content %}
 {% csrf_token %}
 
-{% if user.is_staff or user.is_superuser %}
+{# === Configuração de modo (produção vs treinamento) === #}
+{# Define window.MODO_TREINAMENTO e window.URLS antes do JS principal.   #}
+{# window.URLS contém todos os endpoints que mudam entre os dois modos.    #}
+{% if modo_treinamento %}
+<script>
+window.MODO_TREINAMENTO = true;
+window.URLS = {
+    registros: '/treinamento/registros/',
+    registro_detalhe: '/treinamento/registro/',  // + /<id>/detalhe/
+    registro_create: '/treinamento/registro/',
+    registro_manual: '/treinamento/registro-manual/',
+    registro_atualizar: '/treinamento/registro/',  // + /<id>/editar/
+    registro_excluir: '/treinamento/registro/',  // + /<id>/excluir/
+    registro_saida: '/treinamento/registro/',  // + /<id>/saida/
+    saida_definitiva: '/treinamento/saida-definitiva/',
+    limpar_dashboard: '/treinamento/limpar-dashboard/',
+    exportar_excel: '/treinamento/exportar-excel/',
+    buscar_servidor: '/treinamento/buscar-servidor/',
+    retirar_faltas: '/treinamento/retirar-faltas/',
+};
+</script>
+{% else %}
+<script>
+window.MODO_TREINAMENTO = false;
+window.URLS = {
+    registros: '/registros-plantao/',
+    registro_detalhe: '/registro/',  // + /<id>/
+    registro_create: '/registro-acesso/criar/',
+    registro_manual: '/registro-manual/criar/',
+    registro_atualizar: '/registro/',  // + /<id>/editar/
+    registro_excluir: '/registro/',  // + /<id>/excluir/
+    registro_saida: '/registro/',  // + /<id>/registrar-saida/
+    saida_definitiva: '/registro/saida-definitiva/',
+    limpar_dashboard: '/limpar-dashboard/',
+    exportar_excel: '/exportar-excel/',
+    buscar_servidor: '/buscar-servidor/',
+    retirar_faltas: '/retirar-faltas/',
+};
+</script>
+{% endif %}
+
+{% if modo_treinamento %}
+<!-- Banner: ambiente de treinamento (nenhum dado real e afetado) -->
+<div class="alert alert-warning border-warning mb-4" role="alert">
+    <div class="d-flex align-items-center">
+        <i class="bi bi-mortarboard-fill me-2 fs-4"></i>
+        <div class="flex-grow-1">
+            <strong>Modo Treinamento</strong>
+            <div class="small">Este é um ambiente seguro para praticar. Nenhuma ação aqui afeta o sistema real nem o histórico de produção.</div>
+        </div>
+        <a href="/dashboard/" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Voltar para produção
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% if not modo_treinamento %}
+    {% if user.is_staff or user.is_superuser %}
 <!-- Acesso ao painel admin Django (apenas administradores) -->
 <div class="row mb-4">
     <div class="col-12">
@@ -31,6 +89,7 @@
         </div>
     </div>
 </div>
+    {% endif %}
 {% endif %}
 
 <!-- Cards de resumo -->
@@ -269,7 +328,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="registroForm" method="post" action="{% url 'registro_acesso_create' %}">
+                <form id="registroForm" method="post" action="{% if modo_treinamento %}{% url 'registro_acesso_treinamento_create' %}{% else %}{% url 'registro_acesso_create' %}{% endif %}">
                     {% csrf_token %}
                     
                     <input type="hidden" name="servidor" id="servidor_id">
@@ -656,7 +715,7 @@ function buscarServidor(query) {
 
     // Aguarda 300ms após o último caractere digitado para fazer a busca
     timeoutBusca = setTimeout(() => {
-        fetch(`/buscar-servidor/?q=${encodeURIComponent(query)}`)
+        fetch(`${URLS.buscar_servidor}?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
             .then(data => {
                 resultados.innerHTML = '';
@@ -815,7 +874,7 @@ if (registroForm) {
 
 function atualizarRegistros() {
     // Evitar mostrar o indicador de carregamento para tornar a atualização menos perceptível
-    fetch('/registros-plantao/')
+    fetch(URLS.registros)
         .then(response => response.json())
         .then(data => {
             // Renderiza a tabela com os dados obtidos
@@ -878,7 +937,7 @@ function confirmarExclusao() {
     formData.append('justificativa', justificativa);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
-    fetch(`/registro/${registroParaExcluir}/excluir/`, {
+    fetch(`${URLS.registro_excluir}${registroParaExcluir}/excluir/`, {
         method: 'POST',
         body: formData
     })
@@ -896,7 +955,7 @@ function confirmarExclusao() {
 }
 
 function exportarExcel() {
-    window.location.href = '/exportar-excel/';
+    window.location.href = URLS.exportar_excel;
 }
 
 function confirmarLimparPlanilha() {
@@ -943,7 +1002,7 @@ function registrarSaidaDefinitiva() {
     formData.append('observacao', justificativa);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
-    fetch('/registro/saida-definitiva/', {
+    fetch(URLS.saida_definitiva, {
         method: 'POST',
         body: formData
     })
@@ -1015,7 +1074,7 @@ function limparDashboard() {
     formData.append('senha', senha);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
-    fetch('/limpar-dashboard/', {
+    fetch(URLS.limpar_dashboard, {
         method: 'POST',
         body: formData
     })
@@ -1058,7 +1117,7 @@ function retirarFaltas() {
     const filtro = filtroFaltasEl ? filtroFaltasEl.value : '';
     
     // Faz a requisição para o backend incluindo o filtro
-    fetch(`/retirar-faltas/?nome=${encodeURIComponent(filtro)}`, {
+    fetch(`${URLS.retirar_faltas}?nome=${encodeURIComponent(filtro)}`, {
         method: 'GET',
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
@@ -1208,7 +1267,7 @@ function retirarFaltas() {
 }
 
 function baixarPDFFaltas() {
-    window.open('/retirar-faltas/?format=pdf', '_blank');
+    window.open(`${URLS.retirar_faltas}?format=pdf`, '_blank');
 }
 
 // Adiciona evento de input no campo de filtro
@@ -1360,7 +1419,7 @@ function registrarSaida(id) {
     const formData = new FormData();
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
-    fetch(`/registro/${id}/registrar-saida/`, {
+    fetch(`${URLS.registro_saida}${id}/registrar-saida/`, {
         method: 'POST',
         body: formData
     })

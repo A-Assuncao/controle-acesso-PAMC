@@ -24,51 +24,16 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def ambiente_treinamento(request):
-    """View principal do ambiente de treinamento."""
-    # Define o timezone UTC-4
-    tz = pytz.timezone('America/Manaus')
-    agora = timezone.localtime(timezone.now(), tz)
-    
-    # Obtém o plantão atual
-    plantao_atual = calcular_plantao_atual()
-    
-    # Filtra registros do plantão atual (todos os registros para treinamento)
-    registros = RegistroAcessoTreinamento.objects.all().select_related('servidor', 'operador')
-    
-    # Calcula totais para os cards (similar ao dashboard principal)
-    total_entradas = registros.filter(tipo_acesso='ENTRADA').count()  # Total de entradas
-    total_saidas = registros.filter(data_hora_saida__isnull=False).count()  # Total de saídas normais
-    total_pendentes = registros.filter(tipo_acesso='ENTRADA', saida_pendente=True).count()  # Entradas sem saída
-    
-    # Lista de servidores para os modais (do banco principal)
-    servidores = Servidor.objects.filter(ativo=True).order_by('nome')
-    
-    # Define mostrar_aviso como False para desativar o aviso de troca de plantão
-    mostrar_aviso = False
-    
-    # Obtém hora atual para uso em outros lugares
-    hora_atual = agora.hour
-    minuto_atual = agora.minute
-    
-    # No ambiente de treinamento, todos têm permissão total
-    context = {
-        'plantao_atual': plantao_atual,
-        'total_entradas': total_entradas,
-        'total_saidas': total_saidas,
-        'total_pendentes': total_pendentes,
-        'servidores': servidores,
-        'mostrar_aviso_plantao': mostrar_aviso,
-        'hora_atual': f"{hora_atual:02d}:{minuto_atual:02d}",
-        'agora': agora,
-        'is_superuser': request.user.is_superuser,
-        'pode_registrar_acesso': True,
-        'pode_excluir_registros': True,
-        'pode_limpar_dashboard': True,
-        'pode_saida_definitiva': True,
-        'tipo_usuario': 'Treinamento'
-    }
-    
-    return render(request, 'core/treinamento.html', context)
+    """
+    View principal do ambiente de treinamento.
+
+    Redireciona para o mesmo template usado pela producao (core/home.html),
+    com o parametro ?treinamento=1. Isso garante que ambos os ambientes
+    usem exatamente o mesmo HTML/JS, sem duplicacao de templates.
+    """
+    # Redireciona para /dashboard/?treinamento=1 — a view 'home' detecta
+    # o parametro via request.GET e renderiza no modo treinamento.
+    return redirect('/dashboard/?treinamento=1')
 
 @login_required
 def registros_plantao_treinamento(request):
