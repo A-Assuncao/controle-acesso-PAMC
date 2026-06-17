@@ -383,12 +383,21 @@ desativar_videos_selecionados.short_description = "❌ Desativar vídeos selecio
 @admin.register(Servidor)
 class ServidorAdmin(admin.ModelAdmin):
     form = ServidorForm
-    
+
     # Layout principal
     list_display = (
-        'nome_formatado', 'documento_mascarado', 'setor_colorido', 
+        'nome_formatado', 'documento_mascarado', 'setor_colorido',
         'veiculo_badge', 'status_visual', 'estatisticas_registros', 'acoes_rapidas'
     )
+
+    def get_queryset(self, request):
+        """Anota contagens agregadas de registros para evitar N+1."""
+        qs = super().get_queryset(request)
+        return qs.annotate(
+            _total_registros=Count('registroacesso'),
+            _total_entradas=Count('registroacesso', filter=Q(registroacesso__tipo_acesso='ENTRADA')),
+            _total_saidas=Count('registroacesso', filter=Q(registroacesso__tipo_acesso='SAIDA')),
+        )
     
     list_filter = (StatusAtivoFilter, PlantaoFilter, 'ativo', 'setor')
     search_fields = ('nome', 'numero_documento', 'setor', 'veiculo')
@@ -477,12 +486,13 @@ class ServidorAdmin(admin.ModelAdmin):
     status_visual.short_description = '🔄 Status'
     
     def estatisticas_registros(self, obj):
-        total = RegistroAcesso.objects.filter(servidor=obj).count()
-        entradas = RegistroAcesso.objects.filter(servidor=obj, tipo_acesso='ENTRADA').count()
-        saidas = RegistroAcesso.objects.filter(servidor=obj, tipo_acesso='SAIDA').count()
-        
+        # Contagens já vêm anotadas pelo get_queryset (evita N+1)
+        total = getattr(obj, '_total_registros', 0)
+        entradas = getattr(obj, '_total_entradas', 0)
+        saidas = getattr(obj, '_total_saidas', 0)
+
         url = reverse('admin:core_registroacesso_changelist') + f'?servidor__id={obj.id}'
-        
+
         return format_html(
             '<a href="{}" style="text-decoration: none;">'
             '<div style="text-align: center; line-height: 1.2;">'
@@ -493,6 +503,7 @@ class ServidorAdmin(admin.ModelAdmin):
             url, total, entradas, saidas
         )
     estatisticas_registros.short_description = '📊 Registros'
+    estatisticas_registros.admin_order_field = '_total_registros'
     
     def acoes_rapidas(self, obj):
         urls = {
