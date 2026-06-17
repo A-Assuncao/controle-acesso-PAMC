@@ -1,16 +1,6 @@
 from datetime import datetime, date, time, timedelta
 from django.utils import timezone
 import os
-import pytz
-import unicodedata
-from typing import Dict, Any
-
-PREFIXO_EGRESSO = 'Egresso: '
-
-
-from datetime import datetime, date, time, timedelta
-from django.utils import timezone
-import os
 import re
 import pytz
 import unicodedata
