@@ -649,12 +649,12 @@ document.addEventListener('DOMContentLoaded', function() {
 function buscarServidor(query) {
     clearTimeout(timeoutBusca);
     const resultados = document.getElementById('resultados-busca');
-    
+
     if (query.length < 2) {
         resultados.style.display = 'none';
         return;
     }
-    
+
     // Aguarda 300ms após o último caractere digitado para fazer a busca
     timeoutBusca = setTimeout(() => {
         fetch(`/buscar-servidor/?q=${encodeURIComponent(query)}`)
@@ -669,8 +669,8 @@ function buscarServidor(query) {
                     item.innerHTML = `
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <strong>${servidor.nome}</strong><br>
-                                <small>${servidor.numero_documento} (${servidor.setor || '-'})</small>
+                                <strong>${escapeHtml(servidor.nome)}</strong><br>
+                                <small>${escapeHtml(servidor.numero_documento)} (${escapeHtml(servidor.setor || '-')})</small>
                             </div>
                             <button class="btn btn-sm btn-success">
                                 Selecionar
@@ -687,6 +687,19 @@ function buscarServidor(query) {
                 resultados.style.display = data.length ? 'block' : 'none';
             });
     }, 300);
+}
+
+// Escapa caracteres HTML para evitar XSS quando dados do servidor sao
+// inseridos via innerHTML. Uso: ${escapeHtml(valor)}.
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, m => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[m]));
 }
 
 // Fecha o autocomplete quando clicar fora
@@ -835,7 +848,7 @@ function atualizarRegistros() {
                     <td colspan="8" class="text-center">
                         <div class="alert alert-danger mb-0">
                             <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            Erro ao carregar registros: ${error.message}
+                            Erro ao carregar registros: ${escapeHtml(error.message)}
                         </div>
                     </td>
                 </tr>
@@ -1098,10 +1111,10 @@ function retirarFaltas() {
                 data.faltosos.forEach(faltoso => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td class="text-center">${faltoso.ord}</td>
-                        <td>${faltoso.nome}</td>
-                        <td>${faltoso.documento}</td>
-                        <td>${faltoso.setor || '-'}</td>
+                        <td class="text-center">${escapeHtml(faltoso.ord)}</td>
+                        <td>${escapeHtml(faltoso.nome)}</td>
+                        <td>${escapeHtml(faltoso.documento)}</td>
+                        <td>${escapeHtml(faltoso.setor || '-')}</td>
                     `;
                     faltasTableBody.appendChild(tr);
                 });
@@ -1129,10 +1142,10 @@ function retirarFaltas() {
                 data.isvs_presentes.forEach(isv => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td class="text-center">${isv.ord}</td>
-                        <td>${isv.nome}</td>
-                        <td>${isv.documento}</td>
-                        <td class="text-center">${isv.hora_entrada}</td>
+                        <td class="text-center">${escapeHtml(isv.ord)}</td>
+                        <td>${escapeHtml(isv.nome)}</td>
+                        <td>${escapeHtml(isv.documento)}</td>
+                        <td class="text-center">${escapeHtml(isv.hora_entrada)}</td>
                     `;
                     isvsTableBody.appendChild(tr);
                 });
@@ -1160,15 +1173,15 @@ function retirarFaltas() {
                 data.permutas_reposicao.forEach(permuta => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td class="text-center">${permuta.ord}</td>
-                        <td>${permuta.nome}</td>
-                        <td>${permuta.documento}</td>
+                        <td class="text-center">${escapeHtml(permuta.ord)}</td>
+                        <td>${escapeHtml(permuta.nome)}</td>
+                        <td>${escapeHtml(permuta.documento)}</td>
                         <td class="text-center">
-                            <span class="badge bg-warning text-dark">${permuta.plantao_servidor}</span>
+                            <span class="badge bg-warning text-dark">${escapeHtml(permuta.plantao_servidor)}</span>
                             <i class="bi bi-arrow-right mx-1"></i>
-                            <span class="badge bg-primary">${permuta.plantao_atual}</span>
+                            <span class="badge bg-primary">${escapeHtml(permuta.plantao_atual)}</span>
                         </td>
-                        <td class="text-center">${permuta.hora_entrada}</td>
+                        <td class="text-center">${escapeHtml(permuta.hora_entrada)}</td>
                     `;
                     permutasTableBody.appendChild(tr);
                 });
@@ -1501,27 +1514,27 @@ function renderizarTabela(data) {
             if (registro.hora_entrada !== '-') totalEntradas++;
             if (registro.hora_saida) totalSaidas++;
             if (registro.hora_entrada !== '-' && !registro.hora_saida) totalPendentes++;
-            
+
             // Cria linha da tabela
             const tr = document.createElement('tr');
             tr.dataset.registroId = registro.id;
             tr.innerHTML = `
                 <td>${index + 1}</td>
-                <td>${registro.servidor_nome}</td>
-                <td>${registro.servidor_documento}</td>
-                <td>${registro.setor}</td>
-                <td>${registro.veiculo}</td>
+                <td>${escapeHtml(registro.servidor_nome)}</td>
+                <td>${escapeHtml(registro.servidor_documento)}</td>
+                <td>${escapeHtml(registro.setor)}</td>
+                <td>${escapeHtml(registro.veiculo)}</td>
                 <td>
                     <span class="badge ${registro.isv ? 'bg-success' : 'bg-secondary'}">
                         ${registro.isv ? 'Sim' : 'Não'}
                     </span>
                 </td>
                 <td>
-                    <span class="badge bg-success">${registro.hora_entrada || '-'}</span>
+                    <span class="badge bg-success">${escapeHtml(registro.hora_entrada || '-')}</span>
                 </td>
                 <td>
-                    ${registro.hora_saida ? 
-                        `<span class="badge bg-danger">${registro.hora_saida}</span>` : 
+                    ${registro.hora_saida ?
+                        `<span class="badge bg-danger">${escapeHtml(registro.hora_saida)}</span>` :
                         `<span class="badge bg-warning">Pendente</span>`
                     }
                 </td>
