@@ -577,19 +577,21 @@ def registrar_entrada_helper(servidor, operador, observacao, isv, is_treinamento
     from django.utils import timezone
     
     if is_treinamento:
-        from .models import Servidor, ServidorTreinamento
-        
+        from .models import Servidor, ServidorTreinamento, RegistroAcessoTreinamento
+
         # Verifica se já existe uma entrada sem saída
-        entrada_pendente = ServidorTreinamento.objects.filter(
+        # (query no model RegistroAcessoTreinamento, que tem o campo
+        # saida_pendente - nao em ServidorTreinamento, que e o cadastro).
+        entrada_pendente = RegistroAcessoTreinamento.objects.filter(
             servidor=servidor,
             saida_pendente=True
         ).exists()
-        
+
         if entrada_pendente:
             return False, 'Este servidor já possui uma entrada sem saída registrada. Registre a saída antes de fazer uma nova entrada.'
-        
+
         # Cria o registro de entrada
-        ServidorTreinamento.objects.create(
+        RegistroAcessoTreinamento.objects.create(
             servidor=servidor,
             operador=operador,
             tipo_acesso='ENTRADA',
@@ -598,10 +600,9 @@ def registrar_entrada_helper(servidor, operador, observacao, isv, is_treinamento
             veiculo=servidor.veiculo,
             setor=servidor.setor,
             saida_pendente=True,
-            status_alteracao='ORIGINAL',
             data_hora=timezone.now()
         )
-        
+
         return True, 'Entrada registrada com sucesso!'
     
     else:
@@ -661,24 +662,25 @@ def registrar_saida_helper(servidor, operador, observacao, is_treinamento=False)
     from django.utils import timezone
     
     if is_treinamento:
-        from .models import ServidorTreinamento
-        
-        # Verifica se existe entrada pendente
-        entrada_pendente = ServidorTreinamento.objects.filter(
+        from .models import RegistroAcessoTreinamento
+
+        # Verifica se existe entrada pendente (query no model
+        # RegistroAcessoTreinamento, que tem o campo saida_pendente).
+        entrada_pendente = RegistroAcessoTreinamento.objects.filter(
             servidor=servidor,
             saida_pendente=True
         ).first()
-        
+
         if not entrada_pendente:
             return False, 'Não foi encontrada uma entrada sem saída para este servidor. Registre uma entrada primeiro.'
-        
+
         # Atualiza o registro existente
         entrada_pendente.data_hora_saida = timezone.now()
         entrada_pendente.operador_saida = operador
         entrada_pendente.observacao_saida = observacao
         entrada_pendente.saida_pendente = False
         entrada_pendente.save()
-        
+
         return True, 'Saída registrada com sucesso!'
     
     else:
