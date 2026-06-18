@@ -873,27 +873,42 @@ if (registroForm) {
 }
 
 function atualizarRegistros() {
-    // Evitar mostrar o indicador de carregamento para tornar a atualização menos perceptível
+    // Endpoint agora retorna {status, registros, totais} (mesmo formato
+    // usado pela view de treinamento) - evita o bug "data.forEach is
+    // not a function" quando o usuario alterna entre os dois modos.
     fetch(URLS.registros)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status + ' ' + response.statusText);
+            }
+            return response.json();
+        })
         .then(data => {
-            // Renderiza a tabela com os dados obtidos
-            renderizarTabela(data);
-            
+            // Erro retornado pelo backend: {status: 'error', message: '...'}
+            if (data && data.status === 'error') {
+                throw new Error(data.message || 'Erro desconhecido');
+            }
+
+            // Extrai a lista de registros do envelope
+            const registros = (data && data.registros) || [];
+
+            // Renderiza a tabela
+            renderizarTabela(registros);
+
             // Reaplica os filtros existentes
             const filtroNomeEl = document.getElementById('filtroNome');
             const filtroDocumentoEl = document.getElementById('filtroDocumento');
             const filtroSetorEl = document.getElementById('filtroSetor');
             const filtroISVEl = document.getElementById('filtroISV');
             const filtroSaidaEl = document.getElementById('filtroSaida');
-            
-            const temFiltroAtivo = 
-                (filtroNomeEl && filtroNomeEl.value) || 
-                (filtroDocumentoEl && filtroDocumentoEl.value) || 
-                (filtroSetorEl && filtroSetorEl.value) || 
-                (filtroISVEl && filtroISVEl.value) || 
+
+            const temFiltroAtivo =
+                (filtroNomeEl && filtroNomeEl.value) ||
+                (filtroDocumentoEl && filtroDocumentoEl.value) ||
+                (filtroSetorEl && filtroSetorEl.value) ||
+                (filtroISVEl && filtroISVEl.value) ||
                 (filtroSaidaEl && filtroSaidaEl.value);
-                
+
             if (temFiltroAtivo) {
                 aplicarFiltros();
             }
@@ -901,16 +916,18 @@ function atualizarRegistros() {
         .catch(error => {
             console.error('Erro ao atualizar registros:', error);
             const tbody = document.getElementById('registros-tbody');
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="8" class="text-center">
-                        <div class="alert alert-danger mb-0">
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            Erro ao carregar registros: ${escapeHtml(error.message)}
-                        </div>
-                    </td>
-                </tr>
-            `;
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center">
+                            <div class="alert alert-danger mb-0">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                Erro ao carregar registros: ${escapeHtml(error.message)}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
             // Esconde a instrução de clique direito em caso de erro
             const instrucaoCliqueDir = document.getElementById('instrucao-clique-direito');
             if (instrucaoCliqueDir) {

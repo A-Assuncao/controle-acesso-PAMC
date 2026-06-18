@@ -39,17 +39,16 @@ def buscar_servidor_treinamento(request):
     """
     API para busca de servidores no ambiente de treinamento.
 
-    Busca no cadastro principal (Servidor), sem alterar dashboard/historico de producao.
-    Contrato JSON compativel com static/js/shared.js: ?query=... -> {status, resultados}.
+    Busca no cadastro principal (Servidor), sem alterar dashboard/historico
+    de producao. Retorna uma lista JSON simples (mesmo formato da view
+    de producao em /buscar-servidor/) - o JS do dashboard faz
+    data.forEach diretamente.
     """
     query = (request.GET.get('query') or request.GET.get('q') or '').strip()
 
     if len(query) < 2:
         return JsonResponse(
-            {
-                'status': 'error',
-                'message': 'Digite pelo menos 2 caracteres para buscar.',
-            },
+            {'detail': 'Digite pelo menos 2 caracteres para buscar.'},
             status=400,
         )
 
@@ -58,16 +57,17 @@ def buscar_servidor_treinamento(request):
         {
             'id': item['id'],
             'nome': item['nome'],
-            'documento': item['documento'],
-            'setor': item['setor'],
-            'veiculo': item['veiculo'],
+            'numero_documento': item.get('documento', ''),
+            'documento': item.get('documento', ''),
+            'setor': item.get('setor', ''),
+            'veiculo': item.get('veiculo', ''),
             'tipo_funcionario': item.get('tipo_funcionario'),
             'plantao': item.get('plantao'),
         }
         for item in resultados_raw
     ]
 
-    return JsonResponse({'status': 'success', 'resultados': resultados})
+    return JsonResponse(resultados, safe=False)
 
 
 @login_required
