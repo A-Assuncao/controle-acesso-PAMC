@@ -10,15 +10,16 @@
         border-bottom: 2px solid #e6e8ec;
         flex-wrap: wrap !important;
         overflow-x: visible !important;
-        column-gap: 0.25rem !important;     /* gap horizontal entre colunas */
-        row-gap: 0.5rem !important;          /* gap vertical entre linhas quebradas */
+        column-gap: 4px !important;
+        row-gap: 6px !important;
         padding: 0 !important;
         margin: 0 !important;
-        /* Forcar todas as tabs com a MESMA largura via CSS grid.
-           minmax(110px, 1fr) garante minimo para o texto caber, mas
-           se a tab e muito larga, encolhe para 1fr igual as outras. */
+        /* Forcar todas as tabs com a MESMA largura.
+           Usando 1fr em cada coluna garante proporcao igual.
+           min-width 0 permite encolher. */
         display: grid !important;
-        grid-template-columns: repeat(11, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(11, 1fr) !important;
+        width: 100%;
     }
     ul.tutorial-tabs li.nav-item {
         flex: 0 0 auto;
