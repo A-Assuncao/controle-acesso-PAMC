@@ -54,6 +54,13 @@ Thumbs.db
 # Logs gerados em runtime (nao versionar)
 logs/*.html
 
+# Prints/screenshots locais de debug
+docs/prints/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
 # Pytest
 .pytest_cache
 
