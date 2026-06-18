@@ -335,20 +335,14 @@ videos:
     ordem: 7
     descricao: "Menu Historico. Lista completa de registros de TODOS os plantoes. Filtros por data, servidor, plantao. Exportar Excel."
 
-  - titulo: "O que e o Log de Auditoria (Admin)"
+  - titulo: "O que e o Log de Auditoria"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     categoria: "CADASTROS"
     ordem: 8
-    descricao: "Registra TODAS as acoes sensiveis (criar/editar/excluir usuarios, registros, servidores). Visivel no Django admin em core/LogAuditoria."
+    descricao: "Registra TODAS as acoes sensiveis (criar/editar/excluir usuarios, registros, servidores). Visivel em core/LogAuditoria."
 
-  - titulo: "Painel administrativo do Django (Admin)"
+  - titulo: "Como configurar email para envio de credenciais"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     categoria: "CADASTROS"
     ordem: 9
-    descricao: "Apenas superusers. URL: /admin/. Acessa banco diretamente, edicao de qualquer model, gerenciamento avancado. Use com cuidado."
-
-  - titulo: "Como configurar email para envio de credenciais (Admin)"
-    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "CADASTROS"
-    ordem: 10
     descricao: "Variaveis EMAIL_HOST/USER/PASSWORD no .env. Guia em docs/SMTP_MAILGUN.md. Permite enviar senha do novo usuario por email."
