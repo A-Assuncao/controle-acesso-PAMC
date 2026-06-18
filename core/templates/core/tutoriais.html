@@ -10,23 +10,17 @@
         border-bottom: 2px solid #e6e8ec;
         flex-wrap: wrap !important;
         overflow-x: visible !important;
-        column-gap: 4px !important;
-        row-gap: 6px !important;
+        gap: 4px !important;
         padding: 0 !important;
         margin: 0 !important;
-        /* Forcar todas as tabs com a MESMA largura.
-           Usando 1fr em cada coluna garante proporcao igual.
-           min-width 0 permite encolher. */
-        display: grid !important;
-        grid-template-columns: repeat(11, 1fr) !important;
-        width: 100%;
+        display: flex !important;
     }
     ul.tutorial-tabs li.nav-item {
-        flex: 0 0 auto;
+        flex: 1 1 0 !important;
         min-width: 0;
         margin: 0 !important;
         padding: 0 !important;
-        float: none !important;   /* remove float do Bootstrap */
+        float: none !important;
     }
     ul.tutorial-tabs .nav-link,
     ul.tutorial-tabs button.nav-link {
@@ -45,10 +39,7 @@
         justify-content: center;
         border-radius: 8px 8px 0 0;
         transition: all 150ms ease;
-        /* Texto sempre em 1 linha com truncamento */
-        white-space: nowrap !important;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        width: 100%;
     }
     ul.tutorial-tabs .nav-link:hover {
         color: #003366 !important;
