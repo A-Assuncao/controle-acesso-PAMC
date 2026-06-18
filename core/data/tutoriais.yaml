@@ -9,99 +9,346 @@
 #   - url_youtube:  string (obrigatorio) - URL completa do video no YouTube
 #   - categoria:    string - uma das opcoes abaixo
 #   - descricao:    string (opcional, recomendado)
+#   - ordem:        int - posicao dentro da categoria (menor = primeiro)
 #
-# Categorias validas:
-#   ENTRADA    - Registro de entrada
-#   SAIDA      - Registro de saida
-#   EDICAO     - Edicao de registros
-#   EXCLUSAO   - Exclusao de registros
-#   PLANILHA   - Gerenciamento da planilha
-#   GERAL      - Funcionalidades gerais
+# Categorias validas (ordem = jornada do operador):
+#   ACESSO            - login, logout, tipos de usuario
+#   DASHBOARD         - visao geral, cards, contadores
+#   BUSCAR_SERVIDOR   - busca no campo de pesquisa
+#   REGISTRO_ENTRADA  - registrar entrada (com/sem ISV, com/sem veiculo)
+#   REGISTRO_SAIDA    - registrar saida normal
+#   SAIDA_DEFINITIVA  - saida definitiva de interno
+#   CONSULTAR         - filtros, menu de contexto (clique direito)
+#   RETIRAR_FALTAS    - relatorio de faltas + exportacao PDF
+#   ENCERRAR          - fim de plantao: exportar Excel, lancar livro, limpar
+#   TREINAMENTO       - ambiente de treinamento
+#   CADASTROS         - servidores, usuarios, historico, auditoria (apenas staff)
 #
-# Os videos sao exibidos agrupados por categoria. Dentro de cada categoria,
-# a ordem e a mesma do arquivo.
+# Os videos sao exibidos em ABAS, uma por categoria, na ordem abaixo.
+# Dentro de cada aba, os videos sao ordenados pelo campo 'ordem'.
 #
 # Para descobrir o ID do video no YouTube: na URL do video, o ID fica
 # depois de '?v=' ou 'youtu.be/'. Exemplo: youtube.com/watch?v=ABC123 -> id=ABC123
 
 videos:
-  # === Registro de entrada ===
-  - titulo: "Como buscar um servidor"
-    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "ENTRADA"
-    descricao: "Aprenda a usar a busca por nome, CPF ou matricula para encontrar o servidor no cadastro."
 
-  - titulo: "Registrando uma entrada simples"
+  # =================================================================
+  # ETAPA 1: ACESSO
+  # =================================================================
+  - titulo: "Visão geral do sistema de Controle de Acesso"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "ENTRADA"
-    descricao: "Passo a passo para registrar a entrada de um servidor sem veiculo, sem ISV."
+    categoria: "ACESSO"
+    ordem: 1
+    descricao: "Entenda o que e o sistema, para que serve, e qual o fluxo geral de uso no dia a dia do plantao."
 
-  - titulo: "Registrando entrada com veiculo e ISV"
+  - titulo: "Como fazer login (local e Canaime)"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "ENTRADA"
-    descricao: "Quando marcar a opcao ISV (servico voluntario) e como registrar a placa do veiculo."
+    categoria: "ACESSO"
+    ordem: 2
+    descricao: "Use o mesmo login e senha do Sistema Canaime. O sistema cria sua conta automaticamente no primeiro acesso."
 
-  # === Registro de saida ===
-  - titulo: "Registrando uma saida normal"
+  - titulo: "Tipos de usuario: Operador, Visualizacao, Staff, Administrador"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "SAIDA"
-    descricao: "Como registrar a saida de um servidor que ja entrou (data de saida automatica)."
+    categoria: "ACESSO"
+    ordem: 3
+    descricao: "Entenda o que cada tipo de usuario pode fazer: Operador (acesso total), Visualizacao (so leitura), Staff (gerencia usuarios), Administrador (acesso total ao Django admin)."
 
-  - titulo: "Saida definitiva de interno (egresso)"
+  - titulo: "Como fazer logout com seguranca"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "SAIDA"
-    descricao: "Quando e como usar a saida definitiva - usada para internos com saida permanente."
+    categoria: "ACESSO"
+    ordem: 4
+    descricao: "Sempre faca logout ao sair do plantao, especialmente em computadores compartilhados. Use o menu no canto superior direito."
 
-  # === Edicao de registros ===
-  - titulo: "Editando data/hora de um registro"
+  # =================================================================
+  # ETAPA 2: VISAO GERAL DO DASHBOARD
+  # =================================================================
+  - titulo: "Conhecendo o dashboard: o que cada coisa significa"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "EDICAO"
-    descricao: "Como corrigir a data ou hora de uma entrada/saida ja registrada. Requer justificativa."
+    categoria: "DASHBOARD"
+    ordem: 1
+    descricao: "O que sao os cards no topo (Plantao Atual, Entradas, Saidas, Saidas Pendentes), a barra de busca, a tabela de registros, e os botoes de acao."
 
-  - titulo: "Editando ISV e veiculo"
+  - titulo: "Entendendo o card 'Plantao Atual'"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "EDICAO"
-    descricao: "Ajuste de informacoes complementares (servico voluntario, placa) em um registro existente."
+    categoria: "DASHBOARD"
+    ordem: 2
+    descricao: "O sistema funciona em plantao: ALFA, BRAVO, CHARLIE, DELTA. Cada um dura 24h e comeca as 07:30. Entenda como funciona o ciclo."
 
-  # === Exclusao de registros ===
-  - titulo: "Excluindo um registro com justificativa"
+  - titulo: "Entendendo os contadores (Entradas, Saidas, Saidas Pendentes)"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "EXCLUSAO"
-    descricao: "Como excluir um registro do dashboard - exige justificativa obrigatoria e fica no historico."
+    categoria: "DASHBOARD"
+    ordem: 3
+    descricao: "Entradas = quantos servidores entraram no plantao. Saidas = quantos ja sairam. Saidas Pendentes = quantos estao dentro do plantao (entraram mas nao sairam ainda)."
 
-  # === Gerenciamento da planilha ===
-  - titulo: "Limpando a planilha (com senha de confirmacao)"
+  - titulo: "Os botoes do dashboard: o que cada um faz"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "PLANILHA"
-    descricao: "Acao que remove todos os registros finalizados. Requer senha do operador. Registros com saida pendente sao preservados."
+    categoria: "DASHBOARD"
+    ordem: 4
+    descricao: "Exportar Excel, Retirar Faltas, Limpar Planilha. Cada botao tem uma funcao especifica - veja quando usar cada um."
 
-  - titulo: "Exportando a planilha para Excel"
+  # =================================================================
+  # ETAPA 3: BUSCAR SERVIDOR
+  # =================================================================
+  - titulo: "Como buscar um servidor por nome"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "PLANILHA"
-    descricao: "Como gerar o arquivo .xlsx com todos os registros do plantao atual."
+    categoria: "BUSCAR_SERVIDOR"
+    ordem: 1
+    descricao: "Digite o nome no campo de busca. O autocomplete mostra resultados a partir de 2 caracteres. Busca por nome, CPF ou matricula."
 
-  - titulo: "Filtrando registros na planilha"
+  - titulo: "O que significa ISV e como identificar visualmente"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "PLANILHA"
-    descricao: "Uso dos filtros por nome, documento, setor, ISV e saida (pendente/concluido)."
+    categoria: "BUSCAR_SERVIDOR"
+    ordem: 2
+    descricao: "ISV = Instrucao de Servico Voluntario. Servidores com ISV estao em missao temporaria e tem regime especial de entradas/saidas. Veja como eles aparecem no cadastro."
 
-  # === Funcionalidades gerais ===
-  - titulo: "Navegando pelo sistema"
+  - titulo: "Quando o servidor nao aparece na busca"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "GERAL"
-    descricao: "Visao geral das paginas, menus e contexto de uso do Controle de Acesso."
+    categoria: "BUSCAR_SERVIDOR"
+    ordem: 3
+    descricao: "Se o servidor nao aparece, pode ser: (1) nao esta cadastrado, (2) foi desativado. Procure na pagina de Servidores (apenas Staff) ou peca ao administrador para cadastrar."
 
-  - titulo: "Entendendo os contadores do dashboard"
+  # =================================================================
+  # ETAPA 4: REGISTRAR ENTRADA
+  # =================================================================
+  - titulo: "Como abrir o modal de registro"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "GERAL"
-    descricao: "O que significam os cards de Plantao Atual, Entradas, Saidas e Saidas Pendentes."
+    categoria: "REGISTRO_ENTRADA"
+    ordem: 1
+    descricao: "Apos buscar e selecionar um servidor, clique em 'Selecionar' para abrir o modal. Escolha o tipo (Entrada ou Saida) e clique Salvar."
 
-  - titulo: "Menu de contexto (clique direito na tabela)"
+  - titulo: "Registrando entrada simples (sem ISV, sem veiculo)"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "GERAL"
-    descricao: "Como usar o botao direito do mouse sobre um registro para editar, excluir ou registrar saida."
+    categoria: "REGISTRO_ENTRADA"
+    ordem: 2
+    descricao: "Caso mais comum: servidor chega, deixa nada no carro, faz servico normal. Selecione Entrada, nao marque ISV, nao preencha veiculo, clique Salvar."
 
-  - titulo: "Retirando faltas e gerando PDF"
+  - titulo: "Registrando entrada com veiculo"
     url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    categoria: "GERAL"
-    descricao: "Como gerar a lista de faltas do plantao atual, com opcoes de filtro por servidor e exportacao em PDF."
+    categoria: "REGISTRO_ENTRADA"
+    ordem: 3
+    descricao: "Se o servidor veio de carro/moto, anote a placa no campo Veiculo. A placa fica registrada junto com a entrada."
+
+  - titulo: "Registrando entrada com ISV (Instrucao de Servico Voluntario)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "REGISTRO_ENTRADA"
+    ordem: 4
+    descricao: "Quando o servidor e um ISV (em missao temporaria), marque o checkbox ISV. Isso afeta relatorios e contadores do plantao."
+
+  - titulo: "Servidor que ja esta dentro: como evitar entrada duplicada"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "REGISTRO_ENTRADA"
+    ordem: 5
+    descricao: "O sistema avisa se o servidor ja tem entrada sem saida. Nesses casos, registre a SAIDA primeiro. Use a saida definitiva apenas para internos com saida permanente."
+
+  # =================================================================
+  # ETAPA 5: REGISTRAR SAIDA
+  # =================================================================
+  - titulo: "Como registrar saida normal de um servidor"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "REGISTRO_SAIDA"
+    ordem: 1
+    descricao: "Apos o servidor sair, use o menu de contexto (clique direito no registro) -> 'Registrar Saida'. O sistema preenche a data/hora atual."
+
+  - titulo: "Quando o servidor esquece de registrar saida e ja passou mais de 10h"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "REGISTRO_SAIDA"
+    ordem: 2
+    descricao: "O sistema mostra aviso de saida pendente (mais de 10h sem saida). Veja como editar a data/hora para corrigir."
+
+  # =================================================================
+  # ETAPA 6: SAIDA DEFINITIVA
+  # =================================================================
+  - titulo: "O que e saida definitiva de interno (egresso)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "SAIDA_DEFINITIVA"
+    ordem: 1
+    descricao: "Usada apenas para internos com saida permanente do sistema. Nao confunda com saida normal de servidor."
+
+  - titulo: "Quando usar saida definitiva vs saida normal"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "SAIDA_DEFINITIVA"
+    ordem: 2
+    descricao: "Saida definitiva: interno (preso) com liberacao. Saida normal: servidor que trabalha na unidade e sai no fim do turno."
+
+  - titulo: "Como registrar saida definitiva (passo a passo)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "SAIDA_DEFINITIVA"
+    ordem: 3
+    descricao: "Botao 'Saida definitiva de interno' no dashboard. Preencha nome, numero do documento, e justificativa (que vai para o campo Setor)."
+
+  # =================================================================
+  # ETAPA 7: CONSULTAR REGISTROS
+  # =================================================================
+  - titulo: "Como filtrar registros na planilha"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CONSULTAR"
+    ordem: 1
+    descricao: "Filtros por Nome, Documento, Setor, ISV (Sim/Nao), Saida (Pendente/Concluido). Digite para filtrar em tempo real."
+
+  - titulo: "Menu de contexto: clique direito em um registro"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CONSULTAR"
+    ordem: 2
+    descricao: "Em um registro, clique com o botao direito do mouse. Aparecem opcoes: Editar, Excluir, Registrar Saida. Requer permissao."
+
+  - titulo: "Como editar um registro existente"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CONSULTAR"
+    ordem: 3
+    descricao: "Editar data/hora de entrada ou saida. A justificativa e obrigatoria. O registro original fica no historico."
+
+  - titulo: "Como excluir um registro (e por que exige justificativa)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CONSULTAR"
+    ordem: 4
+    descricao: "Excluir remove da planilha ATUAL mas o registro original fica no historico (com status EXCLUIDO e a justificativa). Acao reversivel apenas via banco."
+
+  # =================================================================
+  # ETAPA 8: RETIRAR FALTAS
+  # =================================================================
+  - titulo: "O que e o relatorio de faltas"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "RETIRAR_FALTAS"
+    ordem: 1
+    descricao: "Lista os servidores do plantao atual que nao entraram. Util para fechar o plantao e conferir quem faltou."
+
+  - titulo: "Como abrir e usar o filtro do relatorio de faltas"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "RETIRAR_FALTAS"
+    ordem: 2
+    descricao: "Botao 'Retirar Faltas' no dashboard. Use o campo de busca para filtrar por nome ou documento. O relatorio atualiza em tempo real."
+
+  - titulo: "Entendendo ISVs presentes e Permutas/Reposicao"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "RETIRAR_FALTAS"
+    ordem: 3
+    descricao: "ISVs Presentes: ISVs que estao no plantao. Permutas: servidores de outro plantao (ALFA no BRAVO) que estao cobrindo. Use para conferencia."
+
+  - titulo: "Como exportar o relatorio de faltas em PDF"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "RETIRAR_FALTAS"
+    ordem: 4
+    descricao: "Botao 'Baixar PDF' no modal de faltas. Gera arquivo pronto para imprimir ou arquivar."
+
+  # =================================================================
+  # ETAPA 9: ENCERRAR PLANTAO (FIM DO TURNO)
+  # =================================================================
+  - titulo: "Rotina de fim de plantao (ordem das acoes)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "ENCERRAR"
+    ordem: 1
+    descricao: "A ordem importa: 1) Exportar Excel, 2) Lancar no livro de plantao, 3) Limpar planilha. NAO pule etapas."
+
+  - titulo: "Como exportar a planilha para Excel"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "ENCERRAR"
+    ordem: 2
+    descricao: "Botao 'Exportar Excel' gera arquivo .xlsx com todos os registros do plantao atual. Guarde em local seguro."
+
+  - titulo: "Como lancar o Excel no livro de plantao"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "ENCERRAR"
+    ordem: 3
+    descricao: "Abra o arquivo .xlsx e transcreva para o livro de plantao (impresso ou digital). Esta etapa e manual e obrigatoria por regulamento."
+
+  - titulo: "Como limpar a planilha (acao final do turno)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "ENCERRAR"
+    ordem: 4
+    descricao: "Botao 'Limpar Planilha'. Re senha do operador. Remove apenas registros FINALIZADOS (com saida). Registros com saida pendente sao preservados para o proximo turno."
+
+  - titulo: "Quando o proximo operador entra em plantao"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "ENCERRAR"
+    ordem: 5
+    descricao: "O proximo operador (do proximo plantao) ve apenas os registros com saida pendente. Ele segue a mesma rotina."
+
+  # =================================================================
+  # ETAPA 10: AMBIENTE DE TREINAMENTO
+  # =================================================================
+  - titulo: "O que e o ambiente de treinamento"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "TREINAMENTO"
+    ordem: 1
+    descricao: "Ambiente seguro para praticar. TODAS as acoes aqui sao isoladas: nao afetam o sistema real, nao vao para o historico de producao."
+
+  - titulo: "Como acessar o treinamento pelo botao no navbar"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "TREINAMENTO"
+    ordem: 2
+    descricao: "Botao amarelo 'Treinamento' no canto superior direito. Abre o mesmo dashboard em modo treinamento (com banner amarelo de aviso)."
+
+  - titulo: "O que e diferente no modo treinamento"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "TREINAMENTO"
+    ordem: 3
+    descricao: "Banco separado (RegistroAcessoTreinamento). Admin banner oculto (nao tem acesso a admin). Permissoes totais. Use para testar sem medo."
+
+  - titulo: "Como voltar do treinamento para producao"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "TREINAMENTO"
+    ordem: 4
+    descricao: "Botao 'Voltar para producao' no banner amarelo. Volta para o dashboard real."
+
+  # =================================================================
+  # ETAPA 11: CADASTROS (APENAS STAFF)
+  # =================================================================
+  - titulo: "Pagina de Servidores: o que voce pode fazer"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CADASTROS"
+    ordem: 1
+    descricao: "Lista de todos os servidores cadastrados. Buscar, ver detalhes. Operador ve apenas; Staff/Admin pode criar/editar/desativar."
+
+  - titulo: "Como cadastrar um novo servidor (Staff)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CADASTROS"
+    ordem: 2
+    descricao: "Menu Servidores -> Novo. Preencha nome, numero do documento, setor, veiculo (opcional), tipo de funcionario. Salva e ja aparece na busca."
+
+  - titulo: "Como importar muitos servidores via CSV (Admin)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CADASTROS"
+    ordem: 3
+    descricao: "Menu Servidores -> Importar. Baixe o modelo CSV, preencha, faca upload. Formato: Nome, Numero do Documento, Setor, Veiculo (opcional)."
+
+  - titulo: "Como desativar um servidor sem perder o historico"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CADASTROS"
+    ordem: 4
+    descricao: "Em vez de excluir, marque o servidor como inativo. Ele some da busca mas o historico dele no sistema fica preservado."
+
+  - titulo: "Pagina de Usuarios: gerenciando quem acessa o sistema (Staff)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CADASTROS"
+    ordem: 5
+    descricao: "Menu Usuarios (visivel apenas para Staff/Admin). Crie novos usuarios, defina tipo (Operador/Visualizacao/Staff/Admin), resete senhas."
+
+  - titulo: "Como funciona a senha temporaria e o reset"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CADASTROS"
+    ordem: 6
+    descricao: "Ao criar usuario, o sistema gera senha temporaria (usuario@1234). O usuario faz primeiro login e e obrigado a trocar."
+
+  - titulo: "Pagina de Historico: vendo TODOS os registros antigos (Staff)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CADASTROS"
+    ordem: 7
+    descricao: "Menu Historico. Lista completa de registros de TODOS os plantoes. Filtros por data, servidor, plantao. Exportar Excel."
+
+  - titulo: "O que e o Log de Auditoria (Admin)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CADASTROS"
+    ordem: 8
+    descricao: "Registra TODAS as acoes sensiveis (criar/editar/excluir usuarios, registros, servidores). Visivel no Django admin em core/LogAuditoria."
+
+  - titulo: "Painel administrativo do Django (Admin)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CADASTROS"
+    ordem: 9
+    descricao: "Apenas superusers. URL: /admin/. Acessa banco diretamente, edicao de qualquer model, gerenciamento avancado. Use com cuidado."
+
+  - titulo: "Como configurar email para envio de credenciais (Admin)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "CADASTROS"
+    ordem: 10
+    descricao: "Variaveis EMAIL_HOST/USER/PASSWORD no .env. Guia em docs/SMTP_MAILGUN.md. Permite enviar senha do novo usuario por email."

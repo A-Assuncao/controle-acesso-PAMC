@@ -31,12 +31,18 @@ logger = logging.getLogger(__name__)
 _TUTORIAIS_CACHE = None
 
 CATEGORIAS_TUTORIAIS = [
-    ('ENTRADA', 'Registro de Entrada'),
-    ('SAIDA', 'Registro de Saída'),
-    ('EDICAO', 'Edição de Registros'),
-    ('EXCLUSAO', 'Exclusão de Registros'),
-    ('PLANILHA', 'Gerenciamento da Planilha'),
-    ('GERAL', 'Funcionalidades Gerais'),
+    # Jornada do operador (na ordem que ele faz as coisas durante o plantao)
+    ('ACESSO', 'Acesso ao Sistema'),
+    ('DASHBOARD', 'Conhecendo o Dashboard'),
+    ('BUSCAR_SERVIDOR', 'Buscar Servidor'),
+    ('REGISTRO_ENTRADA', 'Registrar Entrada'),
+    ('REGISTRO_SAIDA', 'Registrar Saída'),
+    ('SAIDA_DEFINITIVA', 'Saída Definitiva'),
+    ('CONSULTAR', 'Consultar Registros'),
+    ('RETIRAR_FALTAS', 'Retirar Faltas'),
+    ('ENCERRAR', 'Encerrar Plantão'),
+    ('TREINAMENTO', 'Ambiente de Treinamento'),
+    ('CADASTROS', 'Cadastros (Staff)'),
 ]
 
 
@@ -78,7 +84,9 @@ def carregar_tutoriais():
         _TUTORIAIS_CACHE = {}
         return _TUTORIAIS_CACHE
 
-    # Agrupa por categoria, na ordem de CATEGORIAS_TUTORIAIS
+    # Agrupa por categoria, na ordem de CATEGORIAS_TUTORIAIS. Dentro
+    # de cada categoria, ordena pelo campo 'ordem' (asc). Categorias
+    # sem videos validos sao puladas (sem embed_url).
     resultado = {}
     for codigo, _nome in CATEGORIAS_TUTORIAIS:
         videos_categoria = []
@@ -87,12 +95,20 @@ def carregar_tutoriais():
                 continue
             url = v.get('url_youtube', '')
             video_id = _youtube_id(url)
+            if not video_id:
+                logger.warning('tutoriais: video sem URL valida, pulando: %s',
+                              v.get('titulo', '?'))
+                continue
             videos_categoria.append({
+                'id': f'{codigo}-{videos_categoria.__len__():03d}',  # id estavel para localStorage
                 'titulo': v.get('titulo', ''),
                 'descricao': v.get('descricao', ''),
                 'url_original': url,
-                'embed_url': f'https://www.youtube.com/embed/{video_id}' if video_id else None,
+                'embed_url': f'https://www.youtube.com/embed/{video_id}',
+                'ordem': v.get('ordem', 999),
             })
+        # Ordena por 'ordem' dentro da categoria
+        videos_categoria.sort(key=lambda x: x['ordem'])
         if videos_categoria:
             resultado[codigo] = videos_categoria
 
