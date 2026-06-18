@@ -10,10 +10,13 @@
         border-bottom: 2px solid #e6e8ec;
         flex-wrap: wrap !important;
         overflow-x: visible !important;
-        gap: 0.375rem;
-        padding: 0;                /* sem padding lateral - alinha com container */
-        margin: 0;
-        /* Forcar todas as tabs com a MESMA largura via CSS grid */
+        column-gap: 0.25rem !important;     /* gap horizontal entre colunas */
+        row-gap: 0.5rem !important;          /* gap vertical entre linhas quebradas */
+        padding: 0 !important;
+        margin: 0 !important;
+        /* Forcar todas as tabs com a MESMA largura via CSS grid.
+           minmax(110px, 1fr) garante minimo para o texto caber, mas
+           se a tab e muito larga, encolhe para 1fr igual as outras. */
         display: grid !important;
         grid-template-columns: repeat(11, minmax(0, 1fr)) !important;
     }
