@@ -217,7 +217,7 @@
 
     {# === Tabs Bootstrap para selecionar a categoria === #}
     <ul class="nav nav-tabs tutorial-tabs mb-3" id="tutorialTabs" role="tablist">
-        {% for cat_code, cat_nome in tutoriais_por_categoria.items %}
+        {% for cat_code, _videos in tutoriais_por_categoria.items %}
         <li class="nav-item" role="presentation">
             <button class="nav-link {% if forloop.first %}active{% endif %}"
                     id="tab-{{ cat_code }}"
@@ -227,7 +227,7 @@
                     role="tab"
                     aria-controls="pane-{{ cat_code }}"
                     aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
-                {{ cat_nome }}
+                {{ categorias_labels|get_item:cat_code|default:cat_code }}
                 <span class="badge bg-secondary rounded-pill">{{ tutoriais_por_categoria|get_item:cat_code|length }}</span>
             </button>
         </li>
