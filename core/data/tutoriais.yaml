@@ -1,0 +1,107 @@
+# Tutoriais em video do Controle de Acesso
+#
+# Este arquivo define a lista de videos exibidos na pagina de Tutoriais
+# do ambiente de treinamento. Editar aqui e fazer commit - cada instancia
+# de producao tera os mesmos videos sem precisar configurar no banco.
+#
+# Formato de cada video:
+#   - titulo:       string (obrigatorio)
+#   - url_youtube:  string (obrigatorio) - URL completa do video no YouTube
+#   - categoria:    string - uma das opcoes abaixo
+#   - descricao:    string (opcional, recomendado)
+#
+# Categorias validas:
+#   ENTRADA    - Registro de entrada
+#   SAIDA      - Registro de saida
+#   EDICAO     - Edicao de registros
+#   EXCLUSAO   - Exclusao de registros
+#   PLANILHA   - Gerenciamento da planilha
+#   GERAL      - Funcionalidades gerais
+#
+# Os videos sao exibidos agrupados por categoria. Dentro de cada categoria,
+# a ordem e a mesma do arquivo.
+#
+# Para descobrir o ID do video no YouTube: na URL do video, o ID fica
+# depois de '?v=' ou 'youtu.be/'. Exemplo: youtube.com/watch?v=ABC123 -> id=ABC123
+
+videos:
+  # === Registro de entrada ===
+  - titulo: "Como buscar um servidor"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "ENTRADA"
+    descricao: "Aprenda a usar a busca por nome, CPF ou matricula para encontrar o servidor no cadastro."
+
+  - titulo: "Registrando uma entrada simples"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "ENTRADA"
+    descricao: "Passo a passo para registrar a entrada de um servidor sem veiculo, sem ISV."
+
+  - titulo: "Registrando entrada com veiculo e ISV"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "ENTRADA"
+    descricao: "Quando marcar a opcao ISV (servico voluntario) e como registrar a placa do veiculo."
+
+  # === Registro de saida ===
+  - titulo: "Registrando uma saida normal"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "SAIDA"
+    descricao: "Como registrar a saida de um servidor que ja entrou (data de saida automatica)."
+
+  - titulo: "Saida definitiva de interno (egresso)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "SAIDA"
+    descricao: "Quando e como usar a saida definitiva - usada para internos com saida permanente."
+
+  # === Edicao de registros ===
+  - titulo: "Editando data/hora de um registro"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "EDICAO"
+    descricao: "Como corrigir a data ou hora de uma entrada/saida ja registrada. Requer justificativa."
+
+  - titulo: "Editando ISV e veiculo"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "EDICAO"
+    descricao: "Ajuste de informacoes complementares (servico voluntario, placa) em um registro existente."
+
+  # === Exclusao de registros ===
+  - titulo: "Excluindo um registro com justificativa"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "EXCLUSAO"
+    descricao: "Como excluir um registro do dashboard - exige justificativa obrigatoria e fica no historico."
+
+  # === Gerenciamento da planilha ===
+  - titulo: "Limpando a planilha (com senha de confirmacao)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "PLANILHA"
+    descricao: "Acao que remove todos os registros finalizados. Requer senha do operador. Registros com saida pendente sao preservados."
+
+  - titulo: "Exportando a planilha para Excel"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "PLANILHA"
+    descricao: "Como gerar o arquivo .xlsx com todos os registros do plantao atual."
+
+  - titulo: "Filtrando registros na planilha"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "PLANILHA"
+    descricao: "Uso dos filtros por nome, documento, setor, ISV e saida (pendente/concluido)."
+
+  # === Funcionalidades gerais ===
+  - titulo: "Navegando pelo sistema"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "GERAL"
+    descricao: "Visao geral das paginas, menus e contexto de uso do Controle de Acesso."
+
+  - titulo: "Entendendo os contadores do dashboard"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "GERAL"
+    descricao: "O que significam os cards de Plantao Atual, Entradas, Saidas e Saidas Pendentes."
+
+  - titulo: "Menu de contexto (clique direito na tabela)"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "GERAL"
+    descricao: "Como usar o botao direito do mouse sobre um registro para editar, excluir ou registrar saida."
+
+  - titulo: "Retirando faltas e gerando PDF"
+    url_youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    categoria: "GERAL"
+    descricao: "Como gerar a lista de faltas do plantao atual, com opcoes de filtro por servidor e exportacao em PDF."

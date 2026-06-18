@@ -6,8 +6,9 @@ Responsável por:
 - Tutoriais e handlers de erro
 """
 
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import JsonResponse
 
 from ..utils import (
@@ -78,11 +79,17 @@ def registro_acesso_treinamento_create(request):
             request, is_treinamento=True
         )
 
+        # Mesmo padrao da view de producao: flash message + redirect.
+        # O JS do home.html faz this.submit() (form nativo), entao a
+        # resposta deve ser um redirect - caso contrario o navegador
+        # renderiza o JSON como pagina em branco.
         if sucesso:
-            return JsonResponse({'status': 'success', 'message': mensagem})
-        return JsonResponse({'status': 'error', 'message': mensagem})
+            messages.success(request, mensagem)
+        else:
+            messages.error(request, mensagem)
+        return redirect(redirect_url)
 
-    return JsonResponse({'status': 'error', 'message': 'Método não permitido'})
+    return redirect('ambiente_treinamento')
 
 
 @login_required
@@ -123,8 +130,13 @@ def limpar_dashboard_treinamento(request):
 
 @login_required
 def tutoriais_treinamento(request):
-    """Exibe tutoriais do sistema."""
-    return render(request, 'core/tutoriais.html')
+    """Exibe tutoriais do sistema (lidos de core/data/tutoriais.yaml)."""
+    from .treinamento_extended import carregar_tutoriais, CATEGORIAS_TUTORIAIS
+    tutoriais_por_categoria = carregar_tutoriais()
+    return render(request, 'core/tutoriais.html', {
+        'tutoriais_por_categoria': tutoriais_por_categoria,
+        'categorias_labels': dict(CATEGORIAS_TUTORIAIS),
+    })
 
 
 def handler500(request):

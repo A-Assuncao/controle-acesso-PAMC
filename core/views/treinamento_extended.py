@@ -1,12 +1,16 @@
 """Views de treinamento com logica estendida."""
 
 import logging
+import re
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 import pytz
+import yaml
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -21,6 +25,81 @@ from ..models import RegistroAcessoTreinamento, Servidor, ServidorTreinamento
 from ..utils import calcular_plantao_atual, extrair_plantao_do_setor
 
 logger = logging.getLogger(__name__)
+
+# Cache em memoria dos tutoriais (carregado uma unica vez por processo).
+# Em producao basta reiniciar o servico (IIS reset) para recarregar.
+_TUTORIAIS_CACHE = None
+
+CATEGORIAS_TUTORIAIS = [
+    ('ENTRADA', 'Registro de Entrada'),
+    ('SAIDA', 'Registro de Saída'),
+    ('EDICAO', 'Edição de Registros'),
+    ('EXCLUSAO', 'Exclusão de Registros'),
+    ('PLANILHA', 'Gerenciamento da Planilha'),
+    ('GERAL', 'Funcionalidades Gerais'),
+]
+
+
+def _youtube_id(url_youtube):
+    """Extrai o ID de 11 caracteres de uma URL do YouTube."""
+    if not url_youtube:
+        return None
+    # youtu.be/ID
+    m = re.search(r'youtu\.be/([A-Za-z0-9_-]{11})', url_youtube)
+    if m:
+        return m.group(1)
+    # youtube.com/watch?v=ID ou &v=ID
+    m = re.search(r'[?&]v=([A-Za-z0-9_-]{11})', url_youtube)
+    if m:
+        return m.group(1)
+    return None
+
+
+def carregar_tutoriais():
+    """
+    Le core/data/tutoriais.yaml e retorna dicionario {categoria: [videos]}.
+    Os videos sao objetos com titulo, descricao e embed_url.
+    Resultado e cacheado em memoria para evitar I/O a cada request.
+    """
+    global _TUTORIAIS_CACHE
+    if _TUTORIAIS_CACHE is not None:
+        return _TUTORIAIS_CACHE
+
+    yaml_path = Path(settings.BASE_DIR) / 'core' / 'data' / 'tutoriais.yaml'
+    try:
+        with open(yaml_path, encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        logger.warning('tutoriais: arquivo nao encontrado em %s', yaml_path)
+        _TUTORIAIS_CACHE = {}
+        return _TUTORIAIS_CACHE
+    except yaml.YAMLError as e:
+        logger.error('tutoriais: erro ao parsear YAML: %s', e)
+        _TUTORIAIS_CACHE = {}
+        return _TUTORIAIS_CACHE
+
+    # Agrupa por categoria, na ordem de CATEGORIAS_TUTORIAIS
+    resultado = {}
+    for codigo, _nome in CATEGORIAS_TUTORIAIS:
+        videos_categoria = []
+        for v in data.get('videos', []):
+            if v.get('categoria') != codigo:
+                continue
+            url = v.get('url_youtube', '')
+            video_id = _youtube_id(url)
+            videos_categoria.append({
+                'titulo': v.get('titulo', ''),
+                'descricao': v.get('descricao', ''),
+                'url_original': url,
+                'embed_url': f'https://www.youtube.com/embed/{video_id}' if video_id else None,
+            })
+        if videos_categoria:
+            resultado[codigo] = videos_categoria
+
+    _TUTORIAIS_CACHE = resultado
+    logger.info('tutoriais: %d videos em %d categorias carregados',
+                sum(len(v) for v in resultado.values()), len(resultado))
+    return resultado
 
 @login_required
 def ambiente_treinamento(request):
