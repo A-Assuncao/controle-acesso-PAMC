@@ -241,14 +241,18 @@
              id="pane-{{ cat_code }}"
              role="tabpanel"
              aria-labelledby="tab-{{ cat_code }}"
-             data-cat-code="{{ cat_code }}">
+             data-cat-code="{{ cat_code }}"
+             data-first-embed="{{ videos.0.embed_url|default:'' }}"
+             data-first-titulo="{{ videos.0.titulo|default:'' }}"
+             data-first-descricao="{{ videos.0.descricao|default:'' }}"
+             data-first-id="{{ videos.0.id|default:'' }}">
 
             <div class="row g-3">
                 {# === Coluna do player (8/12 em desktop) === #}
                 <div class="col-lg-8">
                     <div class="tutorial-player">
                         <div class="ratio ratio-16x9" id="player-{{ cat_code }}">
-                            {% if videos.0 %}
+                            {% if forloop.first and videos.0 %}
                             <iframe
                                 id="iframe-{{ cat_code }}"
                                 data-video-id="{{ videos.0.id }}"
@@ -258,9 +262,10 @@
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowfullscreen></iframe>
                             {% else %}
-                            <div class="tutorial-empty">
-                                <i class="bi bi-camera-video-off"></i>
-                                <p>Categoria sem vídeos.</p>
+                            {# Placeholder - iframe e criado pelo JS quando a tab e ativada #}
+                            <div class="tutorial-empty" id="placeholder-{{ cat_code }}">
+                                <i class="bi bi-play-circle"></i>
+                                <p>Clique em um vídeo da lista para começar.</p>
                             </div>
                             {% endif %}
                         </div>
@@ -411,8 +416,10 @@
         }
     }
 
-    // === Inicializa cada tab (categoria) ===
-    document.querySelectorAll('.tab-pane[data-cat-code]').forEach(pane => {
+    // === Inicializa cada tab (categoria) sob demanda ===
+    // Apenas a tab ativa carrega iframe. Outras tabs tem placeholder
+    // e inicializam o iframe quando o usuario clicar nelas.
+    function setupPane(pane) {
         const catCode = pane.dataset.catCode;
         const iframe = document.getElementById('iframe-' + catCode);
         const playerBox = document.getElementById('player-' + catCode);
@@ -425,10 +432,9 @@
         const listItems = Array.from(pane.querySelectorAll('.video-list-item[data-video-id]'));
         const total = listItems.length;
 
-        if (!iframe || total === 0) return;
+        if (!iframe || total === 0) return null;
 
         let currentIdx = 0;
-        let currentVideo = listItems[0]?.dataset;
 
         // Restaura preferencia de autoplay
         autoplayChk.checked = getAutoplayPref();
@@ -440,7 +446,7 @@
             const d = item.dataset;
 
             // Atualiza iframe
-            iframe.src = d.embedUrl || d.embed;
+            iframe.src = d.embed || '';
             iframe.dataset.videoId = d.videoId;
             iframe.title = d.titulo;
 
@@ -453,7 +459,6 @@
             prevBtn.disabled = (idx === 0);
             nextBtn.disabled = (idx === total - 1);
             currentIdx = idx;
-            currentVideo = d;
 
             // Marca como visto imediatamente
             marcarVisto(d.videoId);
@@ -464,7 +469,6 @@
                 tag.textContent = '✓ Visto';
                 item.querySelector('.info').appendChild(tag);
             }
-            // Scroll para item ativo na lista
             item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
 
@@ -489,32 +493,88 @@
                     const nextPane = allPanes[currentPaneIdx + 1];
                     const nextTab = document.getElementById('tab-' + nextPane.dataset.catCode);
                     nextTab.click();
-                    // Carrega o primeiro video do novo pane
                     const firstItem = nextPane.querySelector('.video-list-item');
                     if (firstItem) firstItem.click();
                 }
             }
         });
 
-        // YouTube IFrame API: detecta fim do video para auto-play
-        // (a API so funciona se o video estiver 'enablejsapi=1' no src)
-        // Listener de mensagem do YouTube
-        window.addEventListener('message', (e) => {
-            if (e.origin !== 'https://www.youtube.com') return;
-            try {
-                const data = JSON.parse(e.data);
-                // event 0 = info delivery (ready), event 2 = state change
-                if (data.event === 'infoDelivery' && data.info && data.info.playerState !== undefined) {
-                    // 0 = ended, 1 = playing, 2 = paused
-                    if (data.info.playerState === 0 && autoplayChk.checked) {
-                        nextBtn.click();
+        return { loadVideo };
+    }
+
+    // === Setup lazy: inicializa so quando a tab e ativada ===
+    const tabPanes = Array.from(document.querySelectorAll('.tab-pane[data-cat-code]'));
+    const paneStates = new Map();
+
+    function ensurePaneInitialized(pane) {
+        if (paneStates.has(pane)) return paneStates.get(pane);
+
+        // Se a pane ainda nao tem iframe (placeholder), cria a partir
+        // do data-first-embed salvo na pane.
+        const playerBox = pane.querySelector('.ratio');
+        let iframe = pane.querySelector('iframe');
+        if (!iframe) {
+            const catCode = pane.dataset.catCode;
+            const firstEmbed = pane.dataset.firstEmbed;
+            if (firstEmbed) {
+                iframe = document.createElement('iframe');
+                iframe.id = 'iframe-' + catCode;
+                iframe.dataset.videoId = pane.dataset.firstId;
+                iframe.src = firstEmbed;
+                iframe.title = pane.dataset.firstTitulo;
+                iframe.frameBorder = '0';
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                iframe.setAttribute('allowfullscreen', '');
+                // Substitui o placeholder
+                const placeholder = pane.querySelector('.tutorial-empty');
+                if (placeholder) placeholder.remove();
+                playerBox.appendChild(iframe);
+            }
+        }
+
+        const state = setupPane(pane);
+        paneStates.set(pane, state);
+        if (state) state.loadVideo(0);
+        return state;
+    }
+
+    // Inicializa apenas a tab ativa no carregamento
+    tabPanes.forEach(pane => {
+        if (pane.classList.contains('show') && pane.classList.contains('active')) {
+            ensurePaneInitialized(pane);
+        }
+    });
+
+    // Quando o usuario troca de tab, inicializa sob demanda
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tabBtn => {
+        tabBtn.addEventListener('shown.bs.tab', (e) => {
+            const targetId = e.target.getAttribute('data-bs-target');
+            if (!targetId) return;
+            const pane = document.querySelector(targetId);
+            if (pane) ensurePaneInitialized(pane);
+        });
+    });
+
+    // YouTube IFrame API: detecta fim do video para auto-play
+    // (a API so funciona se o video estiver 'enablejsapi=1' no src)
+    window.addEventListener('message', (e) => {
+        if (e.origin !== 'https://www.youtube.com') return;
+        try {
+            const data = JSON.parse(e.data);
+            if (data.event === 'infoDelivery' && data.info && data.info.playerState !== undefined) {
+                // 0 = ended, 1 = playing, 2 = paused
+                if (data.info.playerState === 0) {
+                    // Encontra o pane ativo e seu nextBtn
+                    const activePane = document.querySelector('.tab-pane.show.active');
+                    if (!activePane) return;
+                    const autoplayChk = document.getElementById('autoplay-' + activePane.dataset.catCode);
+                    if (autoplayChk && autoplayChk.checked) {
+                        const nextBtn = document.getElementById('next-' + activePane.dataset.catCode);
+                        if (nextBtn && !nextBtn.disabled) nextBtn.click();
                     }
                 }
-            } catch (e) {}
-        });
-
-        // Inicializa estado
-        loadVideo(0);
+            }
+        } catch (e) {}
     });
 
     // === Aplica vistos no carregamento ===
