@@ -1,3 +1,16 @@
+# ⚠️ DOCUMENTO DEPRECADO
+
+Este guia foi substituído por **`docs/SMTP_GMAIL.md`** — o Gmail virou
+o provedor SMTP padrão do projeto (mais simples, sem precisar de
+domínio próprio). Este arquivo permanece apenas como referência histórica
+caso a unidade decida migrar para Mailgun no futuro.
+
+Motivo da deprecação: Mailgun exige domínio próprio verificado (DNS +
+DKIM), o que não temos disponível no momento. Gmail com App Password
+resolve o mesmo caso de uso com setup em 5 minutos.
+
+---
+
 # Configuração SMTP com Mailgun
 
 Este guia explica como configurar o Mailgun para o envio de emails

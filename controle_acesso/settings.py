@@ -170,7 +170,8 @@ CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False').lower() in ['true'
 # Configurações de e-mail
 # Por padrão, em desenvolvimento, usa console (imprime o e-mail no stdout).
 # Em produção, defina EMAIL_HOST/EMAIL_PORT/EMAIL_HOST_USER/EMAIL_HOST_PASSWORD
-# no .env para usar SMTP real (Hostinger, Gmail, Office365, Mailgun, etc.).
+# no .env para usar SMTP real (Gmail, Hostinger, Office365, Mailgun, etc.).
+# Provedor padrão deste projeto: Gmail com App Password (docs/SMTP_GMAIL.md).
 # Se EMAIL_HOST não estiver definido em produção, o backend cai para console
 # com warning (em vez de quebrar - o sistema continua funcionando).
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
