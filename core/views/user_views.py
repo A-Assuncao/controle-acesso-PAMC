@@ -56,9 +56,11 @@ def user_confirmacao_senha(request):
     acao = pending.get('acao', 'criado')
 
     if request.method == 'POST':
-        # Reenvio por email solicitado. So envia se o admin marcou
-        # explicitamente o checkbox de confirmacao.
-        if 'enviar_email' in request.POST and request.POST.get('confirmar_email') == 'on':
+        # Reenvio por email solicitado. O template so renderiza o form
+        # de envio quando o usuario tem email cadastrado, e o botao
+        # so envia se o admin clicou explicitamente - nao precisa de
+        # confirmacao dupla (removida em 2026-06-19, ver CHANGELOG).
+        if 'enviar_email' in request.POST:
             sucesso, msg = enviar_senha_usuario(user, senha, request)
             if sucesso:
                 messages.success(request, msg)
