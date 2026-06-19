@@ -56,14 +56,15 @@ EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USE_TLS=True
-EMAIL_HOST_USER=sua-conta-dedicada@gmail.com
+EMAIL_HOST_USER=solucoesassuncao@gmail.com
 EMAIL_HOST_PASSWORD=abcd efgh ijkl mnop
-DEFAULT_FROM_EMAIL=PAMC Controle de Acesso <sua-conta-dedicada@gmail.com>
-SERVER_EMAIL=sua-conta-dedicada@gmail.com
+DEFAULT_FROM_EMAIL=PAMC Controle de Acesso <solucoesassuncao@gmail.com>
+SERVER_EMAIL=solucoesassuncao@gmail.com
 ```
 
 **Substitua:**
-- `sua-conta-dedicada@gmail.com` → conta Gmail que você criou/usa
+- `solucoesassuncao@gmail.com` → conta Gmail em uso (ou conta dedicada
+  se preferir)
 - `abcd efgh ijkl mnop` → App Password gerada no Passo 2
 
 > ⚠️ Mantenha o `.env` no `.gitignore` (já está por padrão).
