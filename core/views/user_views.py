@@ -38,8 +38,45 @@ def user_confirmacao_senha(request):
     Mostra a senha temporaria em destaque + botao copiar + opcao de
     envio por email. A senha vem da sessao (request.session['pending_password'])
     e NAO e persistida em banco.
+
+    IMPORTANTE: a sessao so e consumida (session.pop) no POST final -
+    confirmacao manual ou envio de email. No GET usamos session.get para
+    que o admin possa dar F5 sem perder a tela, e o POST do botao
+    'Enviar' encontre a sessao ainda disponivel.
     """
-    pending = request.session.pop('pending_password', None)
+    if request.method == 'POST':
+        # Consome a sessao APENAS no POST final (acao irreversivel).
+        pending = request.session.pop('pending_password', None)
+        if not pending:
+            messages.info(request, 'Nenhuma senha pendente para exibir.')
+            return redirect('user_list')
+
+        try:
+            user = User.objects.select_related('perfil').get(pk=pending['user_id'])
+        except User.DoesNotExist:
+            messages.error(request, 'Usuário não encontrado.')
+            return redirect('user_list')
+
+        perfil = getattr(user, 'perfil', None)
+        tipo_nome = perfil.get_tipo_usuario_display() if perfil else 'N/A'
+        senha = pending['senha']
+        acao = pending.get('acao', 'criado')
+
+        # Reenvio por email solicitado. O template so renderiza o form
+        # de envio quando o usuario tem email cadastrado, e o botao
+        # so envia se o admin clicou explicitamente - nao precisa de
+        # confirmacao dupla (removida em 2026-06-19, ver CHANGELOG).
+        if 'enviar_email' in request.POST:
+            sucesso, msg = enviar_senha_usuario(user, senha, request)
+            if sucesso:
+                messages.success(request, msg)
+            else:
+                messages.warning(request, msg)
+        # Confirmacao manual (admin ja anotou)
+        return redirect('user_list')
+
+    # GET: le mas NAO consome a sessao (permite F5 sem perder a tela)
+    pending = request.session.get('pending_password')
     if not pending:
         messages.info(request, 'Nenhuma senha pendente para exibir.')
         return redirect('user_list')
@@ -54,20 +91,6 @@ def user_confirmacao_senha(request):
     tipo_nome = perfil.get_tipo_usuario_display() if perfil else 'N/A'
     senha = pending['senha']
     acao = pending.get('acao', 'criado')
-
-    if request.method == 'POST':
-        # Reenvio por email solicitado. O template so renderiza o form
-        # de envio quando o usuario tem email cadastrado, e o botao
-        # so envia se o admin clicou explicitamente - nao precisa de
-        # confirmacao dupla (removida em 2026-06-19, ver CHANGELOG).
-        if 'enviar_email' in request.POST:
-            sucesso, msg = enviar_senha_usuario(user, senha, request)
-            if sucesso:
-                messages.success(request, msg)
-            else:
-                messages.warning(request, msg)
-        # Confirmacao manual (admin ja anotou)
-        return redirect('user_list')
 
     user_email_configurado = bool(getattr(settings, 'EMAIL_HOST', ''))
 
