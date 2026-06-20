@@ -196,3 +196,131 @@ msgid "of %(count)d selected"
 msgid_plural "of %(count)d selected"
 msgstr[0] "de %(count)d selecionado"
 msgstr[1] "de %(count)d selecionados"
+
+# Strings do Unfold
+msgid "Type to search"
+msgstr "Digite para buscar"
+
+msgid "Search apps and models..."
+msgstr "Buscar apps e modelos..."
+
+msgid "Reset filters"
+msgstr "Limpar filtros"
+
+msgid "Clear all filters"
+msgstr "Limpar todos os filtros"
+
+msgid "Add row"
+msgstr "Adicionar linha"
+
+msgid "Add"
+msgstr "Adicionar"
+
+msgid "Expand row"
+msgstr "Expandir linha"
+
+msgid "Hide counts"
+msgstr "Ocultar contagens"
+
+msgid "Show counts"
+msgstr "Mostrar contagens"
+
+msgid "Save and view"
+msgstr "Salvar e visualizar"
+
+msgid "Save as new"
+msgstr "Salvar como novo"
+
+msgid "Close"
+msgstr "Fechar"
+
+msgid "Run"
+msgstr "Executar"
+
+msgid "Dark"
+msgstr "Escuro"
+
+msgid "Light"
+msgstr "Claro"
+
+msgid "System"
+msgstr "Sistema"
+
+msgid "General"
+msgstr "Geral"
+
+msgid "Click to download"
+msgstr "Clique para baixar"
+
+msgid "Log in again"
+msgstr "Entrar novamente"
+
+msgid "Thanks for spending some quality time with the web site today."
+msgstr "Obrigado por usar o sistema hoje."
+
+msgid "You have been successfully logged out from the administration"
+msgstr "Voce saiu da administração com sucesso"
+
+msgid "Record picture"
+msgstr "Imagem do registro"
+
+msgid "Delete"
+msgstr "Excluir"
+
+msgid "Submit"
+msgstr "Enviar"
+
+# Strings comuns do admin Django que faltavam
+msgid "Add another %(name)s"
+msgstr "Adicionar outro %(name)s"
+
+msgid "By %(filter_title)s"
+msgstr "Por %(filter_title)s"
+
+msgid "%(count)d %(name)s was changed successfully."
+msgid_plural "%(count)d %(name)s were changed successfully."
+msgstr[0] "%(count)d %(name)s foi alterado com sucesso."
+msgstr[1] "%(count)d %(name)s foram alterados com sucesso."
+
+msgid "%(count)d %(name)s was deleted successfully."
+msgid_plural "%(count)d %(name)s were deleted successfully."
+msgstr[0] "%(count)d %(name)s foi excluido com sucesso."
+msgstr[1] "%(count)d %(name)s foram excluidos com sucesso."
+
+msgid "No %(name)s found"
+msgstr "Nenhum %(name)s encontrado"
+
+msgid "Filter"
+msgstr "Filtrar"
+
+msgid "By date"
+msgstr "Por data"
+
+msgid "Reset"
+msgstr "Limpar"
+
+msgid "Apply"
+msgstr "Aplicar"
+
+msgid "0 selected"
+msgid_plural "%(value)s selected"
+msgstr[0] "0 selecionado"
+msgstr[1] "%(value)s selecionados"
+
+msgid "Selected:"
+msgstr "Selecionados:"
+
+msgid "Welcome back, %(username)s."
+msgstr "Bem-vindo de volta, %(username)s."
+
+msgid "Documentation"
+msgstr "Documentação"
+
+msgid "Profile"
+msgstr "Perfil"
+
+msgid "Toggle navigation"
+msgstr "Alternar navegação"
+
+msgid "Toggle theme"
+msgstr "Alternar tema"

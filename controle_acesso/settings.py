@@ -326,14 +326,15 @@ UNFOLD = {
     # Ordem dos items no Operacao: Dashboard -> Historico -> Servidores -> Registros.
     # Logs de Auditoria fica por ultimo (grupo "Sistema").
     "SIDEBAR": {
-        "show_search": True,  # caixa de busca no topo da sidebar (filtra items)
+        "show_search": False,  # busca da sidebar desativada - a busca do
+        # proprio ModelAdmin ja filtra registros (caixa duplicada removida)
         "show_all_applications": False,
         "navigation": [
             {
                 "title": _("Operação"),
                 "items": [
-                    {"title": _("Histórico"), "link": reverse_lazy("admin:core_registroacesso_changelist")},
                     {"title": _("Registros"), "link": reverse_lazy("admin:core_registrodashboard_changelist")},
+                    {"title": _("Histórico"), "link": reverse_lazy("admin:core_registroacesso_changelist")},
                     {"title": _("Servidores"), "link": reverse_lazy("admin:core_servidor_changelist")},
                 ],
             },
