@@ -1015,9 +1015,7 @@ class VideoTutorialAdmin(admin.ModelAdmin):
 
 # Títulos e cabeçalhos personalizados
 unidade = get_unidade_prisional()
-admin.site.site_header = _html_estatico(
-    f'<span style="color: #007bff; font-weight: bold;">Sistema de Controle de Acesso {unidade}</span>'
-)
+admin.site.site_header = f'Sistema de Controle de Acesso {unidade}'
 admin.site.site_title = f'Controle de Acesso {unidade}'
 def importar_view(request, model_name):
     """View customizada de import - GET mostra form, POST processa."""
@@ -1075,9 +1073,7 @@ _add_import_url(ServidorAdmin, 'Servidor')
 _add_import_url(RegistroAcessoAdmin, 'RegistroAcesso')
 
 
-admin.site.index_title = _html_estatico(
-    '<span style="color: #28a745;">Painel de Administracao Avancado</span>'
-)
+admin.site.index_title = 'Administração do Sistema'
 
 # CSS customizado para melhorar a aparência
 admin.site.enable_nav_sidebar = True
