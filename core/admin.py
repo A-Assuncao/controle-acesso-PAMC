@@ -22,9 +22,10 @@ from datetime import datetime, timedelta
 import json
 
 from .models import (
-    Servidor, RegistroAcesso, RegistroDashboard, 
+    Servidor, RegistroAcesso, RegistroDashboard,
     LogAuditoria, VideoTutorial, PerfilUsuario
 )
+from django.contrib.auth.models import User
 from .utils import get_unidade_prisional
 
 
@@ -1073,6 +1074,46 @@ _add_import_url(ServidorAdmin, 'Servidor')
 _add_import_url(RegistroAcessoAdmin, 'RegistroAcesso')
 
 
+# =============================================================================
+# CUSTOM USER ADMIN (substitui o padrao do Django auth)
+# =============================================================================
+
+# Desregistra o UserAdmin padrao
+admin.site.unregister(User)
+
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+
+
+@admin.register(User)
+class UserAdmin(DjangoUserAdmin):
+    """UserAdmin customizado com actions de export e URL de import."""
+
+    # Mantem o que o DjangoUserAdmin ja configura (fieldsets, list_display, etc)
+    list_display = ('username', 'email', 'first_name', 'last_name',
+                    'is_staff', 'is_active', 'is_superuser', 'last_login')
+
+    # Actions de export CSV/XLSX
+    actions = [exportar_csv_action, exportar_xlsx_action]
+
+    # Aplica o Media (CSS customizado) manualmente
+    class Media:
+        css = {'all': ('css/admin_custom.css',)}
+        js = ('js/admin_custom.js',)
+
+
+_add_import_url(UserAdmin, 'User')
+
+
+# =============================================================================
+# Adicionar actions de export no LogAuditoriaAdmin (ja tem reset)
+# =============================================================================
+
+LogAuditoriaAdmin.actions = list(LogAuditoriaAdmin.actions) + [
+    exportar_csv_action,
+    exportar_xlsx_action,
+]
+
+
 admin.site.index_title = 'Administração do Sistema'
 
 # CSS customizado para melhorar a aparência
@@ -1084,7 +1125,7 @@ admin.site.enable_nav_sidebar = True
 
 class AdminMediaMixin:
     """Mixin para incluir CSS e JS customizados em todas as páginas do admin"""
-    
+
     class Media:
         css = {
             'all': ('css/admin_custom.css',)
@@ -1093,7 +1134,7 @@ class AdminMediaMixin:
 
 # Aplicar o mixin em todas as classes Admin
 for admin_class in [
-    ServidorAdmin, RegistroAcessoAdmin, RegistroDashboardAdmin, 
+    ServidorAdmin, RegistroAcessoAdmin, RegistroDashboardAdmin,
     LogAuditoriaAdmin, VideoTutorialAdmin
 ]:
     # Adicionar o mixin dinamicamente
