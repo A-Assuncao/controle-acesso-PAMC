@@ -10,9 +10,12 @@ from django.utils.safestring import SafeString
 from django.urls import reverse, path
 from django.db.models import Count, Q
 from django.utils import timezone
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib import messages
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+from . import admin_io
 from django.contrib.admin import SimpleListFilter
 from django.forms import ModelForm, Select, TextInput, Textarea
 from datetime import datetime, timedelta
@@ -197,6 +200,30 @@ def exportar_relatorio_servidores(modeladmin, request, queryset):
         f'📊 Relatório de {queryset.count()} servidor(es) exportado!'
     )
 exportar_relatorio_servidores.short_description = "📊 Exportar relatório dos selecionados"
+
+def exportar_csv_action(modeladmin, request, queryset):
+    """Action generica: exporta queryset selecionado para CSV."""
+    model_name = queryset.model.__name__
+    if model_name not in admin_io.EXPORT_FIELDS:
+        messages.error(request, f'Modelo {model_name} nao suporta export CSV.')
+        return
+    return admin_io.exportar_csv(request, queryset, model_name)
+exportar_csv_action.short_description = "📄 Exportar selecionados para CSV"
+
+def exportar_xlsx_action(modeladmin, request, queryset):
+    """Action generica: exporta queryset selecionado para XLSX."""
+    model_name = queryset.model.__name__
+    if model_name not in admin_io.EXPORT_FIELDS:
+        messages.error(request, f'Modelo {model_name} nao suporta export XLSX.')
+        return
+    return admin_io.exportar_xlsx(request, queryset, model_name)
+exportar_xlsx_action.short_description = "📊 Exportar selecionados para XLSX"
+
+def importar_arquivo_action(modeladmin, request, queryset):
+    """Redireciona para o form de importacao."""
+    model_name = queryset.model.__name__
+    return redirect(f'admin:core_{model_name.lower()}_importar')
+importar_arquivo_action.short_description = "📥 Importar arquivo (CSV/XLSX)"
 
 # =============================================================================
 # AÇÕES PERSONALIZADAS PARA LOGS DE AUDITORIA
@@ -398,7 +425,9 @@ class ServidorAdmin(admin.ModelAdmin):
     actions = [
         ativar_servidores_selecionados,
         desativar_servidores_selecionados,
-        exportar_relatorio_servidores
+        exportar_relatorio_servidores,
+        exportar_csv_action,
+        exportar_xlsx_action,
     ]
     
     # Organização dos campos
@@ -613,7 +642,9 @@ class RegistroAcessoAdmin(ColunasRegistroMixin, admin.ModelAdmin):
     # Ações personalizadas para registros
     actions = [
         'exportar_registros_selecionados',
-        'finalizar_entradas_pendentes'
+        'finalizar_entradas_pendentes',
+        exportar_csv_action,
+        exportar_xlsx_action,
     ]
     
     fieldsets = (
@@ -863,6 +894,62 @@ admin.site.site_header = _html_estatico(
     f'<span style="color: #007bff; font-weight: bold;">Sistema de Controle de Acesso {unidade}</span>'
 )
 admin.site.site_title = f'Controle de Acesso {unidade}'
+def importar_view(request, model_name):
+    """View customizada de import - GET mostra form, POST processa."""
+    if model_name not in admin_io.EXPORT_FIELDS:
+        messages.error(request, f'Modelo {model_name} nao suporta import.')
+        return redirect('/admin/')
+
+    if request.method == 'POST':
+        arquivo = request.FILES.get('arquivo')
+        if not arquivo:
+            messages.error(request, 'Nenhum arquivo enviado.')
+            return redirect(request.path)
+
+        result = admin_io.importar_arquivo(arquivo, model_name, request.user)
+        if result['criados']:
+            messages.success(request, f"{result['criados']} registro(s) importado(s).")
+        if result['erros']:
+            for erro in result['erros'][:10]:
+                messages.warning(request, erro)
+            if len(result['erros']) > 10:
+                messages.warning(request, f"... e mais {len(result['erros']) - 10} erro(s).")
+
+        # Volta para lista do modelo
+        app_label = 'core'
+        return redirect(f'/admin/{app_label}/{model_name.lower()}/')
+
+    return render(request, 'admin/importar_form.html', {
+        'model_name': model_name,
+        'title': f'Importar {model_name}',
+    })
+
+
+def _add_import_url(admin_class, model_name):
+    """Adiciona URL customizada de import ao get_urls() do ModelAdmin."""
+    original_get_urls = admin_class.get_urls
+
+    def get_urls(self):
+        from django.urls import path
+        urls = original_get_urls(self)
+        custom = [
+            path(
+                'importar/',
+                admin.site.admin_view(
+                    lambda r, mn=model_name: importar_view(r, mn)
+                ),
+                name=f'core_{model_name.lower()}_importar',
+            ),
+        ]
+        return custom + urls
+
+    admin_class.get_urls = get_urls
+
+
+_add_import_url(ServidorAdmin, 'Servidor')
+_add_import_url(RegistroAcessoAdmin, 'RegistroAcesso')
+
+
 admin.site.index_title = _html_estatico(
     '<span style="color: #28a745;">Painel de Administracao Avancado</span>'
 )
