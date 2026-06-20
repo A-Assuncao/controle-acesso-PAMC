@@ -324,3 +324,51 @@ msgstr "Alternar navegação"
 
 msgid "Toggle theme"
 msgstr "Alternar tema"
+
+# Strings do Unfold - empty results, filters
+msgid "No results found"
+msgstr "Nenhum resultado encontrado"
+
+msgid "This page yielded into no results. Create a new item or reset your filters."
+msgstr "Esta pagina nao retornou resultados. Crie um novo item ou limpe os filtros."
+
+msgid "Filters"
+msgstr "Filtros"
+
+msgid "Apply Filters"
+msgstr "Aplicar filtros"
+
+msgid "All applications"
+msgstr "Todos os aplicativos"
+
+msgid "Go back"
+msgstr "Voltar"
+
+msgid "Click to cancel"
+msgstr "Clique para cancelar"
+
+msgid "Navigate"
+msgstr "Navegar"
+
+msgid "This item will be deleted."
+msgstr "Este item sera excluido."
+
+msgid "Nothing matched your search"
+msgstr "Nada encontrado para sua busca"
+
+# Strings do admin Django que faltavam
+msgid "Yes, I'm sure"
+msgstr "Sim, tenho certeza"
+
+msgid "of %(count)d selected"
+msgid_plural "of %(count)d selected"
+msgstr[0] "de %(count)d selecionado"
+msgstr[1] "de %(count)d selecionados"
+
+msgid "1 result"
+msgid_plural "%(count)d results"
+msgstr[0] "1 resultado"
+msgstr[1] "%(count)d resultados"
+
+msgid "0 results"
+msgstr "0 resultados"
