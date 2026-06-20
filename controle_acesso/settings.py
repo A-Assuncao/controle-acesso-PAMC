@@ -332,10 +332,9 @@ UNFOLD = {
             {
                 "title": _("Operação"),
                 "items": [
-                    {"title": _("Dashboard"), "link": reverse_lazy("admin:index")},
                     {"title": _("Histórico"), "link": reverse_lazy("admin:core_registroacesso_changelist")},
-                    {"title": _("Servidores"), "link": reverse_lazy("admin:core_servidor_changelist")},
                     {"title": _("Registros"), "link": reverse_lazy("admin:core_registrodashboard_changelist")},
+                    {"title": _("Servidores"), "link": reverse_lazy("admin:core_servidor_changelist")},
                 ],
             },
             {
