@@ -25,7 +25,7 @@ from .models import (
     Servidor, RegistroAcesso, RegistroDashboard,
     LogAuditoria, VideoTutorial, PerfilUsuario
 )
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from .utils import get_unidade_prisional
 
 
@@ -1080,6 +1080,10 @@ _add_import_url(RegistroAcessoAdmin, 'RegistroAcesso')
 
 # Desregistra o UserAdmin padrao
 admin.site.unregister(User)
+
+# Desregistra Group e VideoTutorial - nao sao usados pelo app
+admin.site.unregister(Group)
+admin.site.unregister(VideoTutorial)
 
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
