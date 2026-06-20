@@ -780,3 +780,177 @@ fieldset.collapsed h2::after {
     font-weight: 600;
     font-size: 0.9rem;
 }
+
+/* ============================================================== */
+/* REPAGINADA VISUAL - gradient azul-marinho e cores consistentes */
+/* ============================================================== */
+
+/* Header com gradient mais intenso - identidade visual PAMC */
+#header {
+    background: linear-gradient(135deg, #0a2540 0%, #1a3a5c 100%) !important;
+    color: #fff !important;
+    padding: 1rem 1.5rem !important;
+    border-bottom: 3px solid #ffc107 !important;
+}
+
+#site-name a,
+#site-name span {
+    color: #fff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+#header a:link,
+#header a:visited {
+    color: #ffffff !important;
+}
+
+#header #user-tools a {
+    color: #ffc107 !important;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    transition: background 0.15s ease;
+}
+
+#header #user-tools a:hover {
+    background: rgba(255, 193, 7, 0.15);
+}
+
+/* Tabelas com hover suave */
+#changelist table thead th {
+    background: linear-gradient(135deg, #0a2540 0%, #1a3a5c 100%) !important;
+    color: #fff !important;
+    border-bottom: 2px solid #ffc107 !important;
+}
+
+#changelist table tbody tr:hover {
+    background: #fef9e7 !important;
+}
+
+#changelist table tbody tr.selected {
+    background: #fff3cd !important;
+}
+
+/* Botoes de acao principais com gradient */
+.button.default,
+input[type="submit"].default,
+.submit-row input.default {
+    background: linear-gradient(135deg, #0a2540 0%, #1a3a5c 100%) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.button.default:hover,
+input[type="submit"].default:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #1a3a5c 0%, #0a2540 100%) !important;
+}
+
+/* Modules (cards de secao) */
+.module {
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.module h2,
+.module caption {
+    background: linear-gradient(135deg, #0a2540 0%, #1a3a5c 100%) !important;
+    color: #fff !important;
+    padding: 0.75rem 1rem !important;
+    font-weight: 600;
+}
+
+/* Filter sidebar com cor de destaque */
+#changelist-filter {
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    padding: 1rem;
+}
+
+#changelist-filter h2 {
+    background: transparent !important;
+    color: #0a2540 !important;
+    padding: 0 0 0.5rem 0 !important;
+    border-bottom: 2px solid #ffc107;
+    margin-bottom: 0.75rem;
+}
+
+#changelist-filter h3 {
+    color: #1a3a5c;
+    font-weight: 600;
+    margin-top: 0.75rem;
+}
+
+/* Breadcrumbs com estilo */
+.breadcrumbs {
+    background: #f3f4f6;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.5rem 1.5rem;
+    color: #4b5563;
+}
+
+.breadcrumbs a {
+    color: #0a2540;
+    font-weight: 500;
+}
+
+/* Fieldset de campos do form de edicao */
+fieldset.module {
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+fieldset.module h2 {
+    background: linear-gradient(135deg, #0a2540 0%, #1a3a5c 100%) !important;
+    color: #fff !important;
+    padding: 0.75rem 1rem;
+    border-radius: 7px 7px 0 0;
+}
+
+/* Mensagens flash com icone */
+.messagelist li {
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.messagelist li.success {
+    background: #d1fae5;
+    color: #065f46;
+    border-left: 4px solid #10b981;
+}
+
+.messagelist li.warning {
+    background: #fef3c7;
+    color: #92400e;
+    border-left: 4px solid #f59e0b;
+}
+
+.messagelist li.error {
+    background: #fee2e2;
+    color: #991b1b;
+    border-left: 4px solid #dc2626;
+}
+
+.messagelist li.info {
+    background: #dbeafe;
+    color: #1e40af;
+    border-left: 4px solid #3b82f6;
+}
+
+/* Scrollbar mais suave em tabelas longas */
+#changelist table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#changelist table tbody td {
+    border-bottom: 1px solid #f3f4f6;
+}
