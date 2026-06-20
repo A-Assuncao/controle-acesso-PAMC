@@ -11,6 +11,7 @@ from django.urls import reverse, path
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -475,7 +476,7 @@ desativar_videos_selecionados.short_description = "❌ Desativar vídeos selecio
 # =============================================================================
 
 @admin.register(Servidor)
-class ServidorAdmin(admin.ModelAdmin):
+class ServidorAdmin(UnfoldModelAdmin):
     form = ServidorForm
 
     # Layout principal
@@ -720,7 +721,7 @@ class ColunasRegistroMixin:
 # =============================================================================
 
 @admin.register(RegistroAcesso)
-class RegistroAcessoAdmin(ColunasRegistroMixin, admin.ModelAdmin):
+class RegistroAcessoAdmin(ColunasRegistroMixin, UnfoldModelAdmin):
     
     list_display = (
         'data_hora_formatada', 'servidor_info', 'tipo_acesso_visual', 
@@ -814,7 +815,7 @@ class PerfilUsuarioInline(admin.StackedInline):
 # =============================================================================
 
 @admin.register(RegistroDashboard)
-class RegistroDashboardAdmin(ColunasRegistroMixin, admin.ModelAdmin):
+class RegistroDashboardAdmin(ColunasRegistroMixin, UnfoldModelAdmin):
     list_display = (
         'data_hora_formatada', 'servidor_info', 'tipo_acesso_visual', 
         'operador_badge', 'status_completo'
@@ -831,7 +832,7 @@ class RegistroDashboardAdmin(ColunasRegistroMixin, admin.ModelAdmin):
     ]
 
 @admin.register(LogAuditoria)
-class LogAuditoriaAdmin(admin.ModelAdmin):
+class LogAuditoriaAdmin(UnfoldModelAdmin):
     list_display = (
         'data_hora_formatada', 'usuario_info', 'tipo_acao_badge', 
         'modelo_badge', 'detalhes_resumo'
@@ -900,7 +901,7 @@ class LogAuditoriaAdmin(admin.ModelAdmin):
         return request.user.is_superuser  # Apenas superusers podem deletar logs
 
 @admin.register(VideoTutorial)
-class VideoTutorialAdmin(admin.ModelAdmin):
+class VideoTutorialAdmin(UnfoldModelAdmin):
     list_display = (
         'titulo_formatado', 'categoria_badge', 'ordem_visual',
         'status_ativo', 'data_atualizacao_formatada', 'acoes_video'
@@ -1089,7 +1090,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
 
 @admin.register(User)
-class UserAdmin(DjangoUserAdmin):
+class UserAdmin(DjangoUserAdmin, UnfoldModelAdmin):
     """UserAdmin customizado com actions de export e URL de import."""
 
     # Mantem o que o DjangoUserAdmin ja configura (fieldsets, list_display, etc)
