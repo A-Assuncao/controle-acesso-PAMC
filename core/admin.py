@@ -170,6 +170,44 @@ class StatusAtivoFilter(SimpleListFilter):
             ).filter(total_registros=0)
         return queryset
 
+
+class DataCustomFilter(SimpleListFilter):
+    """Filtro por data customizada (entre data_inicio e data_fim via GET).
+
+    Diferente dos outros filtros (que usam choices), este aceita
+    datas via query string. Adicione 'data_inicio' e 'data_fim'
+    no template para que o usuario digite as datas.
+    """
+    title = '📅 Data específica'
+    parameter_name = 'data_custom'
+
+    def lookups(self, request, model_admin):
+        # Vazio - filtra via GET param ao inves de choices
+        return ()
+
+    def queryset(self, request, queryset):
+        inicio = request.GET.get('data_inicio', '').strip()
+        fim = request.GET.get('data_fim', '').strip()
+        if inicio:
+            try:
+                dt = datetime.strptime(inicio, '%Y-%m-%d').date()
+                # Filtra por data_hora__date se o model tiver data_hora,
+                # senao por data_hora direto
+                if queryset.model._meta.get_field('data_hora'):
+                    queryset = queryset.filter(data_hora__date__gte=dt)
+                else:
+                    queryset = queryset.filter(data_hora__date__gte=dt)
+            except ValueError:
+                pass
+        if fim:
+            try:
+                dt = datetime.strptime(fim, '%Y-%m-%d').date()
+                queryset = queryset.filter(data_hora__date__lte=dt)
+            except ValueError:
+                pass
+        return queryset
+
+
 # =============================================================================
 # AÇÕES EM MASSA PERSONALIZADAS
 # =============================================================================
@@ -689,8 +727,8 @@ class RegistroAcessoAdmin(ColunasRegistroMixin, admin.ModelAdmin):
     )
     
     list_filter = (
-        PeriodoFilter, 'tipo_acesso', 'saida_pendente', 
-        'status_alteracao', 'isv', PlantaoFilter
+        PeriodoFilter, DataCustomFilter, 'tipo_acesso', 'saida_pendente',
+        'status_alteracao', 'isv', PlantaoFilter, 'operador'
     )
     
     search_fields = (
@@ -780,7 +818,7 @@ class RegistroDashboardAdmin(ColunasRegistroMixin, admin.ModelAdmin):
         'data_hora_formatada', 'servidor_info', 'tipo_acesso_visual', 
         'operador_badge', 'status_completo'
     )
-    list_filter = (PeriodoFilter, 'tipo_acesso', 'saida_pendente', 'isv')
+    list_filter = (PeriodoFilter, DataCustomFilter, 'tipo_acesso', 'saida_pendente', 'isv', 'operador')
     search_fields = ('servidor__nome', 'servidor__numero_documento')
     date_hierarchy = 'data_hora'
     list_per_page = 25
@@ -797,8 +835,8 @@ class LogAuditoriaAdmin(admin.ModelAdmin):
         'data_hora_formatada', 'usuario_info', 'tipo_acao_badge', 
         'modelo_badge', 'detalhes_resumo'
     )
-    list_filter = ('tipo_acao', 'modelo', 'usuario', PeriodoFilter)
-    search_fields = ('detalhes', 'usuario__username', 'usuario__first_name')
+    list_filter = ('tipo_acao', 'modelo', 'usuario', PeriodoFilter, DataCustomFilter)
+    search_fields = ('detalhes', 'usuario__username', 'usuario__first_name', 'objeto_id')
     date_hierarchy = 'data_hora'
     list_per_page = 25  # Reduzido de 20 para 25 para melhor balanço
     list_max_show_all = 100  # Limite máximo em "Mostrar todos"
