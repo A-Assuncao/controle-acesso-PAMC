@@ -372,12 +372,11 @@ def trocar_senha(request):
         )
 
     if request.method == 'POST':
-        senha_atual = request.POST.get('senha_atual')
         nova_senha = request.POST.get('nova_senha')
         confirmar_senha = request.POST.get('confirmar_senha')
 
         # Validações básicas
-        if not senha_atual or not nova_senha or not confirmar_senha:
+        if not nova_senha or not confirmar_senha:
             messages.error(request, 'Todos os campos são obrigatórios.')
             return render(request, 'core/trocar_senha.html', {'perfil': perfil})
 
@@ -389,10 +388,26 @@ def trocar_senha(request):
             messages.error(request, 'A nova senha deve ter pelo menos 8 caracteres.')
             return render(request, 'core/trocar_senha.html', {'perfil': perfil})
 
-        # Verifica se a senha atual está correta
-        if not request.user.check_password(senha_atual):
-            messages.error(request, 'Senha atual incorreta.')
-            return render(request, 'core/trocar_senha.html', {'perfil': perfil})
+        # Senha atual só é exigida em troca voluntária.
+        # Quando precisa_trocar_senha=True, a senha atual É a temporária
+        # gerada pelo admin — o usuário nem a escolheu, então exigir que
+        # ele a redigite é fricção sem ganho de segurança (já provou
+        # conhecê-la ao logar).
+        if not perfil.precisa_trocar_senha:
+            senha_atual = request.POST.get('senha_atual')
+            if not senha_atual:
+                messages.error(request, 'Informe a senha atual.')
+                return render(request, 'core/trocar_senha.html', {'perfil': perfil})
+
+            if not request.user.check_password(senha_atual):
+                messages.error(request, 'Senha atual incorreta.')
+                return render(request, 'core/trocar_senha.html', {'perfil': perfil})
+        else:
+            # Troca obrigatória: bloqueia o caso de o usuário só "renomear"
+            # a temporária em vez de criar uma senha própria.
+            if request.user.check_password(nova_senha):
+                messages.error(request, 'A nova senha deve ser diferente da senha temporária atual.')
+                return render(request, 'core/trocar_senha.html', {'perfil': perfil})
 
         # Validações adicionais de segurança
         if nova_senha.lower() in [request.user.username.lower(), request.user.first_name.lower(), request.user.last_name.lower()]:

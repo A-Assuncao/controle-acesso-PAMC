@@ -88,6 +88,7 @@
                         <form method="post" class="needs-validation" novalidate>
                             {% csrf_token %}
                             
+                            {% if not perfil.precisa_trocar_senha %}
                             <div class="mb-3">
                                 <label class="form-label">Senha Atual*</label>
                                 <div class="input-group">
@@ -98,6 +99,7 @@
                                     Por favor, informe sua senha atual.
                                 </div>
                             </div>
+                            {% endif %}
                             
                             <div class="mb-3">
                                 <label class="form-label">Nova Senha*</label>
