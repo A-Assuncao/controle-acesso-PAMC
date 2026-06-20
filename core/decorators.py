@@ -1,5 +1,3 @@
-from django.contrib.auth.decorators import user_passes_test
-from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
 from django.contrib import messages
 from functools import wraps

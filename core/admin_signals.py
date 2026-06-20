@@ -1,11 +1,10 @@
 """Signals para o admin Django.
 
 Captura diff antes/depois em alteracoes de objetos via pre_save,
-armazena no proprio instance via atributo _admin_diff, e expõe
-helper para ModelAdmin injetar o contexto no template.
+armazena no proprio instance via atributo _admin_diff_antes, e
+expoe helper calcular_diff_entre para ModelAdmin gerar log com diff.
 """
 
-import json
 from datetime import date, datetime
 
 from django.db.models.signals import pre_save

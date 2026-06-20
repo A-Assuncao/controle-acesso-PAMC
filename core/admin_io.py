@@ -16,9 +16,7 @@ import unicodedata
 from datetime import datetime
 
 import openpyxl
-from django.db import transaction
 from django.http import HttpResponse
-from django.utils import timezone
 
 
 # Campos exportaveis por modelo (whitelist - evita expor dados sensiveis)

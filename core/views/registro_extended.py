@@ -122,8 +122,7 @@ def retirar_faltas(request):
         HttpResponse: Renderiza template com listas ou retorna arquivo PDF/JSON
     """
     import re
-    import unicodedata
-    
+
     # Constantes para configuração do PDF
     PDF_TITLE_FONT_SIZE = 16
     PDF_SUBTITLE_FONT_SIZE = 14

@@ -20,7 +20,7 @@ from django.utils import timezone
 import pytz
 
 from core.authentication import CanaimeAuthBackend
-from core.models import PerfilUsuario, RegistroDashboard, Servidor
+from core.models import Servidor
 from core.utils import calcular_plantao_atual, dashboard_registros_ativos
 
 

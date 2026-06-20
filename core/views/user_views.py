@@ -19,7 +19,6 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.conf import settings
 from django.db.models import Case, When, IntegerField
-from django.urls import reverse
 
 from ..models import LogAuditoria, PerfilUsuario
 from ..utils import enviar_senha_usuario, get_unidade_prisional

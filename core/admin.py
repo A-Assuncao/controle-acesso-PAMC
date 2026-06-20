@@ -10,15 +10,14 @@ from django.utils.safestring import SafeString
 from django.urls import reverse, path
 from django.db.models import Count, Q
 from django.utils import timezone
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import HttpResponse
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.core.files.uploadedfile import SimpleUploadedFile
 
 from . import admin_io
 from django.contrib.admin import SimpleListFilter
-from django.forms import ModelForm, Select, TextInput, Textarea
+from django.forms import ModelForm, TextInput, Textarea
 from datetime import datetime, timedelta
 import json
 

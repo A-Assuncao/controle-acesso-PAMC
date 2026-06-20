@@ -45,8 +45,6 @@ from pathlib import Path
 from django.apps import apps
 from django.conf import settings
 from django.core.management.base import BaseCommand
-from django.db.migrations.loader import MigrationLoader
-from django.db.migrations.state import ProjectState
 
 
 class Command(BaseCommand):
