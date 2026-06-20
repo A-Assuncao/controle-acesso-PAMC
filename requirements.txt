@@ -11,3 +11,4 @@ whitenoise>=6.12.0
 beautifulsoup4>=4.15.0
 PyYAML>=6.0.1
 django-import-export>=3.3,<4
+django-unfold>=0.98,<1
