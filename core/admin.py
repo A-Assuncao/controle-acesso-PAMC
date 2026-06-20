@@ -467,6 +467,32 @@ class ServidorAdmin(admin.ModelAdmin):
         exportar_xlsx_action,
     ]
     
+    # Hook para gerar diff antes/depois (signal pre_save captura
+    # o estado anterior, este metodo dispara o registro)
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # Apos o save, gera o diff e loga (se for edicao, nao criacao)
+        if change:
+            from .admin_signals import calcular_diff_entre
+            from .models import LogAuditoria
+            antes = getattr(obj, '_admin_diff_antes', None)
+            if antes is not None:
+                diff = calcular_diff_entre(antes, obj, obj.__class__.__name__)
+                if diff:
+                    diff_str = ' | '.join(
+                        f"{c}: '{m['antes']}' -> '{m['depois']}'"
+                        for c, m in diff.items()
+                    )
+                    LogAuditoria.objects.create(
+                        usuario=request.user,
+                        tipo_acao='EDICAO',
+                        modelo=obj.__class__.__name__,
+                        objeto_id=obj.pk,
+                        detalhes=f'Editado via admin: {diff_str}',
+                    )
+                    from django.contrib import messages
+                    messages.info(request, f'📝 {len(diff)} campo(s) alterado(s): {diff_str}')
+
     # Organização dos campos
     fieldsets = (
         ('👤 Informações Pessoais', {
@@ -837,13 +863,37 @@ class LogAuditoriaAdmin(admin.ModelAdmin):
 @admin.register(VideoTutorial)
 class VideoTutorialAdmin(admin.ModelAdmin):
     list_display = (
-        'titulo_formatado', 'categoria_badge', 'ordem_visual', 
+        'titulo_formatado', 'categoria_badge', 'ordem_visual',
         'status_ativo', 'data_atualizacao_formatada', 'acoes_video'
     )
     list_filter = ('categoria', 'ativo')
     search_fields = ('titulo', 'descricao')
     ordering = ('ordem', 'titulo')
     list_per_page = 15
+
+    # Diff antes/depois
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if change:
+            from .admin_signals import calcular_diff_entre
+            from .models import LogAuditoria
+            antes = getattr(obj, '_admin_diff_antes', None)
+            if antes is not None:
+                diff = calcular_diff_entre(antes, obj, obj.__class__.__name__)
+                if diff:
+                    diff_str = ' | '.join(
+                        f"{c}: '{m['antes']}' -> '{m['depois']}'"
+                        for c, m in diff.items()
+                    )
+                    LogAuditoria.objects.create(
+                        usuario=request.user,
+                        tipo_acao='EDICAO',
+                        modelo=obj.__class__.__name__,
+                        objeto_id=obj.pk,
+                        detalhes=f'Editado via admin: {diff_str}',
+                    )
+                    from django.contrib import messages
+                    messages.info(request, f'📝 {len(diff)} campo(s) alterado(s): {diff_str}')
     list_max_show_all = 50  # Limite máximo em "Mostrar todos"
     
     # Ações personalizadas para vídeos
