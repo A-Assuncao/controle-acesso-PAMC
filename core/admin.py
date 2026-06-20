@@ -606,7 +606,7 @@ class ServidorAdmin(UnfoldModelAdmin):
         return _html_estatico(
             '<span style="color: #dc3545; font-size: 16px;" title="Inativo">●</span>'
         )
-    status_visual.short_description = '🔄 Status'
+    status_visual.short_description = '🔄 Situação'
     
     def estatisticas_registros(self, obj):
         # Contagens já vêm anotadas pelo get_queryset (evita N+1)
@@ -713,7 +713,7 @@ class ColunasRegistroMixin:
             '<span style="color: #28a745; font-weight: bold;">Concluido</span>'
         )
 
-    status_completo.short_description = '📊 Status'
+    status_completo.short_description = '📊 Situação'
 
 
 # =============================================================================
