@@ -142,6 +142,9 @@ TIME_ZONE = os.getenv('TIME_ZONE', 'America/Manaus')  # UTC-4
 USE_I18N = True
 USE_TZ = True
 
+# Caminho para arquivos de traducao .po/.mo
+LOCALE_PATHS = [BASE_DIR / 'locale']
+
 # Configurações de codificação UTF-8
 DEFAULT_CHARSET = 'utf-8'
 FILE_CHARSET = 'utf-8'
