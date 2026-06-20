@@ -1120,6 +1120,22 @@ admin.site.index_title = 'Administração do Sistema'
 admin.site.enable_nav_sidebar = True
 
 # =============================================================================
+# REGISTRO DE URLS CUSTOMIZADAS (debug, etc)
+# =============================================================================
+
+_original_get_urls = admin.site.get_urls
+
+
+def _get_urls_customizadas():
+    """Adiciona URLs customizadas (debug) ao admin."""
+    from . import admin_debug
+    custom = admin_debug.get_debug_urls()
+    return custom + _original_get_urls()
+
+
+admin.site.get_urls = _get_urls_customizadas
+
+# =============================================================================
 # CONFIGURAÇÃO DE MÍDIA PERSONALIZADA
 # =============================================================================
 

@@ -1,0 +1,77 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }} | {{ site_title }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; Debug
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="module">
+        <h1>🛠️ Ferramentas de Debug</h1>
+        <div style="padding: 1.5rem;">
+            <p style="color: #6b7280; margin-bottom: 1.5rem;">
+                Acesso restrito a superusuários. Use para investigar
+                problemas em produção. <strong>Nunca exponha em ambiente
+                público sem HTTPS.</strong>
+            </p>
+
+            <div class="debug-tool-grid">
+                {% for tool in tools %}
+                <a href="{% url 'admin:'|add:tool.url %}" class="debug-tool-card">
+                    <i class="bi {{ tool.icon }}"></i>
+                    <h3>{{ tool.name }}</h3>
+                    <p>{{ tool.descricao }}</p>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.debug-tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+.debug-tool-card {
+    display: block;
+    padding: 1.5rem 1rem;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #374151;
+    transition: all 0.15s ease;
+}
+.debug-tool-card:hover {
+    border-color: #0a2540;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(10, 37, 64, 0.1);
+    text-decoration: none;
+}
+.debug-tool-card i {
+    font-size: 2rem;
+    color: #0a2540;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+.debug-tool-card h3 {
+    font-size: 1.1rem;
+    margin: 0 0 0.5rem 0;
+    color: #111827;
+}
+.debug-tool-card p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+</style>
+{% endblock %}

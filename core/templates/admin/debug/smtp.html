@@ -1,0 +1,52 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }} | {{ site_title }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:debug_index' %}">Debug</a>
+    &rsaquo; SMTP
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="module">
+        <h1>📧 Testar SMTP</h1>
+        <div style="padding: 1rem;">
+            <p style="color: #6b7280;">
+                Envia um email de teste usando a configuração SMTP atual
+                do projeto. Útil para verificar credenciais após deploy.
+            </p>
+
+            <div class="module" style="margin: 1.5rem 0; padding: 1rem;">
+                <h2 style="font-size: 1rem; margin-top: 0;">Configuração atual</h2>
+                <table style="width: 100%;">
+                    <tr><td style="padding: 0.25rem; font-weight: 600; width: 200px;">EMAIL_HOST</td><td><code>{{ email_host }}</code></td></tr>
+                    <tr><td style="padding: 0.25rem; font-weight: 600;">EMAIL_PORT</td><td><code>{{ email_port }}</code></td></tr>
+                    <tr><td style="padding: 0.25rem; font-weight: 600;">EMAIL_HOST_USER</td><td><code>{{ email_user }}</code></td></tr>
+                    <tr><td style="padding: 0.25rem; font-weight: 600;">EMAIL_USE_TLS</td><td><code>{{ email_use_tls }}</code></td></tr>
+                    <tr><td style="padding: 0.25rem; font-weight: 600;">DEFAULT_FROM_EMAIL</td><td><code>{{ default_from }}</code></td></tr>
+                </table>
+            </div>
+
+            <form method="post" style="margin-top: 1.5rem;">
+                {% csrf_token %}
+                <div style="margin-bottom: 0.75rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.25rem;">
+                        Email de destino:
+                    </label>
+                    <input type="email" name="destino" required
+                           style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; width: 100%; max-width: 400px;"
+                           placeholder="seu@email.com">
+                </div>
+                <button type="submit" class="default">
+                    📤 Enviar email de teste
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
