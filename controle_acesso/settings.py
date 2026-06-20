@@ -277,3 +277,63 @@ LOGGING = {
         },
     },
 }
+
+
+# =============================================================================
+# CONFIGURACAO DO DJANGO-UNFOLD
+# https://unfoldadmin.com/docs/
+# =============================================================================
+
+UNFOLD = {
+    # Cores primarias - paleta da PAMC
+    "COLORS": {
+        "primary": {
+            "50": "#f0f4f8",
+            "100": "#d9e2ec",
+            "200": "#b3c5d9",
+            "300": "#8da8c6",
+            "400": "#678bb3",
+            "500": "#416ea0",
+            "600": "#1a3a5c",
+            "700": "#0a2540",
+            "800": "#061a30",
+            "900": "#030f20",
+            "950": "#010813",
+        },
+        "accent": {
+            "50": "#fffbeb",
+            "100": "#fef3c7",
+            "200": "#fde68a",
+            "300": "#fcd34d",
+            "400": "#fbbf24",
+            "500": "#ffc107",
+            "600": "#d97706",
+            "700": "#b45309",
+            "800": "#92400e",
+            "900": "#78350f",
+        },
+    },
+
+    # Sidebar - organizacao hierarquica dos apps
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": False,
+        "navigation_apps": ["core", "auth"],
+    },
+
+    # Site
+    "SITE_TITLE": "PAMC - Controle de Acesso",
+    "SITE_HEADER": "Sistema de Controle de Acesso",
+    "SITE_URL": "/",
+    "SITE_FAVICON": "/static/images/canaime_logo.png",
+
+    # Tema - dark mode nativo
+    "DARK_MODE": True,
+    "DARK_THEME": True,
+
+    # Login
+    "LOGIN": {
+        "image": "/static/images/canaime_logo.png",
+        "redirect": "/admin/",
+    },
+}
