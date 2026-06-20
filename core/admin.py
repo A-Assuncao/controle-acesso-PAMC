@@ -269,6 +269,43 @@ def exportar_logs_selecionados(modeladmin, request, queryset):
 
 exportar_logs_selecionados.short_description = "📊 Exportar logs selecionados (CSV)"
 
+def resetar_logs_selecionados(modeladmin, request, queryset):
+    """Deleta os logs selecionados e cria 1 log de auditoria registrando o reset.
+
+    ATENCAO: esta action e destrutiva. Para acionar, o admin deve
+    selecionar os logs que deseja remover e confirmar via JS.
+    """
+    from .models import LogAuditoria
+
+    total_deletados = queryset.count()
+    if total_deletados == 0:
+        modeladmin.message_user(request, 'Nenhum log selecionado.', messages.WARNING)
+        return
+
+    # Pega os primeiros 5 IDs para o log de rastreabilidade
+    primeiros_ids = list(queryset.order_by('id').values_list('id', flat=True)[:5])
+
+    queryset.delete()
+
+    LogAuditoria.objects.create(
+        usuario=request.user,
+        tipo_acao='EXCLUSAO',
+        modelo='LogAuditoria',
+        objeto_id=None,
+        detalhes=(
+            f'Reset de logs via admin: {total_deletados} log(s) deletado(s) por {request.user.username}. '
+            f'Primeiros IDs deletados: {primeiros_ids}'
+        ),
+    )
+
+    modeladmin.message_user(
+        request,
+        f'🗑️ {total_deletados} log(s) deletado(s). Um log do proprio reset foi criado para rastreabilidade.',
+        messages.SUCCESS,
+    )
+
+resetar_logs_selecionados.short_description = "🗑️ Resetar (deletar) logs selecionados"
+
 def marcar_logs_para_analise(modeladmin, request, queryset):
     """Marca logs para análise futura (não modifica os logs, apenas registra a ação)"""
     count = queryset.count()
@@ -741,8 +778,8 @@ class LogAuditoriaAdmin(admin.ModelAdmin):
     list_max_show_all = 100  # Limite máximo em "Mostrar todos"
     
     # Ações personalizadas para logs (seguras)
-    actions = ['exportar_logs_selecionados', 'marcar_logs_para_analise']
-    
+    actions = ['exportar_logs_selecionados', 'marcar_logs_para_analise', resetar_logs_selecionados]
+
     def data_hora_formatada(self, obj):
         return format_html(
             '<div style="text-align: center;">'
