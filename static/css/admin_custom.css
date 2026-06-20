@@ -832,3 +832,222 @@ fieldset.module h2 {
 #changelist table tbody td {
     border-bottom: 1px solid #f3f4f6;
 }
+
+/* ============================================================== */
+/* MODO ESCURO - @media (prefers-color-scheme: dark)              */
+/* Ativa automaticamente quando o sistema operacional esta em     */
+/* dark mode. Cores em alto contraste (texto claro em fundo escuro)*/
+/* ============================================================== */
+
+@media (prefers-color-scheme: dark) {
+
+    /* === FUNDO GERAL === */
+    body,
+    #container,
+    .module {
+        background: #1f2937 !important;
+        color: #f3f4f6 !important;
+    }
+
+    body {
+        background-color: #111827 !important;
+    }
+
+    /* === HEADER === */
+    #header {
+        background: linear-gradient(135deg, #0a2540 0%, #1a3a5c 100%) !important;
+        color: #fff !important;
+        border-bottom-color: #ffc107 !important;
+    }
+
+    #site-name a, #site-name span {
+        color: #fff !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    }
+
+    #header a:link, #header a:visited,
+    #header #user-tools a {
+        color: #ffc107 !important;
+    }
+
+    #header #user-tools a:hover {
+        background: rgba(255, 193, 7, 0.25);
+    }
+
+    /* === BREADCRUMBS === */
+    .breadcrumbs {
+        background: #1f2937 !important;
+        border-bottom-color: #374151 !important;
+        color: #d1d5db !important;
+    }
+
+    .breadcrumbs a {
+        color: #60a5fa !important;
+    }
+
+    /* === MODULES / CARDS === */
+    .module {
+        background: #1f2937 !important;
+        border: 1px solid #374151 !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    .module h2,
+    .module caption {
+        background: linear-gradient(135deg, #1e3a5c 0%, #0a2540 100%) !important;
+        color: #fff !important;
+        border-bottom-color: #ffc107 !important;
+    }
+
+    /* === TABELAS === */
+    #changelist table thead th {
+        background: linear-gradient(135deg, #1e3a5c 0%, #0a2540 100%) !important;
+        color: #fff !important;
+        border-bottom-color: #ffc107 !important;
+    }
+
+    #changelist table tbody tr {
+        background: #1f2937 !important;
+        color: #f3f4f6 !important;
+    }
+
+    #changelist table tbody tr:nth-child(even) {
+        background: #283344 !important;
+    }
+
+    #changelist table tbody tr:hover {
+        background: #374151 !important;
+    }
+
+    #changelist table tbody tr.selected {
+        background: #422006 !important; /* amber-900 dark */
+    }
+
+    #changelist table tbody td {
+        border-bottom-color: #374151 !important;
+        color: #f3f4f6 !important;
+    }
+
+    #changelist table tbody a {
+        color: #60a5fa !important;
+    }
+
+    /* === FILTROS === */
+    #changelist-filter {
+        background: #1f2937 !important;
+        border-color: #374151 !important;
+    }
+
+    #changelist-filter h2,
+    #changelist-filter h3 {
+        color: #f3f4f6 !important;
+    }
+
+    #changelist-filter h2 {
+        border-bottom-color: #ffc107 !important;
+    }
+
+    /* === FORMULARIOS === */
+    input, select, textarea,
+    .vTextField, .vIntegerField, .vURLField {
+        background: #374151 !important;
+        color: #f3f4f6 !important;
+        border-color: #4b5563 !important;
+    }
+
+    input:focus, select:focus, textarea:focus {
+        border-color: #3b82f6 !important;
+        background: #1f2937 !important;
+    }
+
+    /* === BOTOES === */
+    .button, input[type="submit"], input[type="button"], .submit-row input {
+        background: #374151 !important;
+        color: #f3f4f6 !important;
+        border-color: #4b5563 !important;
+    }
+
+    .button.default,
+    input[type="submit"].default,
+    .submit-row input.default {
+        background: linear-gradient(135deg, #1a3a5c 0%, #0a2540 100%) !important;
+        color: #fff !important;
+        border-color: #ffc107 !important;
+    }
+
+    .button:hover {
+        background: #4b5563 !important;
+    }
+
+    /* === MENSAGENS FLASH === */
+    .messagelist li.success {
+        background: #064e3b !important;
+        color: #d1fae5 !important;
+        border-left-color: #10b981 !important;
+    }
+
+    .messagelist li.warning {
+        background: #78350f !important;
+        color: #fef3c7 !important;
+        border-left-color: #f59e0b !important;
+    }
+
+    .messagelist li.error {
+        background: #7f1d1d !important;
+        color: #fee2e2 !important;
+        border-left-color: #dc2626 !important;
+    }
+
+    .messagelist li.info {
+        background: #1e3a8a !important;
+        color: #dbeafe !important;
+        border-left-color: #3b82f6 !important;
+    }
+
+    /* === LOGIN PAGE === */
+    .login #header, body.login #header {
+        background: linear-gradient(135deg, #0a2540 0%, #1a3a5c 100%) !important;
+    }
+
+    .login .submit-row, .login #login-form .form-row {
+        background: transparent !important;
+    }
+
+    .login #content {
+        background: #111827 !important;
+    }
+
+    .login .module {
+        background: #1f2937 !important;
+    }
+
+    /* === LINKS === */
+    a:link, a:visited {
+        color: #60a5fa !important;
+    }
+
+    a:hover {
+        color: #93c5fd !important;
+    }
+
+    /* === SCROLLBAR === */
+    ::-webkit-scrollbar {
+        background: #111827;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #4b5563;
+        border-radius: 6px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #6b7280;
+    }
+
+    /* === FOOTER === */
+    #footer {
+        background: #111827 !important;
+        color: #9ca3af !important;
+        border-top-color: #374151 !important;
+    }
+}
