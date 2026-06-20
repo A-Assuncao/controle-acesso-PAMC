@@ -15,6 +15,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.utils import get_random_secret_key
+from django.utils.translation import gettext_lazy as _
 
 # Carrega variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -314,11 +315,31 @@ UNFOLD = {
         },
     },
 
-    # Sidebar - organizacao hierarquica dos apps
+    # Sidebar - lista de grupos visuais com items (cada item e um model
+    # com 'link' no formato 'app_label.model_name'). O Unfold renderiza
+    # cada group como um bloco com titulo e os items como links.
+    # Logs de Auditoria fica por ultimo (grupo "Sistema", depois de
+    # "Usuarios" do auth), conforme pedido.
     "SIDEBAR": {
-        "show_search": True,
+        "show_search": False,  # busca individual existe no topo de cada ModelAdmin
         "show_all_applications": False,
-        "navigation_apps": ["core", "auth"],
+        "navigation": [
+            {
+                "title": _("Operação"),
+                "items": [
+                    {"title": _("Servidores"), "link": ("admin:core_servidor_changelist",)},
+                    {"title": _("Registros de acesso"), "link": ("admin:core_registroacesso_changelist",)},
+                    {"title": _("Registros do dashboard"), "link": ("admin:core_registrodashboard_changelist",)},
+                ],
+            },
+            {
+                "title": _("Sistema"),
+                "items": [
+                    {"title": _("Usuários"), "link": ("admin:auth_user_changelist",)},
+                    {"title": _("Logs de Auditoria"), "link": ("admin:core_logauditoria_changelist",)},
+                ],
+            },
+        ],
     },
 
     # Site
