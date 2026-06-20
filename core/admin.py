@@ -1037,6 +1037,89 @@ _add_import_url(ServidorAdmin, 'Servidor')
 _add_import_url(RegistroAcessoAdmin, 'RegistroAcesso')
 
 
+def _calcular_metricas_admin():
+    """Calcula metricas usadas no dashboard do admin.
+
+    Reaproveita a logica do dashboard do painel (que foi revertido)
+    mas escrita de forma autonoma para o admin.
+    """
+    from datetime import timedelta
+    from django.contrib.auth.models import User
+    from django.db.models import Count
+    from django.db.models.functions import TruncDate
+    from django.utils import timezone
+
+    from core.models import LogAuditoria, RegistroAcesso, Servidor
+    from core.utils import calcular_plantao_atual
+
+    # Servidores
+    total_serv = Servidor.objects.count()
+    ativos = Servidor.objects.filter(ativo=True).count()
+
+    # Registros hoje
+    tz = timezone.get_current_timezone()
+    agora = timezone.now().astimezone(tz)
+    inicio_dia = agora.replace(hour=0, minute=0, second=0, microsecond=0)
+    qs_hoje = RegistroAcesso.objects.filter(data_hora__gte=inicio_dia)
+
+    # Plantão atual
+    plantao = calcular_plantao_atual()
+    qs_plantao = RegistroAcesso.objects.filter(
+        data_hora__gte=plantao['inicio'],
+        data_hora__lt=plantao['fim'],
+    )
+
+    # Usuarios
+    total_users = User.objects.count()
+
+    # Auditoria
+    agora_utc = timezone.now()
+    return {
+        'servidores': {
+            'total': total_serv,
+            'ativos': ativos,
+            'inativos': total_serv - ativos,
+        },
+        'registros_hoje': {
+            'entradas': qs_hoje.filter(tipo_acesso='ENTRADA').count(),
+            'saidas': qs_hoje.filter(tipo_acesso='SAIDA').count(),
+            'pendentes': qs_hoje.filter(saida_pendente=True).count(),
+        },
+        'registros_plantao': {
+            'plantao_nome': plantao['nome'],
+            'total': qs_plantao.count(),
+            'entradas': qs_plantao.filter(tipo_acesso='ENTRADA').count(),
+            'saidas': qs_plantao.filter(tipo_acesso='SAIDA').count(),
+            'pendentes': qs_plantao.filter(saida_pendente=True).count(),
+        },
+        'usuarios': {
+            'total': total_users,
+            'staff': User.objects.filter(is_staff=True, is_superuser=False).count(),
+            'superusers': User.objects.filter(is_superuser=True).count(),
+            'comuns': total_users - User.objects.filter(is_staff=True).count(),
+        },
+        'auditoria': {
+            'ultimas_24h': LogAuditoria.objects.filter(data_hora__gte=agora_utc - timedelta(hours=24)).count(),
+            'ultimos_7_dias': LogAuditoria.objects.filter(data_hora__gte=agora_utc - timedelta(days=7)).count(),
+            'ultimos_30_dias': LogAuditoria.objects.filter(data_hora__gte=agora_utc - timedelta(days=30)).count(),
+            'total': LogAuditoria.objects.count(),
+        },
+    }
+
+
+# Override do index do admin para injetar 'metricas' no contexto
+_original_admin_index = admin.site.index
+
+
+def _index_customizado(request, extra_context=None):
+    extra_context = extra_context or {}
+    extra_context['metricas'] = _calcular_metricas_admin()
+    return _original_admin_index(request, extra_context)
+
+
+admin.site.index = _index_customizado
+
+
 admin.site.index_title = _html_estatico(
     '<span style="color: #28a745;">Painel de Administracao Avancado</span>'
 )
