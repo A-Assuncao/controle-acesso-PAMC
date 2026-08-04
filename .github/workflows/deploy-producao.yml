@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        site: [pamc, cpbv, cpfbv]
+        site: [pamc, cpbv, cpfbv, uprro]
 
     steps:
       - name: Verificar pasta do app
