@@ -46,31 +46,32 @@ class RegistroAcessoForm(forms.ModelForm):
             }
         )
     )
-    
+
     class Meta:
         model = RegistroAcesso
-        fields = ['servidor', 'tipo_acesso', 'observacao', 'isv']
+        fields = ['servidor', 'tipo_acesso', 'observacao', 'isv', 'justificativa']
         widgets = {
             'servidor': forms.Select(attrs={'class': 'form-select'}),
             'tipo_acesso': forms.Select(attrs={'class': 'form-select'}),
             'observacao': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
-            'isv': forms.CheckboxInput(attrs={'class': 'form-check-input'})
+            'isv': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'justificativa': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
-    
+
     def clean(self):
         cleaned_data = super().clean()
         data_hora_manual = cleaned_data.get('data_hora_manual')
         justificativa = cleaned_data.get('justificativa')
-        
+
         if data_hora_manual:
             if not justificativa or len(justificativa) < 200:
                 raise forms.ValidationError(
                     'Para registros manuais, é necessário fornecer uma justificativa com pelo menos 200 caracteres.'
                 )
-            
+
             if data_hora_manual > timezone.now():
                 raise forms.ValidationError(
                     'A data/hora manual não pode ser no futuro.'
                 )
-        
+
         return cleaned_data 

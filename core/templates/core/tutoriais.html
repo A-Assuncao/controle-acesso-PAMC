@@ -1,141 +1,610 @@
 {% extends 'core/base.html' %}
+{% load core_extras %}
+
+{% block title %}Tutoriais em Vídeo - Controle de Acesso{% endblock %}
+
+{% block extra_heads %}
+<style>
+    /* Tabs Bootstrap - especificidade alta para sobrescrever Bootstrap */
+    ul.tutorial-tabs.nav.nav-tabs {
+        border-bottom: 2px solid #e6e8ec;
+        flex-wrap: wrap !important;
+        overflow-x: visible !important;
+        gap: 4px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+    }
+    ul.tutorial-tabs li.nav-item {
+        flex: 1 1 0 !important;
+        min-width: 0;
+        margin: 0 !important;
+        padding: 0 !important;
+        float: none !important;
+    }
+    ul.tutorial-tabs .nav-link,
+    ul.tutorial-tabs button.nav-link {
+        color: #111827 !important;
+        background: #ffffff !important;
+        border: 1px solid #d0d4dc !important;
+        border-bottom: none !important;
+        padding: 0.625rem 0.5rem !important;
+        font-weight: 600;
+        font-size: 0.8125rem;
+        line-height: 1.3;
+        text-align: center;
+        min-height: 52px;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px 8px 0 0;
+        transition: all 150ms ease;
+        width: 100%;
+    }
+    ul.tutorial-tabs .nav-link:hover {
+        color: #003366 !important;
+        background: #f0f6ff !important;
+        border-color: #93c5fd !important;
+    }
+    ul.tutorial-tabs .nav-link.active,
+    ul.tutorial-tabs button.nav-link.active {
+        color: #ffffff !important;
+        background: #003366 !important;
+        border-color: #003366 !important;
+        font-weight: 700;
+    }
+    ul.tutorial-tabs .nav-link.active:hover {
+        background: #00264d !important;
+        border-color: #00264d !important;
+    }
+
+    /* Player central */
+    .tutorial-player {
+        background: #0a0a0a;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    .tutorial-player .ratio-16x9 {
+        background: #000;
+    }
+    .tutorial-player iframe {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+
+    /* Estado vazio: nenhum video na categoria */
+    .tutorial-empty {
+        padding: 3rem 1rem;
+        text-align: center;
+        color: #6b7280;
+    }
+    .tutorial-empty i {
+        font-size: 3rem;
+        color: #d0d4dc;
+        display: block;
+        margin-bottom: 1rem;
+    }
+
+    /* Lista de videos na sidebar */
+    .video-list {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    .video-list-item {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        padding: 0.625rem 0.75rem;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 120ms ease;
+        text-decoration: none;
+        color: #1a1f36;
+    }
+    .video-list-item:hover {
+        background: #f3f4f6;
+        text-decoration: none;
+        color: #1a1f36;
+    }
+    .video-list-item.active {
+        background: #e0e7ff;
+        border-color: #c7d2fe;
+    }
+    .video-list-item .num {
+        flex-shrink: 0;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 50%;
+        background: #f3f4f6;
+        color: #475569;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .video-list-item.active .num { background: #0d6efd; color: white; }
+    .video-list-item.visto .num { background: #d1fae5; color: #047857; }
+    .video-list-item.visto.active .num { background: #0d6efd; color: white; }
+    .video-list-item .info { flex: 1; min-width: 0; }
+    .video-list-item .info .titulo {
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .video-list-item .info .visto-tag {
+        font-size: 0.7rem;
+        color: #047857;
+        font-weight: 600;
+    }
+    .video-list-item .check {
+        flex-shrink: 0;
+        color: #d0d4dc;
+        font-size: 1.1rem;
+    }
+    .video-list-item.visto .check { color: #047857; }
+
+    /* Controles de progresso e autoplay */
+    .tutorial-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        padding: 0.875rem 1rem;
+        background: #f8f9fb;
+        border-top: 1px solid #e6e8ec;
+    }
+    .tutorial-controls .progress-text {
+        font-size: 0.875rem;
+        color: #475569;
+    }
+    .tutorial-controls .progress-text strong {
+        color: #1a1f36;
+    }
+    .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+
+    /* Toast pequeno */
+    .toast-mini {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        background: #1a1f36;
+        color: white;
+        padding: 0.625rem 0.875rem;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 1080;
+        animation: toast-in 200ms ease;
+    }
+    @keyframes toast-in {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Header da pagina */
+    .tutorial-header {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+    .tutorial-header h1 {
+        font-size: 1.625rem;
+        font-weight: 600;
+        color: #1a1f36;
+        margin: 0 0 0.375rem;
+    }
+    .tutorial-header p {
+        color: #6b7280;
+        margin: 0;
+    }
+
+    /* Responsivo */
+    @media (max-width: 991px) {
+        .video-list { max-height: 400px; }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <h2 class="mb-0">
-                    <i class="bi bi-play-circle me-2"></i>
-                    Tutoriais em Vídeo
-                </h2>
-                <a href="{% url 'ambiente_treinamento' %}" class="btn btn-primary">
-                    <i class="bi bi-arrow-left me-2"></i>
-                    Voltar ao Treinamento
-                </a>
-            </div>
-            <p class="text-muted mt-2">
-                Assista aos vídeos tutoriais para aprender a usar todas as funcionalidades do sistema.
-            </p>
-        </div>
-    </div>
+<div class="container py-4">
+    <header class="tutorial-header">
+        <h1>
+            <i class="bi bi-mortarboard-fill me-2"></i>
+            Tutoriais em Vídeo
+        </h1>
+        <p class="text-muted">
+            Siga a jornada do operador: do login ao encerramento do plantão.
+        </p>
+    </header>
 
     {% if not tutoriais_por_categoria %}
-    <div class="alert alert-info">
-        <i class="bi bi-info-circle me-2"></i>
-        Nenhum tutorial disponível no momento.
+    <div class="tutorial-empty">
+        <i class="bi bi-info-circle"></i>
+        <strong>Nenhum tutorial disponível no momento.</strong>
+        <p class="small mt-2">Adicione vídeos em <code>core/data/tutoriais.yaml</code>.</p>
     </div>
-    {% endif %}
+    {% else %}
 
-    {% for categoria, tutoriais in tutoriais_por_categoria.items %}
-    <div class="card mb-4">
-        <div class="card-header bg-primary bg-opacity-10">
-            <h3 class="h5 mb-0">
-                <i class="bi bi-collection-play me-2"></i>
-                {{ categoria }}
-            </h3>
-        </div>
-        <div class="card-body">
-            <div class="row g-4">
-                {% for tutorial in tutoriais %}
-                <div class="col-md-6">
-                    <div class="card h-100">
-                        <div class="ratio ratio-16x9">
-                            <iframe 
-                                src="{{ tutorial.get_embed_url }}" 
-                                title="{{ tutorial.titulo }}" 
-                                frameborder="0" 
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                allowfullscreen>
-                            </iframe>
+    {# === Tabs Bootstrap para selecionar a categoria === #}
+    <ul class="nav nav-tabs tutorial-tabs mb-3" id="tutorialTabs" role="tablist">
+        {% for cat_code, _videos in tutoriais_por_categoria.items %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if forloop.first %}active{% endif %}"
+                    id="tab-{{ cat_code }}"
+                    data-bs-toggle="tab"
+                    data-bs-target="#pane-{{ cat_code }}"
+                    type="button"
+                    role="tab"
+                    aria-controls="pane-{{ cat_code }}"
+                    aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
+                {{ categorias_labels|get_item:cat_code|default:cat_code }}
+            </button>
+        </li>
+        {% endfor %}
+    </ul>
+
+    {# === Conteúdo das tabs: cada categoria tem seu pane === #}
+    <div class="tab-content" id="tutorialTabContent">
+        {% for cat_code, videos in tutoriais_por_categoria.items %}
+        <div class="tab-pane fade {% if forloop.first %}show active{% endif %}"
+             id="pane-{{ cat_code }}"
+             role="tabpanel"
+             aria-labelledby="tab-{{ cat_code }}"
+             data-cat-code="{{ cat_code }}"
+             data-first-embed="{{ videos.0.embed_url|default:'' }}"
+             data-first-titulo="{{ videos.0.titulo|default:'' }}"
+             data-first-descricao="{{ videos.0.descricao|default:'' }}"
+             data-first-id="{{ videos.0.id|default:'' }}">
+
+            <div class="row g-3">
+                {# === Coluna do player (8/12 em desktop) === #}
+                <div class="col-lg-8">
+                    <div class="tutorial-player">
+                        <div class="ratio ratio-16x9" id="player-{{ cat_code }}">
+                            {% if forloop.first and videos.0 %}
+                            <iframe
+                                id="iframe-{{ cat_code }}"
+                                data-video-id="{{ videos.0.id }}"
+                                src="{{ videos.0.embed_url }}"
+                                title="{{ videos.0.titulo }}"
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen></iframe>
+                            {% else %}
+                            {# Placeholder - iframe e criado pelo JS quando a tab e ativada #}
+                            <div class="tutorial-empty" id="placeholder-{{ cat_code }}">
+                                <i class="bi bi-play-circle"></i>
+                                <p>Clique em um vídeo da lista para começar.</p>
+                            </div>
+                            {% endif %}
                         </div>
-                        <div class="card-body">
-                            <h5 class="card-title">{{ tutorial.titulo }}</h5>
-                            <p class="card-text text-muted">{{ tutorial.descricao }}</p>
+
+                        <div class="tutorial-controls">
+                            <div>
+                                <span class="progress-text" id="progress-{{ cat_code }}">
+                                    <strong id="current-title-{{ cat_code }}">{{ videos.0.titulo|default:"-" }}</strong>
+                                    <span class="text-muted ms-2">
+                                        <span id="current-num-{{ cat_code }}">1</span>/<span>{{ videos|length }}</span>
+                                    </span>
+                                </span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="form-check form-switch m-0">
+                                    <input class="form-check-input" type="checkbox" id="autoplay-{{ cat_code }}">
+                                    <label class="form-check-label small" for="autoplay-{{ cat_code }}">
+                                        Próximo auto.
+                                    </label>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="prev-{{ cat_code }}" disabled>
+                                    <i class="bi bi-chevron-left"></i> Anterior
+                                </button>
+                                <button type="button" class="btn btn-sm btn-primary" id="next-{{ cat_code }}" {% if videos|length < 2 %}disabled{% endif %}>
+                                    Próximo <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-3" style="background: white; border-top: 1px solid #e6e8ec;">
+                            <p class="text-muted mb-0" id="desc-{{ cat_code }}">
+                                {{ videos.0.descricao|default:"Sem descrição." }}
+                            </p>
                         </div>
                     </div>
                 </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endfor %}
 
-    {% if user.is_superuser %}
-    <div class="card mb-4">
-        <div class="card-header bg-info bg-opacity-10">
-            <h3 class="h5 mb-0">
-                <i class="bi bi-lightbulb me-2"></i>
-                Sugestões de Vídeos
-            </h3>
-        </div>
-        <div class="card-body">
-            <div class="alert alert-info">
-                <h4 class="alert-heading">
-                    <i class="bi bi-camera-video me-2"></i>
-                    Sugestões de Conteúdo para os Vídeos
-                </h4>
-                <hr>
-                <ol>
-                    <li class="mb-3">
-                        <strong>Registro de Entrada:</strong>
-                        <ul>
-                            <li>Como buscar um servidor</li>
-                            <li>Preenchimento dos campos obrigatórios</li>
-                            <li>Registro com e sem ISV</li>
-                            <li>Registro com e sem veículo</li>
-                        </ul>
-                    </li>
-                    <li class="mb-3">
-                        <strong>Registro de Saída:</strong>
-                        <ul>
-                            <li>Como registrar saída normal</li>
-                            <li>Como registrar saída definitiva</li>
-                            <li>Diferença entre os tipos de saída</li>
-                        </ul>
-                    </li>
-                    <li class="mb-3">
-                        <strong>Edição de Registros:</strong>
-                        <ul>
-                            <li>Como editar data e hora de entrada</li>
-                            <li>Como editar data e hora de saída</li>
-                            <li>Como alterar informações de ISV e veículo</li>
-                        </ul>
-                    </li>
-                    <li class="mb-3">
-                        <strong>Exclusão de Registros:</strong>
-                        <ul>
-                            <li>Como excluir um registro</li>
-                            <li>Importância da justificativa</li>
-                            <li>Confirmação de exclusão</li>
-                        </ul>
-                    </li>
-                    <li class="mb-3">
-                        <strong>Gerenciamento da Planilha:</strong>
-                        <ul>
-                            <li>Como limpar a planilha</li>
-                            <li>Como exportar para Excel</li>
-                            <li>Como filtrar registros</li>
-                        </ul>
-                    </li>
-                    <li class="mb-3">
-                        <strong>Funcionalidades Gerais:</strong>
-                        <ul>
-                            <li>Navegação pelo sistema</li>
-                            <li>Entendendo os contadores</li>
-                            <li>Uso do menu de contexto</li>
-                            <li>Dicas e boas práticas</li>
-                        </ul>
-                    </li>
-                </ol>
-                <hr>
-                <p class="mb-0">
-                    <i class="bi bi-info-circle me-2"></i>
-                    Recomendamos que os vídeos sejam curtos (2-5 minutos) e objetivos, focando em uma funcionalidade específica por vez.
-                </p>
+                {# === Sidebar: lista de videos da categoria (4/12) === #}
+                <div class="col-lg-4">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white">
+                            <strong class="small text-muted text-uppercase">Vídeos desta etapa</strong>
+                        </div>
+                        <div class="card-body p-2 video-list" id="list-{{ cat_code }}">
+                            {% for v in videos %}
+                            <a href="#" class="video-list-item {% if forloop.first %}active{% endif %}"
+                               data-video-id="{{ v.id }}"
+                               data-embed="{{ v.embed_url }}"
+                               data-titulo="{{ v.titulo }}"
+                               data-descricao="{{ v.descricao }}"
+                               data-cat="{{ cat_code }}">
+                                <span class="num">{{ forloop.counter }}</span>
+                                <span class="info">
+                                    <div class="titulo">{{ v.titulo }}</div>
+                                </span>
+                                <i class="bi bi-check-circle check"></i>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+        {% endfor %}
     </div>
+
     {% endif %}
 </div>
-{% endblock %} 
+
+<div id="toast-mini" class="toast-mini" style="display: none;"></div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+(function() {
+    'use strict';
+
+    const STORAGE_KEY = 'tutoriais_vistos';
+
+    // Carrega IDs de videos ja vistos do localStorage
+    function getVistos() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+            return [];
+        }
+    }
+    function salvarVistos(arr) {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+        } catch (e) {
+            // Silencioso - localStorage pode estar desabilitado
+        }
+    }
+    function marcarVisto(videoId) {
+        const vistos = getVistos();
+        if (!vistos.includes(videoId)) {
+            vistos.push(videoId);
+            salvarVistos(vistos);
+        }
+    }
+    function limparVistos() {
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+        } catch (e) {}
+    }
+
+    // Estado do auto-play
+    function getAutoplayPref() {
+        return localStorage.getItem('tutoriais_autoplay') === '1';
+    }
+    function setAutoplayPref(v) {
+        localStorage.setItem('tutoriais_autoplay', v ? '1' : '0');
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast-mini');
+        if (!t) return;
+        t.textContent = msg;
+        t.style.display = 'block';
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => { t.style.display = 'none'; }, 2500);
+    }
+
+    // Aplica classe .visto na lista de videos conforme localStorage
+    function aplicarVistos() {
+        const vistos = getVistos();
+        document.querySelectorAll('.video-list-item[data-video-id]').forEach(item => {
+            if (vistos.includes(item.dataset.videoId)) {
+                item.classList.add('visto');
+                if (!item.querySelector('.visto-tag')) {
+                    const tag = document.createElement('div');
+                    tag.className = 'visto-tag';
+                    tag.textContent = '✓ Visto';
+                    item.querySelector('.info').appendChild(tag);
+                }
+            }
+        });
+        // Atualiza contador geral de progresso
+        const total = document.querySelectorAll('.video-list-item[data-video-id]').length;
+        const vistosCount = document.querySelectorAll('.video-list-item.visto').length;
+        const headerP = document.querySelector('.tutorial-header p');
+        if (headerP && total) {
+            const pct = Math.round(vistosCount / total * 100);
+            headerP.innerHTML = `Progresso: <strong>${vistosCount}/${total}</strong> (${pct}%) · Siga a jornada do operador.`;
+        }
+    }
+
+    // === Inicializa cada tab (categoria) sob demanda ===
+    // Apenas a tab ativa carrega iframe. Outras tabs tem placeholder
+    // e inicializam o iframe quando o usuario clicar nelas.
+    function setupPane(pane) {
+        const catCode = pane.dataset.catCode;
+        const iframe = document.getElementById('iframe-' + catCode);
+        const playerBox = document.getElementById('player-' + catCode);
+        const prevBtn = document.getElementById('prev-' + catCode);
+        const nextBtn = document.getElementById('next-' + catCode);
+        const autoplayChk = document.getElementById('autoplay-' + catCode);
+        const currentTitle = document.getElementById('current-title-' + catCode);
+        const currentNum = document.getElementById('current-num-' + catCode);
+        const descEl = document.getElementById('desc-' + catCode);
+        const listItems = Array.from(pane.querySelectorAll('.video-list-item[data-video-id]'));
+        const total = listItems.length;
+
+        if (!iframe || total === 0) return null;
+
+        let currentIdx = 0;
+
+        // Restaura preferencia de autoplay
+        autoplayChk.checked = getAutoplayPref();
+        autoplayChk.addEventListener('change', () => setAutoplayPref(autoplayChk.checked));
+
+        function loadVideo(idx) {
+            if (idx < 0 || idx >= total) return;
+            const item = listItems[idx];
+            const d = item.dataset;
+
+            // Atualiza iframe
+            iframe.src = d.embed || '';
+            iframe.dataset.videoId = d.videoId;
+            iframe.title = d.titulo;
+
+            // Atualiza UI
+            listItems.forEach(it => it.classList.remove('active'));
+            item.classList.add('active');
+            currentTitle.textContent = d.titulo;
+            descEl.textContent = d.descricao || 'Sem descrição.';
+            currentNum.textContent = (idx + 1) + '';
+            prevBtn.disabled = (idx === 0);
+            nextBtn.disabled = (idx === total - 1);
+            currentIdx = idx;
+
+            // Marca como visto imediatamente
+            marcarVisto(d.videoId);
+            item.classList.add('visto');
+            if (!item.querySelector('.visto-tag')) {
+                const tag = document.createElement('div');
+                tag.className = 'visto-tag';
+                tag.textContent = '✓ Visto';
+                item.querySelector('.info').appendChild(tag);
+            }
+            item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+
+        // Click na lista
+        listItems.forEach((item, idx) => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                loadVideo(idx);
+            });
+        });
+
+        // Botoes prev/next
+        prevBtn.addEventListener('click', () => loadVideo(currentIdx - 1));
+        nextBtn.addEventListener('click', () => {
+            if (currentIdx < total - 1) {
+                loadVideo(currentIdx + 1);
+            } else if (autoplayChk.checked) {
+                // Auto-play: pula para proxima categoria
+                const allPanes = Array.from(document.querySelectorAll('.tab-pane[data-cat-code]'));
+                const currentPaneIdx = allPanes.indexOf(pane);
+                if (currentPaneIdx < allPanes.length - 1) {
+                    const nextPane = allPanes[currentPaneIdx + 1];
+                    const nextTab = document.getElementById('tab-' + nextPane.dataset.catCode);
+                    nextTab.click();
+                    const firstItem = nextPane.querySelector('.video-list-item');
+                    if (firstItem) firstItem.click();
+                }
+            }
+        });
+
+        return { loadVideo };
+    }
+
+    // === Setup lazy: inicializa so quando a tab e ativada ===
+    const tabPanes = Array.from(document.querySelectorAll('.tab-pane[data-cat-code]'));
+    const paneStates = new Map();
+
+    function ensurePaneInitialized(pane) {
+        if (paneStates.has(pane)) return paneStates.get(pane);
+
+        // Se a pane ainda nao tem iframe (placeholder), cria a partir
+        // do data-first-embed salvo na pane.
+        const playerBox = pane.querySelector('.ratio');
+        let iframe = pane.querySelector('iframe');
+        if (!iframe) {
+            const catCode = pane.dataset.catCode;
+            const firstEmbed = pane.dataset.firstEmbed;
+            if (firstEmbed) {
+                iframe = document.createElement('iframe');
+                iframe.id = 'iframe-' + catCode;
+                iframe.dataset.videoId = pane.dataset.firstId;
+                iframe.src = firstEmbed;
+                iframe.title = pane.dataset.firstTitulo;
+                iframe.frameBorder = '0';
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                iframe.setAttribute('allowfullscreen', '');
+                // Substitui o placeholder
+                const placeholder = pane.querySelector('.tutorial-empty');
+                if (placeholder) placeholder.remove();
+                playerBox.appendChild(iframe);
+            }
+        }
+
+        const state = setupPane(pane);
+        paneStates.set(pane, state);
+        if (state) state.loadVideo(0);
+        return state;
+    }
+
+    // Inicializa apenas a tab ativa no carregamento
+    tabPanes.forEach(pane => {
+        if (pane.classList.contains('show') && pane.classList.contains('active')) {
+            ensurePaneInitialized(pane);
+        }
+    });
+
+    // Quando o usuario troca de tab, inicializa sob demanda
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tabBtn => {
+        tabBtn.addEventListener('shown.bs.tab', (e) => {
+            const targetId = e.target.getAttribute('data-bs-target');
+            if (!targetId) return;
+            const pane = document.querySelector(targetId);
+            if (pane) ensurePaneInitialized(pane);
+        });
+    });
+
+    // YouTube IFrame API: detecta fim do video para auto-play
+    // (a API so funciona se o video estiver 'enablejsapi=1' no src)
+    window.addEventListener('message', (e) => {
+        if (e.origin !== 'https://www.youtube.com') return;
+        try {
+            const data = JSON.parse(e.data);
+            if (data.event === 'infoDelivery' && data.info && data.info.playerState !== undefined) {
+                // 0 = ended, 1 = playing, 2 = paused
+                if (data.info.playerState === 0) {
+                    // Encontra o pane ativo e seu nextBtn
+                    const activePane = document.querySelector('.tab-pane.show.active');
+                    if (!activePane) return;
+                    const autoplayChk = document.getElementById('autoplay-' + activePane.dataset.catCode);
+                    if (autoplayChk && autoplayChk.checked) {
+                        const nextBtn = document.getElementById('next-' + activePane.dataset.catCode);
+                        if (nextBtn && !nextBtn.disabled) nextBtn.click();
+                    }
+                }
+            }
+        } catch (e) {}
+    });
+
+    // === Aplica vistos no carregamento ===
+    aplicarVistos();
+
+    // === Botao "limpar progresso" (util para admin/staff) ===
+    // (Oculto por padrao - descomente se quiser expor)
+    // const btnReset = document.createElement('button');
+    // btnReset.textContent = 'Limpar progresso';
+    // btnReset.onclick = () => { limparVistos(); location.reload(); };
+    // document.querySelector('.tutorial-header').appendChild(btnReset);
+})();
+</script>
+{% endblock %}

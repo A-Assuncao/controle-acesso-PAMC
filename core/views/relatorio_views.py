@@ -8,6 +8,7 @@ Responsável por:
 - Relatórios consolidados
 """
 
+import logging
 import pytz
 import pandas as pd
 from datetime import datetime, timedelta
@@ -20,6 +21,8 @@ from django.db.models import Q
 
 from ..models import RegistroAcesso
 from ..utils import calcular_plantao_atual
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -126,7 +129,7 @@ def historico(request):
             })
         except Exception as e:
             # Log do erro para depuração
-            print(f"[ERRO] Falha ao processar registro {registro.id}: {str(e)}")
+            logger.warning("historico: falha ao processar registro %s: %s", registro.id, e)
             continue  # Pula este registro e continua com o próximo
     
     # Se for solicitado exportar para Excel
@@ -178,10 +181,7 @@ def historico(request):
             return response
         except Exception as e:
             # Log do erro para depuração
-            import traceback
-            print(f"[ERRO EXPORTAÇÃO EXCEL] {str(e)}")
-            traceback.print_exc()
-            
+            logger.exception("historico: erro ao exportar Excel")
             # Retorna uma mensagem de erro amigável ao usuário
             messages.error(request, f"Erro ao exportar Excel: {str(e)}")
             # Continue com a renderização normal da página

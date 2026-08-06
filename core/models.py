@@ -312,7 +312,6 @@ class PerfilUsuario(models.Model):
     
     usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='perfil')
     precisa_trocar_senha = models.BooleanField(default=False)
-    senha_temporaria = models.CharField(max_length=50, blank=True, null=True)
     tipo_usuario = models.CharField(max_length=15, choices=TIPO_USUARIO_CHOICES, default='OPERADOR')
     foto_sgp2rr = models.URLField(blank=True, null=True, help_text="URL da foto obtida do SGP2RR")
     data_criacao = models.DateTimeField(auto_now_add=True)

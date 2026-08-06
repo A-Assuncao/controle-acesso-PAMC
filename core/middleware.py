@@ -19,11 +19,11 @@ class TrocaSenhaMiddleware:
         # Verifica se o usuário está autenticado
         if request.user.is_authenticated:
             # Verifica se o usuário tem um perfil
+            from core.models import PerfilUsuario
             try:
                 perfil = request.user.perfil
-            except:
+            except PerfilUsuario.DoesNotExist:
                 # Se o usuário não tem perfil, cria um novo
-                from core.models import PerfilUsuario
                 perfil = PerfilUsuario.objects.create(
                     usuario=request.user,
                     precisa_trocar_senha=False,

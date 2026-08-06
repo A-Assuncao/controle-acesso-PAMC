@@ -21,7 +21,8 @@ from .registro_views import (
 # Views de usuários refatoradas
 from .user_views import (
     user_list, user_create, user_update, user_delete,
-    user_reset_password, trocar_senha, is_staff
+    user_reset_password, user_confirmacao_senha,
+    trocar_senha, is_staff
 )
 
 # Views de relatórios refatoradas
@@ -36,7 +37,7 @@ from .treinamento_views import (
     exportar_excel_treinamento, registro_acesso_treinamento_update,
     excluir_registro_treinamento, registrar_saida_treinamento,
     tutoriais_treinamento, retirar_faltas_treinamento,
-    is_superuser, handler500
+    is_superuser, handler404, handler500
 )
 
 # Views de autenticação Canaimé (experimental)

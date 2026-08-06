@@ -1,11 +1,16 @@
 """Views de treinamento com logica estendida."""
 
+import logging
+import re
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 import pytz
+import yaml
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -19,98 +24,145 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
 from ..models import RegistroAcessoTreinamento, Servidor, ServidorTreinamento
 from ..utils import calcular_plantao_atual, extrair_plantao_do_setor
 
+logger = logging.getLogger(__name__)
+
+# Cache em memoria dos tutoriais (carregado uma unica vez por processo).
+# Em producao basta reiniciar o servico (IIS reset) para recarregar.
+_TUTORIAIS_CACHE = None
+
+CATEGORIAS_TUTORIAIS = [
+    # Jornada do operador (na ordem que ele faz as coisas durante o plantao)
+    ('ACESSO', 'Acesso ao Sistema'),
+    ('DASHBOARD', 'Conhecendo o Dashboard'),
+    ('BUSCAR_SERVIDOR', 'Buscar Servidor'),
+    ('REGISTRO_ENTRADA', 'Registrar Entrada'),
+    ('REGISTRO_SAIDA', 'Registrar Saída'),
+    ('SAIDA_DEFINITIVA', 'Saída Definitiva'),
+    ('CONSULTAR', 'Consultar Registros'),
+    ('RETIRAR_FALTAS', 'Retirar Faltas'),
+    ('ENCERRAR', 'Encerrar Plantão'),
+    ('TREINAMENTO', 'Ambiente de Treinamento'),
+    ('CADASTROS', 'Cadastros (Staff)'),
+]
+
+
+def _youtube_id(url_youtube):
+    """Extrai o ID de 11 caracteres de uma URL do YouTube."""
+    if not url_youtube:
+        return None
+    # youtu.be/ID
+    m = re.search(r'youtu\.be/([A-Za-z0-9_-]{11})', url_youtube)
+    if m:
+        return m.group(1)
+    # youtube.com/watch?v=ID ou &v=ID
+    m = re.search(r'[?&]v=([A-Za-z0-9_-]{11})', url_youtube)
+    if m:
+        return m.group(1)
+    return None
+
+
+def carregar_tutoriais():
+    """
+    Le core/data/tutoriais.yaml e retorna dicionario {categoria: [videos]}.
+    Os videos sao objetos com titulo, descricao e embed_url.
+    Resultado e cacheado em memoria para evitar I/O a cada request.
+    """
+    global _TUTORIAIS_CACHE
+    if _TUTORIAIS_CACHE is not None:
+        return _TUTORIAIS_CACHE
+
+    yaml_path = Path(settings.BASE_DIR) / 'core' / 'data' / 'tutoriais.yaml'
+    try:
+        with open(yaml_path, encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        logger.warning('tutoriais: arquivo nao encontrado em %s', yaml_path)
+        _TUTORIAIS_CACHE = {}
+        return _TUTORIAIS_CACHE
+    except yaml.YAMLError as e:
+        logger.error('tutoriais: erro ao parsear YAML: %s', e)
+        _TUTORIAIS_CACHE = {}
+        return _TUTORIAIS_CACHE
+
+    # Agrupa por categoria, na ordem de CATEGORIAS_TUTORIAIS. Dentro
+    # de cada categoria, ordena pelo campo 'ordem' (asc). Categorias
+    # sem videos validos sao puladas (sem embed_url).
+    resultado = {}
+    for codigo, _nome in CATEGORIAS_TUTORIAIS:
+        videos_categoria = []
+        for v in data.get('videos', []):
+            if v.get('categoria') != codigo:
+                continue
+            url = v.get('url_youtube', '')
+            video_id = _youtube_id(url)
+            if not video_id:
+                logger.warning('tutoriais: video sem URL valida, pulando: %s',
+                              v.get('titulo', '?'))
+                continue
+            videos_categoria.append({
+                'id': f'{codigo}-{videos_categoria.__len__():03d}',  # id estavel para localStorage
+                'titulo': v.get('titulo', ''),
+                'descricao': v.get('descricao', ''),
+                'url_original': url,
+                'embed_url': f'https://www.youtube.com/embed/{video_id}',
+                'ordem': v.get('ordem', 999),
+            })
+        # Ordena por 'ordem' dentro da categoria
+        videos_categoria.sort(key=lambda x: x['ordem'])
+        if videos_categoria:
+            resultado[codigo] = videos_categoria
+
+    _TUTORIAIS_CACHE = resultado
+    logger.info('tutoriais: %d videos em %d categorias carregados',
+                sum(len(v) for v in resultado.values()), len(resultado))
+    return resultado
+
 @login_required
 def ambiente_treinamento(request):
-    """View principal do ambiente de treinamento."""
-    # Define o timezone UTC-4
-    tz = pytz.timezone('America/Manaus')
-    agora = timezone.localtime(timezone.now(), tz)
-    
-    # Obtém o plantão atual
-    plantao_atual = calcular_plantao_atual()
-    
-    # Filtra registros do plantão atual (todos os registros para treinamento)
-    registros = RegistroAcessoTreinamento.objects.all().select_related('servidor', 'operador')
-    
-    # Calcula totais para os cards (similar ao dashboard principal)
-    total_entradas = registros.filter(tipo_acesso='ENTRADA').count()  # Total de entradas
-    total_saidas = registros.filter(data_hora_saida__isnull=False).count()  # Total de saídas normais
-    total_pendentes = registros.filter(tipo_acesso='ENTRADA', saida_pendente=True).count()  # Entradas sem saída
-    
-    # Lista de servidores para os modais (do banco principal)
-    servidores = Servidor.objects.filter(ativo=True).order_by('nome')
-    
-    # Define mostrar_aviso como False para desativar o aviso de troca de plantão
-    mostrar_aviso = False
-    
-    # Obtém hora atual para uso em outros lugares
-    hora_atual = agora.hour
-    minuto_atual = agora.minute
-    
-    # No ambiente de treinamento, todos têm permissão total
-    context = {
-        'plantao_atual': plantao_atual,
-        'total_entradas': total_entradas,
-        'total_saidas': total_saidas,
-        'total_pendentes': total_pendentes,
-        'servidores': servidores,
-        'mostrar_aviso_plantao': mostrar_aviso,
-        'hora_atual': f"{hora_atual:02d}:{minuto_atual:02d}",
-        'agora': agora,
-        'is_superuser': request.user.is_superuser,
-        'pode_registrar_acesso': True,
-        'pode_excluir_registros': True,
-        'pode_limpar_dashboard': True,
-        'pode_saida_definitiva': True,
-        'tipo_usuario': 'Treinamento'
-    }
-    
-    return render(request, 'core/treinamento.html', context)
+    """
+    View principal do ambiente de treinamento.
+
+    Redireciona para o mesmo template usado pela producao (core/home.html),
+    com o parametro ?treinamento=1. Isso garante que ambos os ambientes
+    usem exatamente o mesmo HTML/JS, sem duplicacao de templates.
+    """
+    # Redireciona para /dashboard/?treinamento=1 — a view 'home' detecta
+    # o parametro via request.GET e renderiza no modo treinamento.
+    return redirect('/dashboard/?treinamento=1')
 
 @login_required
 def registros_plantao_treinamento(request):
     """View para obter os registros do plantão atual no ambiente de treinamento."""
     try:
-        print(f"\n\n[DEBUG TREINAMENTO] ======= INÍCIO CARREGAMENTO DE REGISTROS =======")
-        print(f"[DEBUG TREINAMENTO] Requisição recebida de: {request.user}")
-        print(f"[DEBUG TREINAMENTO] Método HTTP: {request.method}")
-        print(f"[DEBUG TREINAMENTO] Path: {request.path}")
-        print(f"[DEBUG TREINAMENTO] GET params: {dict(request.GET)}")
-        
+        logger.debug("treinamento/registros: user=%s method=%s path=%s params=%s",
+                     request.user, request.method, request.path, dict(request.GET))
+
         # Define o timezone UTC-4
         tz = pytz.timezone('America/Manaus')
         agora = timezone.now()
-        print(f"[DEBUG TREINAMENTO] Data/hora atual (UTC): {agora}")
-        print(f"[DEBUG TREINAMENTO] Data/hora atual (local): {timezone.localtime(agora, tz)}")
-        
+
         # Obtém TODOS os registros (sem filtrar por data atual)
         registros = RegistroAcessoTreinamento.objects.all().select_related(
             'servidor', 'operador', 'operador_saida'
         ).order_by('-data_hora')
-        
-        print(f"[DEBUG TREINAMENTO] Total de registros encontrados: {registros.count()}")
-        
+
+        logger.debug("treinamento/registros: total=%d", registros.count())
+
         # Formata os registros
         registros_formatados = []
-        
+
         for registro in registros:
-            print(f"[DEBUG TREINAMENTO] ------ Processando registro ID: {registro.id} ------")
-            print(f"[DEBUG TREINAMENTO] Tipo: {registro.tipo_acesso}")
-            print(f"[DEBUG TREINAMENTO] Servidor: {registro.servidor.nome if registro.servidor else 'N/A'}")
-            print(f"[DEBUG TREINAMENTO] Data/hora entrada (DB): {registro.data_hora}")
-            print(f"[DEBUG TREINAMENTO] Data/hora saída (DB): {registro.data_hora_saida}")
-            print(f"[DEBUG TREINAMENTO] Saída pendente: {registro.saida_pendente}")
-            
+            logger.debug("treinamento/registros: processando id=%s tipo=%s servidor=%s",
+                         registro.id, registro.tipo_acesso,
+                         registro.servidor.nome if registro.servidor else 'N/A')
+
             # Converte os horários para UTC-4
             data_hora_entrada = timezone.localtime(registro.data_hora, tz)
-            print(f"[DEBUG TREINAMENTO] Data/hora entrada (local): {data_hora_entrada}")
-            
+
             # Processa data e hora de entrada
             data_entrada = data_hora_entrada.strftime('%d/%m/%Y')
             hora_entrada = data_hora_entrada.strftime('%H:%M')
-            print(f"[DEBUG TREINAMENTO] Data entrada formatada: {data_entrada}")
-            print(f"[DEBUG TREINAMENTO] Hora entrada formatada: {hora_entrada}")
-            
+
             # Processa data e hora de saída (se existir)
             data_saida = ''
             hora_saida = ''
@@ -118,12 +170,7 @@ def registros_plantao_treinamento(request):
                 data_hora_saida = timezone.localtime(registro.data_hora_saida, tz)
                 data_saida = data_hora_saida.strftime('%d/%m/%Y')
                 hora_saida = data_hora_saida.strftime('%H:%M')
-                print(f"[DEBUG TREINAMENTO] Data/hora saída (local): {data_hora_saida}")
-                print(f"[DEBUG TREINAMENTO] Data saída formatada: {data_saida}")
-                print(f"[DEBUG TREINAMENTO] Hora saída formatada: {hora_saida}")
-            else:
-                print(f"[DEBUG TREINAMENTO] Sem data/hora de saída")
-            
+
             # Cria o dicionário com os dados formatados
             registro_formatado = {
                 'id': registro.id,
@@ -141,20 +188,17 @@ def registros_plantao_treinamento(request):
                 'saida_pendente': registro.saida_pendente,
                 'operador': registro.operador.get_full_name() or registro.operador.username
             }
-            print(f"[DEBUG TREINAMENTO] Registro formatado: {registro_formatado}")
-            
+
             registros_formatados.append(registro_formatado)
-        
+
         # Calcula os totais
         total_entradas = registros.filter(tipo_acesso='ENTRADA').count()
         total_saidas = registros.filter(tipo_acesso='SAIDA').count()
         total_pendentes = registros.filter(saida_pendente=True).count()
-        
-        print(f"[DEBUG TREINAMENTO] Total de entradas: {total_entradas}")
-        print(f"[DEBUG TREINAMENTO] Total de saídas: {total_saidas}")
-        print(f"[DEBUG TREINAMENTO] Total de pendentes: {total_pendentes}")
-        print(f"[DEBUG TREINAMENTO] Total de registros formatados: {len(registros_formatados)}")
-        
+
+        logger.debug("treinamento/registros: totais entradas=%d saidas=%d pendentes=%d",
+                     total_entradas, total_saidas, total_pendentes)
+
         # Prepara a resposta
         resposta = {
             'status': 'success',
@@ -163,19 +207,11 @@ def registros_plantao_treinamento(request):
             'total_saidas': total_saidas,
             'total_pendentes': total_pendentes
         }
-        
-        print(f"[DEBUG TREINAMENTO] Resposta preparada com sucesso")
-        print(f"[DEBUG TREINAMENTO] Chaves na resposta: {resposta.keys()}")
-        print(f"[DEBUG TREINAMENTO] ======= FIM CARREGAMENTO DE REGISTROS =======\n\n")
-        
+
         return JsonResponse(resposta)
-        
+
     except Exception as e:
-        import traceback
-        print(f"[ERRO TREINAMENTO] Erro ao carregar registros: {str(e)}")
-        print(f"[ERRO TREINAMENTO] Traceback:")
-        traceback.print_exc()
-        
+        logger.exception("treinamento/registros: erro ao carregar registros")
         return JsonResponse({
             'status': 'error',
             'message': f'Erro ao carregar registros: {str(e)}'
@@ -185,44 +221,33 @@ def registros_plantao_treinamento(request):
 def registro_detalhe_treinamento(request, registro_id):
     """View para visualizar detalhes de um registro no ambiente de treinamento."""
     try:
-        print(f"[DEBUG] ======= INÍCIO DETALHES DO REGISTRO {registro_id} =======")
-        
+        logger.debug("treinamento/registro/%s/detalhe: inicio", registro_id)
+
         # Obtém o registro
         registro = get_object_or_404(RegistroAcessoTreinamento, id=registro_id)
-        print(f"[DEBUG] Registro encontrado: ID={registro.id}, Tipo={registro.tipo_acesso}")
-        print(f"[DEBUG] Estado do objeto: saida_pendente={registro.saida_pendente}")
-        print(f"[DEBUG] Data/hora entrada original (DB): {registro.data_hora}")
-        print(f"[DEBUG] Data/hora saída original (DB): {registro.data_hora_saida}")
-        
+        logger.debug("treinamento/registro/%s: tipo=%s saida_pendente=%s",
+                     registro_id, registro.tipo_acesso, registro.saida_pendente)
+
         # Define o timezone UTC-4
         tz = pytz.timezone('America/Manaus')
-        
+
         # PROCESSAMENTO DA ENTRADA - Sempre obrigatória
         # Converte para timezone local e formata
-        data_hora_entrada = timezone.localtime(registro.data_hora, tz)  
+        data_hora_entrada = timezone.localtime(registro.data_hora, tz)
         data_entrada = data_hora_entrada.strftime('%d/%m/%Y')  # Formato brasileiro
         hora_entrada = data_hora_entrada.strftime('%H:%M')
-        
-        print(f"[DEBUG] Data entrada (timezone ajustado): {data_hora_entrada}")
-        print(f"[DEBUG] Data entrada formatada (BR): {data_entrada}")
-        print(f"[DEBUG] Hora entrada formatada: {hora_entrada}")
-        
+
         # PROCESSAMENTO DA SAÍDA - Somente se existir
         # Inicializa com valores vazios
         data_saida = ""  # String vazia em vez de None para evitar confusão no frontend
         hora_saida = ""  # String vazia em vez de None para evitar confusão no frontend
-        
+
         # Se houver data de saída registrada, processa e formata
         if registro.data_hora_saida:
             data_hora_saida = timezone.localtime(registro.data_hora_saida, tz)
             data_saida = data_hora_saida.strftime('%d/%m/%Y')  # Formato brasileiro
             hora_saida = data_hora_saida.strftime('%H:%M')
-            print(f"[DEBUG] Data saída (timezone ajustado): {data_hora_saida}")
-            print(f"[DEBUG] Data saída formatada (BR): {data_saida}")
-            print(f"[DEBUG] Hora saída formatada: {hora_saida}")
-        else:
-            print(f"[DEBUG] Registro sem saída - campos de saída serão vazios")
-        
+
         # Monta o objeto de resposta para o frontend
         response_data = {
             'id': registro.id,
@@ -243,19 +268,11 @@ def registro_detalhe_treinamento(request, registro_id):
             'saida_pendente': registro.saida_pendente,
             'observacao': registro.observacao or ''
         }
-        
-        print(f"[DEBUG] Resposta enviada ao frontend (resumo):")
-        print(f"[DEBUG] data_entrada: {response_data['data_entrada']}, hora_entrada: {response_data['hora_entrada']}")
-        print(f"[DEBUG] data_saida: '{response_data['data_saida']}', hora_saida: '{response_data['hora_saida']}'")
-        print(f"[DEBUG] saida_pendente: {response_data['saida_pendente']}")
-        print(f"[DEBUG] ======= FIM DETALHES DO REGISTRO {registro_id} =======")
-        
+
         return JsonResponse(response_data)
-        
+
     except Exception as e:
-        import traceback
-        print(f"[ERRO] Falha ao buscar detalhes do registro {registro_id}: {str(e)}")
-        traceback.print_exc()
+        logger.exception("treinamento/registro/%s/detalhe: erro", registro_id)
         return JsonResponse({
             'status': 'error',
             'message': f"Erro ao carregar os dados do registro: {str(e)}"
@@ -487,20 +504,20 @@ def registro_acesso_treinamento_update(request, registro_id):
                 if data_entrada and hora_entrada:
                     try:
                         entrada_datetime = datetime.strptime(f"{data_entrada} {hora_entrada}", "%Y-%m-%d %H:%M")
-                        entrada_datetime = pytz.timezone('America/Sao_Paulo').localize(entrada_datetime)
+                        entrada_datetime = pytz.timezone('America/Manaus').localize(entrada_datetime)
                         registro.data_hora = entrada_datetime
                     except ValueError as e:
                         return JsonResponse({
                             'status': 'error',
                             'message': f'Formato de data/hora de entrada inválido: {e}'
                         }, status=400)
-                
+
                 # Processa a data e hora de saída, se fornecidas
                 saida_datetime = None
                 if data_saida and hora_saida:
                     try:
                         saida_datetime = datetime.strptime(f"{data_saida} {hora_saida}", "%Y-%m-%d %H:%M")
-                        saida_datetime = pytz.timezone('America/Sao_Paulo').localize(saida_datetime)
+                        saida_datetime = pytz.timezone('America/Manaus').localize(saida_datetime)
                         registro.data_hora_saida = saida_datetime
                         registro.saida_pendente = False
                     except ValueError as e:
@@ -635,8 +652,7 @@ def retirar_faltas_treinamento(request):
         HttpResponse: Renderiza template com listas ou retorna arquivo PDF/JSON
     """
     import re
-    import unicodedata
-    
+
     # Constantes para configuração do PDF
     PDF_TITLE_FONT_SIZE = 16
     PDF_SUBTITLE_FONT_SIZE = 14
@@ -723,8 +739,7 @@ def retirar_faltas_treinamento(request):
                 }
                 permutas_reposicao.append(permuta_data)
         
-        print(f"\n[DEBUG PERMUTAS] Total de permutas encontradas: {len(permutas_reposicao)}")
-        print(f"[DEBUG PERMUTAS] ======= FIM PROCESSAMENTO PERMUTAS =======\n")
+        logger.debug("treinamento/retirar-faltas: total permutas=%d", len(permutas_reposicao))
         
         # Processa faltosos (servidores do plantão atual que não entraram)
         faltosos = []

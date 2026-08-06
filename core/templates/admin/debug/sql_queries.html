@@ -1,0 +1,53 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }} | {{ site_title }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:debug_index' %}">Debug</a>
+    &rsaquo; SQL Queries
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="module">
+        <h1>🗄️ SQL Queries executadas</h1>
+        <div style="padding: 1rem;">
+            <p style="color: #6b7280;">
+                Total de <strong>{{ total_count }}</strong> queries,
+                tempo total <strong>{{ total_time|floatformat:4 }}s</strong>.
+            </p>
+
+            <table class="table table-bordered table-sm" style="margin-top: 1rem;">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th style="width: 80px;">Tempo (s)</th>
+                        <th>SQL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for q in queries %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><code>{{ q.time }}</code></td>
+                        <td>
+                            <code style="font-size: 0.8rem; white-space: pre-wrap; word-break: break-all;">{{ q.sql }}</code>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" style="text-align: center; color: #6b7280;">
+                            Nenhuma query capturada (DEBUG pode estar desligado).
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

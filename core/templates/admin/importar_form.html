@@ -1,0 +1,56 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block title %}{{ title }} | {{ site_title }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='core' %}">Core</a>
+    &rsaquo; <a href="{% url 'admin:core_servidor_changelist' %}">{{ model_name }}</a>
+    &rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="module">
+        <h1>{{ title }}</h1>
+        <div style="padding: 1rem;">
+            <p style="color: #6b7280; margin-bottom: 1rem;">
+                Selecione um arquivo <strong>CSV</strong> ou <strong>XLSX</strong>.
+                Encoding auto-detectado (UTF-8, latin-1, cp1252). Delimitador
+                auto (, ou ;).
+            </p>
+
+            <p style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
+                <strong>Colunas esperadas para {{ model_name }}:</strong>
+                {% if model_name == 'Servidor' %}
+                <code>nome</code>, <code>numero_documento</code>, <code>setor</code>, <code>veiculo</code>, <code>tipo_funcionario</code>, <code>ativo</code>
+                <br><small>O sistema identifica automaticamente criacao (novo documento) ou atualizacao (documento existente).</small>
+                {% elif model_name == 'RegistroAcesso' %}
+                <code>servidor</code> (id ou nome), <code>operador</code> (id ou username), <code>tipo_acesso</code> (ENTRADA/SAIDA), <code>data_hora</code>, <code>isv</code>, <code>observacao</code>
+                {% endif %}
+            </p>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <p>
+                    <label for="id_arquivo" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                        Arquivo:
+                    </label>
+                    <input type="file" name="arquivo" id="id_arquivo" accept=".csv,.xlsx,.xlsm" required
+                           style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; width: 100%; max-width: 400px;">
+                </p>
+                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                    <input type="submit" value="Importar" class="default"
+                           style="background: #0a2540; color: white; border: none; padding: 0.5rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                    <a href="../" class="button" style="background: #6b7280; color: white; text-decoration: none; padding: 0.5rem 1.5rem; border-radius: 6px;">
+                        Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

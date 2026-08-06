@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 @login_required
 def registro_acesso_update(request, registro_id):
     """Atualiza registro do dashboard e espelha alterações no histórico."""
-    tz_sp = pytz.timezone('America/Sao_Paulo')
+    tz_manaus = pytz.timezone('America/Manaus')
 
     try:
         dashboard = RegistroDashboard.objects.select_related(
@@ -55,13 +55,13 @@ def registro_acesso_update(request, registro_id):
     try:
         entrada_datetime = dashboard.data_hora
         if data_entrada and hora_entrada:
-            entrada_datetime = tz_sp.localize(
+            entrada_datetime = tz_manaus.localize(
                 datetime.strptime(f"{data_entrada} {hora_entrada}", "%Y-%m-%d %H:%M")
             )
 
         saida_datetime = None
         if data_saida and hora_saida:
-            saida_datetime = tz_sp.localize(
+            saida_datetime = tz_manaus.localize(
                 datetime.strptime(f"{data_saida} {hora_saida}", "%Y-%m-%d %H:%M")
             )
 
@@ -122,8 +122,7 @@ def retirar_faltas(request):
         HttpResponse: Renderiza template com listas ou retorna arquivo PDF/JSON
     """
     import re
-    import unicodedata
-    
+
     # Constantes para configuração do PDF
     PDF_TITLE_FONT_SIZE = 16
     PDF_SUBTITLE_FONT_SIZE = 14
@@ -179,50 +178,31 @@ def retirar_faltas(request):
         # Processa Permutas/Reposição de hora
         # Servidores que entraram, não são ISV e têm plantão diferente do atual
         permutas_reposicao = []
-        print(f"\n[DEBUG PERMUTAS] ======= INÍCIO PROCESSAMENTO PERMUTAS =======")
-        print(f"[DEBUG PERMUTAS] Plantão atual: {nome_plantao}")
-        print(f"[DEBUG PERMUTAS] Total de registros hoje: {len(registros_hoje)}")
-        
+        logger.debug("retirar_faltas: inicio processamento permutas (plantao=%s, registros=%d)",
+                     nome_plantao, len(registros_hoje))
+
         for registro in registros_hoje:
             servidor = registro.servidor
-            print(f"\n[DEBUG PERMUTAS] --- Analisando registro ---")
-            print(f"[DEBUG PERMUTAS] Nome: {servidor.nome}")
-            print(f"[DEBUG PERMUTAS] Documento: {servidor.numero_documento}")
-            print(f"[DEBUG PERMUTAS] ISV: {registro.isv}")
-            print(f"[DEBUG PERMUTAS] Setor do servidor: {servidor.setor}")
-            
+
             # Extrai o plantão do setor
             plantao_servidor = extrair_plantao_do_setor(servidor.setor)
-            print(f"[DEBUG PERMUTAS] Plantão extraído: {plantao_servidor}")
-            
+
             # Verifica se não é ISV e tem plantão diferente do atual
-            if not registro.isv:
-                print(f"[DEBUG PERMUTAS] OK - Não é ISV")
-                if plantao_servidor:
-                    print(f"[DEBUG PERMUTAS] OK - Tem plantão definido: {plantao_servidor}")
-                    if plantao_servidor != nome_plantao:
-                        print(f"[DEBUG PERMUTAS] OK - Plantão diferente do atual ({plantao_servidor} != {nome_plantao})")
-                        hora_entrada = timezone.localtime(registro.data_hora).strftime('%H:%M')
-                        permuta_data = {
-                            'ord': len(permutas_reposicao) + 1,
-                            'nome': servidor.nome,
-                            'documento': servidor.numero_documento,
-                            'setor': servidor.setor,
-                            'plantao_servidor': plantao_servidor,
-                            'plantao_atual': nome_plantao,
-                            'hora_entrada': hora_entrada
-                        }
-                        permutas_reposicao.append(permuta_data)
-                        print(f"[DEBUG PERMUTAS] OK - ADICIONADO À LISTA DE PERMUTAS: {permuta_data}")
-                    else:
-                        print(f"[DEBUG PERMUTAS] X - Plantão igual ao atual ({plantao_servidor} == {nome_plantao})")
-                else:
-                    print(f"[DEBUG PERMUTAS] X - Não tem plantão definido (plantao = {plantao_servidor})")
-            else:
-                print(f"[DEBUG PERMUTAS] X - É ISV")
-        
-        print(f"\n[DEBUG PERMUTAS] Total de permutas encontradas: {len(permutas_reposicao)}")
-        print(f"[DEBUG PERMUTAS] ======= FIM PROCESSAMENTO PERMUTAS =======\n")
+            if not registro.isv and plantao_servidor and plantao_servidor != nome_plantao:
+                hora_entrada = timezone.localtime(registro.data_hora).strftime('%H:%M')
+                permuta_data = {
+                    'ord': len(permutas_reposicao) + 1,
+                    'nome': servidor.nome,
+                    'documento': servidor.numero_documento,
+                    'setor': servidor.setor,
+                    'plantao_servidor': plantao_servidor,
+                    'plantao_atual': nome_plantao,
+                    'hora_entrada': hora_entrada
+                }
+                permutas_reposicao.append(permuta_data)
+                logger.debug("retirar_faltas: permuta adicionada %s", permuta_data)
+
+        logger.debug("retirar_faltas: total permutas=%d", len(permutas_reposicao))
         
         # Processa faltosos (servidores do plantão atual que não entraram)
         faltosos = []

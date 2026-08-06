@@ -10,6 +10,7 @@ Responsável por:
 """
 
 import csv
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -20,6 +21,8 @@ from ..models import Servidor, RegistroDashboard, LogAuditoria
 from ..forms import ServidorForm
 from ..decorators import pode_gerenciar_servidores, admin_required
 from ..utils import buscar_servidores_helper, desativar_servidor, colapsar_espacos
+
+logger = logging.getLogger(__name__)
 
 
 def _normalizar_nome_coluna_csv(coluna: str | None) -> str:
@@ -37,28 +40,28 @@ def servidor_list(request):
     servidores = Servidor.objects.filter(ativo=True).order_by('nome')
     
     if query:
-        print(f"Busca realizada com o termo: '{query}'")
-        
+        logger.debug("servidor_list: busca com termo='%s'", query)
+
         # Normaliza a query para busca sem acentos
         query_normalizada = normalizar_texto(query)
-        
+
         # Busca todos os servidores e filtra no Python com normalização
         servidores_raw = list(servidores)
         servidores_filtrados = []
-        
+
         for servidor in servidores_raw:
             nome_normalizado = normalizar_texto(servidor.nome)
             documento_normalizado = normalizar_texto(servidor.numero_documento)
             setor_normalizado = normalizar_texto(servidor.setor or '')
-            
-            if (query_normalizada in nome_normalizado or 
+
+            if (query_normalizada in nome_normalizado or
                 query_normalizada in documento_normalizado or
                 query_normalizada in setor_normalizado):
                 servidores_filtrados.append(servidor)
-        
+
         # Converte de volta para um objeto que o template pode iterar
         servidores = servidores_filtrados
-        print(f"Resultados encontrados: {len(servidores)}")
+        logger.debug("servidor_list: resultados=%d", len(servidores))
     
     context = {
         'servidores': servidores,
@@ -195,13 +198,13 @@ def importar_servidores(request):
             
             if decoded_file is None:
                 raise Exception(f"Não foi possível ler o arquivo com nenhuma das codificações suportadas ({', '.join(encodings)}). Certifique-se de salvar o arquivo como CSV com codificação UTF-8.")
-                
-            print(f"Arquivo CSV lido com sucesso usando codificação: {successful_encoding}")
-            
+
+            logger.debug("importar_servidores: CSV lido com encoding=%s", successful_encoding)
+
             # Tenta identificar o delimitador (vírgula ou ponto-e-vírgula)
             primeira_linha = decoded_file[0] if decoded_file else ""
             delimiter = ';' if ';' in primeira_linha else ','
-            print(f"Delimitador identificado: {delimiter}")
+            logger.debug("importar_servidores: delimiter=%s", delimiter)
             
             # Usa o delimitador detectado
             reader = csv.DictReader(decoded_file, delimiter=delimiter)

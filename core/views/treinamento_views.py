@@ -6,8 +6,9 @@ Responsável por:
 - Tutoriais e handlers de erro
 """
 
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import JsonResponse
 
 from ..utils import (
@@ -39,17 +40,16 @@ def buscar_servidor_treinamento(request):
     """
     API para busca de servidores no ambiente de treinamento.
 
-    Busca no cadastro principal (Servidor), sem alterar dashboard/historico de producao.
-    Contrato JSON compativel com static/js/shared.js: ?query=... -> {status, resultados}.
+    Busca no cadastro principal (Servidor), sem alterar dashboard/historico
+    de producao. Retorna uma lista JSON simples (mesmo formato da view
+    de producao em /buscar-servidor/) - o JS do dashboard faz
+    data.forEach diretamente.
     """
     query = (request.GET.get('query') or request.GET.get('q') or '').strip()
 
     if len(query) < 2:
         return JsonResponse(
-            {
-                'status': 'error',
-                'message': 'Digite pelo menos 2 caracteres para buscar.',
-            },
+            {'detail': 'Digite pelo menos 2 caracteres para buscar.'},
             status=400,
         )
 
@@ -58,16 +58,17 @@ def buscar_servidor_treinamento(request):
         {
             'id': item['id'],
             'nome': item['nome'],
-            'documento': item['documento'],
-            'setor': item['setor'],
-            'veiculo': item['veiculo'],
+            'numero_documento': item.get('documento', ''),
+            'documento': item.get('documento', ''),
+            'setor': item.get('setor', ''),
+            'veiculo': item.get('veiculo', ''),
             'tipo_funcionario': item.get('tipo_funcionario'),
             'plantao': item.get('plantao'),
         }
         for item in resultados_raw
     ]
 
-    return JsonResponse({'status': 'success', 'resultados': resultados})
+    return JsonResponse(resultados, safe=False)
 
 
 @login_required
@@ -78,11 +79,17 @@ def registro_acesso_treinamento_create(request):
             request, is_treinamento=True
         )
 
+        # Mesmo padrao da view de producao: flash message + redirect.
+        # O JS do home.html faz this.submit() (form nativo), entao a
+        # resposta deve ser um redirect - caso contrario o navegador
+        # renderiza o JSON como pagina em branco.
         if sucesso:
-            return JsonResponse({'status': 'success', 'message': mensagem})
-        return JsonResponse({'status': 'error', 'message': mensagem})
+            messages.success(request, mensagem)
+        else:
+            messages.error(request, mensagem)
+        return redirect(redirect_url)
 
-    return JsonResponse({'status': 'error', 'message': 'Método não permitido'})
+    return redirect('ambiente_treinamento')
 
 
 @login_required
@@ -123,10 +130,20 @@ def limpar_dashboard_treinamento(request):
 
 @login_required
 def tutoriais_treinamento(request):
-    """Exibe tutoriais do sistema."""
-    return render(request, 'core/tutoriais.html')
+    """Exibe tutoriais do sistema (lidos de core/data/tutoriais.yaml)."""
+    from .treinamento_extended import carregar_tutoriais, CATEGORIAS_TUTORIAIS
+    tutoriais_por_categoria = carregar_tutoriais()
+    return render(request, 'core/tutoriais.html', {
+        'tutoriais_por_categoria': tutoriais_por_categoria,
+        'categorias_labels': dict(CATEGORIAS_TUTORIAIS),
+    })
 
 
 def handler500(request):
     """Handler customizado para erros 500."""
     return render(request, '500.html', status=500)
+
+
+def handler404(request, exception=None):
+    """Handler customizado para erros 404 (página não encontrada)."""
+    return render(request, '404.html', status=404)

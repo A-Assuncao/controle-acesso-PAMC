@@ -5,10 +5,6 @@
 
 {% block extrahead %}
     {{ block.super }}
-    
-    {# CSS Customizado #}
-    <link rel="stylesheet" type="text/css" href="{% static 'css/admin_custom.css' %}">
-    
     {# Meta tags adicionais #}
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Sistema de Controle de Acesso {{ UNIDADE_PRISIONAL|default:"PAMC" }} - Administração">
@@ -183,10 +179,6 @@
 
 {% block extrajs %}
     {{ block.super }}
-    
-    {# JavaScript Customizado #}
-    <script src="{% static 'js/admin_custom.js' %}"></script>
-    
     <script>
         // 🎯 Scripts inline para funcionalidades específicas
         (function() {
@@ -296,3 +288,11 @@
         })();
     </script>
 {% endblock %} 
+{% block userlinks %}
+    {% if user.is_superuser %}
+        <a href="{% url 'admin:debug_index' %}" style="font-weight: 600; color: #ffc107 !important;" title="Ferramentas de Debug (superuser)">
+            🛠️ Debug
+        </a> /
+    {% endif %}
+    {{ block.super }}
+{% endblock %}

@@ -1,16 +1,7 @@
 # -*- coding: utf-8 -*-
-"""
-Admin personalizado com interface moderna e funcionalidades avançadas.
+"""Admin customizado (Servidor, RegistroAcesso, LogAuditoria, etc).
 
-Melhorias implementadas:
-- 📊 Dashboard estatístico personalizado
-- 🎨 Interface moderna com cores e ícones
-- 🔧 Ações em massa personalizadas
-- 📋 Filtros avançados e widgets customizados
-- 📈 Gráficos e visualizações
-- 🔍 Busca avançada com múltiplos campos
-- 📱 Layout responsivo e intuitivo
-- 🛠️ Ferramentas de administração
+UI em admin_custom.css/js — ver static/.
 """
 
 from django.contrib import admin
@@ -19,18 +10,22 @@ from django.utils.safestring import SafeString
 from django.urls import reverse, path
 from django.db.models import Count, Q
 from django.utils import timezone
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from django.shortcuts import render, redirect
 from django.contrib import messages
+
+from . import admin_io
 from django.contrib.admin import SimpleListFilter
-from django.forms import ModelForm, Select, TextInput, Textarea
+from django.forms import ModelForm, TextInput, Textarea
 from datetime import datetime, timedelta
 import json
 
 from .models import (
-    Servidor, RegistroAcesso, RegistroDashboard, 
+    Servidor, RegistroAcesso, RegistroDashboard,
     LogAuditoria, VideoTutorial, PerfilUsuario
 )
+from django.contrib.auth.models import User, Group
 from .utils import get_unidade_prisional
 
 
@@ -176,6 +171,44 @@ class StatusAtivoFilter(SimpleListFilter):
             ).filter(total_registros=0)
         return queryset
 
+
+class DataCustomFilter(SimpleListFilter):
+    """Filtro por data customizada (entre data_inicio e data_fim via GET).
+
+    Diferente dos outros filtros (que usam choices), este aceita
+    datas via query string. Adicione 'data_inicio' e 'data_fim'
+    no template para que o usuario digite as datas.
+    """
+    title = '📅 Data específica'
+    parameter_name = 'data_custom'
+
+    def lookups(self, request, model_admin):
+        # Vazio - filtra via GET param ao inves de choices
+        return ()
+
+    def queryset(self, request, queryset):
+        inicio = request.GET.get('data_inicio', '').strip()
+        fim = request.GET.get('data_fim', '').strip()
+        if inicio:
+            try:
+                dt = datetime.strptime(inicio, '%Y-%m-%d').date()
+                # Filtra por data_hora__date se o model tiver data_hora,
+                # senao por data_hora direto
+                if queryset.model._meta.get_field('data_hora'):
+                    queryset = queryset.filter(data_hora__date__gte=dt)
+                else:
+                    queryset = queryset.filter(data_hora__date__gte=dt)
+            except ValueError:
+                pass
+        if fim:
+            try:
+                dt = datetime.strptime(fim, '%Y-%m-%d').date()
+                queryset = queryset.filter(data_hora__date__lte=dt)
+            except ValueError:
+                pass
+        return queryset
+
+
 # =============================================================================
 # AÇÕES EM MASSA PERSONALIZADAS
 # =============================================================================
@@ -206,6 +239,30 @@ def exportar_relatorio_servidores(modeladmin, request, queryset):
         f'📊 Relatório de {queryset.count()} servidor(es) exportado!'
     )
 exportar_relatorio_servidores.short_description = "📊 Exportar relatório dos selecionados"
+
+def exportar_csv_action(modeladmin, request, queryset):
+    """Action generica: exporta queryset selecionado para CSV."""
+    model_name = queryset.model.__name__
+    if model_name not in admin_io.EXPORT_FIELDS:
+        messages.error(request, f'Modelo {model_name} nao suporta export CSV.')
+        return
+    return admin_io.exportar_csv(request, queryset, model_name)
+exportar_csv_action.short_description = "📄 Exportar selecionados para CSV"
+
+def exportar_xlsx_action(modeladmin, request, queryset):
+    """Action generica: exporta queryset selecionado para XLSX."""
+    model_name = queryset.model.__name__
+    if model_name not in admin_io.EXPORT_FIELDS:
+        messages.error(request, f'Modelo {model_name} nao suporta export XLSX.')
+        return
+    return admin_io.exportar_xlsx(request, queryset, model_name)
+exportar_xlsx_action.short_description = "📊 Exportar selecionados para XLSX"
+
+def importar_arquivo_action(modeladmin, request, queryset):
+    """Redireciona para o form de importacao."""
+    model_name = queryset.model.__name__
+    return redirect(f'admin:core_{model_name.lower()}_importar')
+importar_arquivo_action.short_description = "📥 Importar arquivo (CSV/XLSX)"
 
 # =============================================================================
 # AÇÕES PERSONALIZADAS PARA LOGS DE AUDITORIA
@@ -250,6 +307,43 @@ def exportar_logs_selecionados(modeladmin, request, queryset):
     return response
 
 exportar_logs_selecionados.short_description = "📊 Exportar logs selecionados (CSV)"
+
+def resetar_logs_selecionados(modeladmin, request, queryset):
+    """Deleta os logs selecionados e cria 1 log de auditoria registrando o reset.
+
+    ATENCAO: esta action e destrutiva. Para acionar, o admin deve
+    selecionar os logs que deseja remover e confirmar via JS.
+    """
+    from .models import LogAuditoria
+
+    total_deletados = queryset.count()
+    if total_deletados == 0:
+        modeladmin.message_user(request, 'Nenhum log selecionado.', messages.WARNING)
+        return
+
+    # Pega os primeiros 5 IDs para o log de rastreabilidade
+    primeiros_ids = list(queryset.order_by('id').values_list('id', flat=True)[:5])
+
+    queryset.delete()
+
+    LogAuditoria.objects.create(
+        usuario=request.user,
+        tipo_acao='EXCLUSAO',
+        modelo='LogAuditoria',
+        objeto_id=None,
+        detalhes=(
+            f'Reset de logs via admin: {total_deletados} log(s) deletado(s) por {request.user.username}. '
+            f'Primeiros IDs deletados: {primeiros_ids}'
+        ),
+    )
+
+    modeladmin.message_user(
+        request,
+        f'🗑️ {total_deletados} log(s) deletado(s). Um log do proprio reset foi criado para rastreabilidade.',
+        messages.SUCCESS,
+    )
+
+resetar_logs_selecionados.short_description = "🗑️ Resetar (deletar) logs selecionados"
 
 def marcar_logs_para_analise(modeladmin, request, queryset):
     """Marca logs para análise futura (não modifica os logs, apenas registra a ação)"""
@@ -381,14 +475,23 @@ desativar_videos_selecionados.short_description = "❌ Desativar vídeos selecio
 # =============================================================================
 
 @admin.register(Servidor)
-class ServidorAdmin(admin.ModelAdmin):
+class ServidorAdmin(UnfoldModelAdmin):
     form = ServidorForm
-    
+
     # Layout principal
     list_display = (
-        'nome_formatado', 'documento_mascarado', 'setor_colorido', 
+        'nome_formatado', 'documento_mascarado', 'setor_colorido',
         'veiculo_badge', 'status_visual', 'estatisticas_registros', 'acoes_rapidas'
     )
+
+    def get_queryset(self, request):
+        """Anota contagens agregadas de registros para evitar N+1."""
+        qs = super().get_queryset(request)
+        return qs.annotate(
+            _total_registros=Count('registroacesso'),
+            _total_entradas=Count('registroacesso', filter=Q(registroacesso__tipo_acesso='ENTRADA')),
+            _total_saidas=Count('registroacesso', filter=Q(registroacesso__tipo_acesso='SAIDA')),
+        )
     
     list_filter = (StatusAtivoFilter, PlantaoFilter, 'ativo', 'setor')
     search_fields = ('nome', 'numero_documento', 'setor', 'veiculo')
@@ -398,9 +501,37 @@ class ServidorAdmin(admin.ModelAdmin):
     actions = [
         ativar_servidores_selecionados,
         desativar_servidores_selecionados,
-        exportar_relatorio_servidores
+        exportar_relatorio_servidores,
+        exportar_csv_action,
+        exportar_xlsx_action,
     ]
     
+    # Hook para gerar diff antes/depois (signal pre_save captura
+    # o estado anterior, este metodo dispara o registro)
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # Apos o save, gera o diff e loga (se for edicao, nao criacao)
+        if change:
+            from .admin_signals import calcular_diff_entre
+            from .models import LogAuditoria
+            antes = getattr(obj, '_admin_diff_antes', None)
+            if antes is not None:
+                diff = calcular_diff_entre(antes, obj, obj.__class__.__name__)
+                if diff:
+                    diff_str = ' | '.join(
+                        f"{c}: '{m['antes']}' -> '{m['depois']}'"
+                        for c, m in diff.items()
+                    )
+                    LogAuditoria.objects.create(
+                        usuario=request.user,
+                        tipo_acao='EDICAO',
+                        modelo=obj.__class__.__name__,
+                        objeto_id=obj.pk,
+                        detalhes=f'Editado via admin: {diff_str}',
+                    )
+                    from django.contrib import messages
+                    messages.info(request, f'📝 {len(diff)} campo(s) alterado(s): {diff_str}')
+
     # Organização dos campos
     fieldsets = (
         ('👤 Informações Pessoais', {
@@ -474,15 +605,16 @@ class ServidorAdmin(admin.ModelAdmin):
         return _html_estatico(
             '<span style="color: #dc3545; font-size: 16px;" title="Inativo">●</span>'
         )
-    status_visual.short_description = '🔄 Status'
+    status_visual.short_description = '🔄 Situação'
     
     def estatisticas_registros(self, obj):
-        total = RegistroAcesso.objects.filter(servidor=obj).count()
-        entradas = RegistroAcesso.objects.filter(servidor=obj, tipo_acesso='ENTRADA').count()
-        saidas = RegistroAcesso.objects.filter(servidor=obj, tipo_acesso='SAIDA').count()
-        
+        # Contagens já vêm anotadas pelo get_queryset (evita N+1)
+        total = getattr(obj, '_total_registros', 0)
+        entradas = getattr(obj, '_total_entradas', 0)
+        saidas = getattr(obj, '_total_saidas', 0)
+
         url = reverse('admin:core_registroacesso_changelist') + f'?servidor__id={obj.id}'
-        
+
         return format_html(
             '<a href="{}" style="text-decoration: none;">'
             '<div style="text-align: center; line-height: 1.2;">'
@@ -493,6 +625,7 @@ class ServidorAdmin(admin.ModelAdmin):
             url, total, entradas, saidas
         )
     estatisticas_registros.short_description = '📊 Registros'
+    estatisticas_registros.admin_order_field = '_total_registros'
     
     def acoes_rapidas(self, obj):
         urls = {
@@ -579,7 +712,7 @@ class ColunasRegistroMixin:
             '<span style="color: #28a745; font-weight: bold;">Concluido</span>'
         )
 
-    status_completo.short_description = '📊 Status'
+    status_completo.short_description = '📊 Situação'
 
 
 # =============================================================================
@@ -587,7 +720,7 @@ class ColunasRegistroMixin:
 # =============================================================================
 
 @admin.register(RegistroAcesso)
-class RegistroAcessoAdmin(ColunasRegistroMixin, admin.ModelAdmin):
+class RegistroAcessoAdmin(ColunasRegistroMixin, UnfoldModelAdmin):
     
     list_display = (
         'data_hora_formatada', 'servidor_info', 'tipo_acesso_visual', 
@@ -595,8 +728,8 @@ class RegistroAcessoAdmin(ColunasRegistroMixin, admin.ModelAdmin):
     )
     
     list_filter = (
-        PeriodoFilter, 'tipo_acesso', 'saida_pendente', 
-        'status_alteracao', 'isv', PlantaoFilter
+        PeriodoFilter, DataCustomFilter, 'tipo_acesso', 'saida_pendente',
+        'status_alteracao', 'isv', PlantaoFilter, 'operador'
     )
     
     search_fields = (
@@ -611,7 +744,9 @@ class RegistroAcessoAdmin(ColunasRegistroMixin, admin.ModelAdmin):
     # Ações personalizadas para registros
     actions = [
         'exportar_registros_selecionados',
-        'finalizar_entradas_pendentes'
+        'finalizar_entradas_pendentes',
+        exportar_csv_action,
+        exportar_xlsx_action,
     ]
     
     fieldsets = (
@@ -672,10 +807,6 @@ class PerfilUsuarioInline(admin.StackedInline):
         ('🔐 Configurações de Acesso', {
             'fields': ('tipo_usuario', 'precisa_trocar_senha'),
         }),
-        ('🔑 Informações de Senha', {
-            'fields': ('senha_temporaria',),
-            'classes': ('collapse',),
-        }),
     )
 
 # =============================================================================
@@ -683,12 +814,12 @@ class PerfilUsuarioInline(admin.StackedInline):
 # =============================================================================
 
 @admin.register(RegistroDashboard)
-class RegistroDashboardAdmin(ColunasRegistroMixin, admin.ModelAdmin):
+class RegistroDashboardAdmin(ColunasRegistroMixin, UnfoldModelAdmin):
     list_display = (
         'data_hora_formatada', 'servidor_info', 'tipo_acesso_visual', 
         'operador_badge', 'status_completo'
     )
-    list_filter = (PeriodoFilter, 'tipo_acesso', 'saida_pendente', 'isv')
+    list_filter = (PeriodoFilter, DataCustomFilter, 'tipo_acesso', 'saida_pendente', 'isv', 'operador')
     search_fields = ('servidor__nome', 'servidor__numero_documento')
     date_hierarchy = 'data_hora'
     list_per_page = 25
@@ -700,20 +831,20 @@ class RegistroDashboardAdmin(ColunasRegistroMixin, admin.ModelAdmin):
     ]
 
 @admin.register(LogAuditoria)
-class LogAuditoriaAdmin(admin.ModelAdmin):
+class LogAuditoriaAdmin(UnfoldModelAdmin):
     list_display = (
         'data_hora_formatada', 'usuario_info', 'tipo_acao_badge', 
         'modelo_badge', 'detalhes_resumo'
     )
-    list_filter = ('tipo_acao', 'modelo', 'usuario', PeriodoFilter)
-    search_fields = ('detalhes', 'usuario__username', 'usuario__first_name')
+    list_filter = ('tipo_acao', 'modelo', 'usuario', PeriodoFilter, DataCustomFilter)
+    search_fields = ('detalhes', 'usuario__username', 'usuario__first_name', 'objeto_id')
     date_hierarchy = 'data_hora'
     list_per_page = 25  # Reduzido de 20 para 25 para melhor balanço
     list_max_show_all = 100  # Limite máximo em "Mostrar todos"
     
     # Ações personalizadas para logs (seguras)
-    actions = ['exportar_logs_selecionados', 'marcar_logs_para_analise']
-    
+    actions = ['exportar_logs_selecionados', 'marcar_logs_para_analise', resetar_logs_selecionados]
+
     def data_hora_formatada(self, obj):
         return format_html(
             '<div style="text-align: center;">'
@@ -769,15 +900,39 @@ class LogAuditoriaAdmin(admin.ModelAdmin):
         return request.user.is_superuser  # Apenas superusers podem deletar logs
 
 @admin.register(VideoTutorial)
-class VideoTutorialAdmin(admin.ModelAdmin):
+class VideoTutorialAdmin(UnfoldModelAdmin):
     list_display = (
-        'titulo_formatado', 'categoria_badge', 'ordem_visual', 
+        'titulo_formatado', 'categoria_badge', 'ordem_visual',
         'status_ativo', 'data_atualizacao_formatada', 'acoes_video'
     )
     list_filter = ('categoria', 'ativo')
     search_fields = ('titulo', 'descricao')
     ordering = ('ordem', 'titulo')
     list_per_page = 15
+
+    # Diff antes/depois
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if change:
+            from .admin_signals import calcular_diff_entre
+            from .models import LogAuditoria
+            antes = getattr(obj, '_admin_diff_antes', None)
+            if antes is not None:
+                diff = calcular_diff_entre(antes, obj, obj.__class__.__name__)
+                if diff:
+                    diff_str = ' | '.join(
+                        f"{c}: '{m['antes']}' -> '{m['depois']}'"
+                        for c, m in diff.items()
+                    )
+                    LogAuditoria.objects.create(
+                        usuario=request.user,
+                        tipo_acao='EDICAO',
+                        modelo=obj.__class__.__name__,
+                        objeto_id=obj.pk,
+                        detalhes=f'Editado via admin: {diff_str}',
+                    )
+                    from django.contrib import messages
+                    messages.info(request, f'📝 {len(diff)} campo(s) alterado(s): {diff_str}')
     list_max_show_all = 50  # Limite máximo em "Mostrar todos"
     
     # Ações personalizadas para vídeos
@@ -861,16 +1016,128 @@ class VideoTutorialAdmin(admin.ModelAdmin):
 
 # Títulos e cabeçalhos personalizados
 unidade = get_unidade_prisional()
-admin.site.site_header = _html_estatico(
-    f'<span style="color: #007bff; font-weight: bold;">Sistema de Controle de Acesso {unidade}</span>'
-)
+admin.site.site_header = f'Sistema de Controle de Acesso {unidade}'
 admin.site.site_title = f'Controle de Acesso {unidade}'
-admin.site.index_title = _html_estatico(
-    '<span style="color: #28a745;">Painel de Administracao Avancado</span>'
-)
+def importar_view(request, model_name):
+    """View customizada de import - GET mostra form, POST processa."""
+    if model_name not in admin_io.EXPORT_FIELDS:
+        messages.error(request, f'Modelo {model_name} nao suporta import.')
+        return redirect('/admin/')
+
+    if request.method == 'POST':
+        arquivo = request.FILES.get('arquivo')
+        if not arquivo:
+            messages.error(request, 'Nenhum arquivo enviado.')
+            return redirect(request.path)
+
+        result = admin_io.importar_arquivo(arquivo, model_name, request.user)
+        if result['criados']:
+            messages.success(request, f"{result['criados']} registro(s) importado(s).")
+        if result['erros']:
+            for erro in result['erros'][:10]:
+                messages.warning(request, erro)
+            if len(result['erros']) > 10:
+                messages.warning(request, f"... e mais {len(result['erros']) - 10} erro(s).")
+
+        # Volta para lista do modelo
+        app_label = 'core'
+        return redirect(f'/admin/{app_label}/{model_name.lower()}/')
+
+    return render(request, 'admin/importar_form.html', {
+        'model_name': model_name,
+        'title': f'Importar {model_name}',
+    })
+
+
+def _add_import_url(admin_class, model_name):
+    """Adiciona URL customizada de import ao get_urls() do ModelAdmin."""
+    original_get_urls = admin_class.get_urls
+
+    def get_urls(self):
+        from django.urls import path
+        urls = original_get_urls(self)
+        custom = [
+            path(
+                'importar/',
+                admin.site.admin_view(
+                    lambda r, mn=model_name: importar_view(r, mn)
+                ),
+                name=f'core_{model_name.lower()}_importar',
+            ),
+        ]
+        return custom + urls
+
+    admin_class.get_urls = get_urls
+
+
+_add_import_url(ServidorAdmin, 'Servidor')
+_add_import_url(RegistroAcessoAdmin, 'RegistroAcesso')
+
+
+# =============================================================================
+# CUSTOM USER ADMIN (substitui o padrao do Django auth)
+# =============================================================================
+
+# Desregistra o UserAdmin padrao
+admin.site.unregister(User)
+
+# Desregistra Group e VideoTutorial - nao sao usados pelo app
+admin.site.unregister(Group)
+admin.site.unregister(VideoTutorial)
+
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+
+
+@admin.register(User)
+class UserAdmin(DjangoUserAdmin, UnfoldModelAdmin):
+    """UserAdmin customizado com actions de export e URL de import."""
+
+    # Mantem o que o DjangoUserAdmin ja configura (fieldsets, list_display, etc)
+    list_display = ('username', 'email', 'first_name', 'last_name',
+                    'is_staff', 'is_active', 'is_superuser', 'last_login')
+
+    # Actions de export CSV/XLSX
+    actions = [exportar_csv_action, exportar_xlsx_action]
+
+    # Aplica o Media (CSS customizado) manualmente
+    class Media:
+        css = {'all': ('css/admin_custom.css',)}
+        js = ('js/admin_custom.js',)
+
+
+_add_import_url(UserAdmin, 'User')
+
+
+# =============================================================================
+# Adicionar actions de export no LogAuditoriaAdmin (ja tem reset)
+# =============================================================================
+
+LogAuditoriaAdmin.actions = list(LogAuditoriaAdmin.actions) + [
+    exportar_csv_action,
+    exportar_xlsx_action,
+]
+
+
+admin.site.index_title = 'Administração do Sistema'
 
 # CSS customizado para melhorar a aparência
 admin.site.enable_nav_sidebar = True
+
+# =============================================================================
+# REGISTRO DE URLS CUSTOMIZADAS (debug, etc)
+# =============================================================================
+
+_original_get_urls = admin.site.get_urls
+
+
+def _get_urls_customizadas():
+    """Adiciona URLs customizadas (debug) ao admin."""
+    from . import admin_debug
+    custom = admin_debug.get_debug_urls()
+    return custom + _original_get_urls()
+
+
+admin.site.get_urls = _get_urls_customizadas
 
 # =============================================================================
 # CONFIGURAÇÃO DE MÍDIA PERSONALIZADA
@@ -878,7 +1145,7 @@ admin.site.enable_nav_sidebar = True
 
 class AdminMediaMixin:
     """Mixin para incluir CSS e JS customizados em todas as páginas do admin"""
-    
+
     class Media:
         css = {
             'all': ('css/admin_custom.css',)
@@ -887,7 +1154,7 @@ class AdminMediaMixin:
 
 # Aplicar o mixin em todas as classes Admin
 for admin_class in [
-    ServidorAdmin, RegistroAcessoAdmin, RegistroDashboardAdmin, 
+    ServidorAdmin, RegistroAcessoAdmin, RegistroDashboardAdmin,
     LogAuditoriaAdmin, VideoTutorialAdmin
 ]:
     # Adicionar o mixin dinamicamente

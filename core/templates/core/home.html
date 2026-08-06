@@ -1,12 +1,73 @@
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block title %}Dashboard - Controle de Acesso{% endblock %}
+{% block title %}{% if modo_treinamento %}Treinamento - Controle de Acesso{% else %}Dashboard - Controle de Acesso{% endif %}{% endblock %}
 
 {% block content %}
 {% csrf_token %}
 
-{% if user.is_staff or user.is_superuser %}
+{# === Configuração de modo (produção vs treinamento) === #}
+{# Define window.MODO_TREINAMENTO e window.URLS antes do JS principal.   #}
+{# window.URLS contém todos os endpoints que mudam entre os dois modos.    #}
+{% if modo_treinamento %}
+<script>
+window.MODO_TREINAMENTO = true;
+window.URLS = {
+    registros: '/treinamento/registros/',
+    registro_detalhe: (id) => `/treinamento/registro/${id}/detalhe/`,
+    registro_create: '/treinamento/registro/',
+    registro_manual: '/treinamento/registro-manual/',
+    registro_atualizar: (id) => `/treinamento/registro/${id}/editar/`,
+    registro_excluir: (id) => `/treinamento/registro/${id}/excluir/`,
+    registro_saida: (id) => `/treinamento/registro/${id}/saida/`,
+    saida_definitiva: '/treinamento/saida-definitiva/',
+    limpar_dashboard: '/treinamento/limpar-dashboard/',
+    exportar_excel: '/treinamento/exportar-excel/',
+    buscar_servidor: '/treinamento/buscar-servidor/',
+    retirar_faltas: '/treinamento/retirar-faltas/',
+};
+</script>
+{% else %}
+<script>
+window.MODO_TREINAMENTO = false;
+window.URLS = {
+    registros: '/registros-plantao/',
+    registro_detalhe: (id) => `/registro/${id}/`,
+    registro_create: '/registro-acesso/criar/',
+    registro_manual: '/registro-manual/criar/',
+    registro_atualizar: (id) => `/registro/${id}/editar/`,
+    registro_excluir: (id) => `/registro/${id}/excluir/`,
+    registro_saida: (id) => `/registro/${id}/registrar-saida/`,
+    saida_definitiva: '/registro/saida-definitiva/',
+    limpar_dashboard: '/limpar-dashboard/',
+    exportar_excel: '/exportar-excel/',
+    buscar_servidor: '/buscar-servidor/',
+    retirar_faltas: '/retirar-faltas/',
+};
+</script>
+{% endif %}
+
+{% if modo_treinamento %}
+<!-- Banner: ambiente de treinamento (nenhum dado real e afetado) -->
+<div class="alert alert-warning border-warning mb-4" role="alert">
+    <div class="d-flex align-items-center flex-wrap gap-2">
+        <i class="bi bi-mortarboard-fill me-2 fs-4"></i>
+        <div class="flex-grow-1 me-2">
+            <strong>Modo Treinamento</strong>
+            <div class="small">Este é um ambiente seguro para praticar. Nenhuma ação aqui afeta o sistema real nem o histórico de produção.</div>
+        </div>
+        <a href="{% url 'tutoriais_treinamento' %}" class="btn btn-sm btn-outline-warning">
+            <i class="bi bi-play-circle me-1"></i> Tutoriais em Vídeo
+        </a>
+        <a href="/dashboard/" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Voltar para produção
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% if not modo_treinamento %}
+    {% if user.is_staff or user.is_superuser %}
 <!-- Acesso ao painel admin Django (apenas administradores) -->
 <div class="row mb-4">
     <div class="col-12">
@@ -31,6 +92,7 @@
         </div>
     </div>
 </div>
+    {% endif %}
 {% endif %}
 
 <!-- Cards de resumo -->
@@ -269,7 +331,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="registroForm" method="post" action="{% url 'registro_acesso_create' %}">
+                <form id="registroForm" method="post" action="{% if modo_treinamento %}{% url 'registro_acesso_treinamento_create' %}{% else %}{% url 'registro_acesso_create' %}{% endif %}">
                     {% csrf_token %}
                     
                     <input type="hidden" name="servidor" id="servidor_id">
@@ -379,9 +441,8 @@
                 <form id="limparPlanilhaForm" onsubmit="event.preventDefault(); limparDashboard();">
                     <div class="form-group">
                         <label for="senhaLimpar" class="form-label fw-bold">Digite sua senha para confirmar:</label>
-                        <input type="text" class="form-control" id="senhaLimpar" required 
-                               autocomplete="off" data-form-type="other" 
-                               inputmode="password" style="-webkit-text-security: disc;">
+                        <input type="password" class="form-control" id="senhaLimpar" required
+                               autocomplete="current-password" name="senha">
                     </div>
                 </form>
             </div>
@@ -649,15 +710,15 @@ document.addEventListener('DOMContentLoaded', function() {
 function buscarServidor(query) {
     clearTimeout(timeoutBusca);
     const resultados = document.getElementById('resultados-busca');
-    
+
     if (query.length < 2) {
         resultados.style.display = 'none';
         return;
     }
-    
+
     // Aguarda 300ms após o último caractere digitado para fazer a busca
     timeoutBusca = setTimeout(() => {
-        fetch(`/buscar-servidor/?q=${encodeURIComponent(query)}`)
+        fetch(`${URLS.buscar_servidor}?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
             .then(data => {
                 resultados.innerHTML = '';
@@ -669,8 +730,8 @@ function buscarServidor(query) {
                     item.innerHTML = `
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <strong>${servidor.nome}</strong><br>
-                                <small>${servidor.numero_documento} (${servidor.setor || '-'})</small>
+                                <strong>${escapeHtml(servidor.nome)}</strong><br>
+                                <small>${escapeHtml(servidor.numero_documento)} (${escapeHtml(servidor.setor || '-')})</small>
                             </div>
                             <button class="btn btn-sm btn-success">
                                 Selecionar
@@ -687,6 +748,19 @@ function buscarServidor(query) {
                 resultados.style.display = data.length ? 'block' : 'none';
             });
     }, 300);
+}
+
+// Escapa caracteres HTML para evitar XSS quando dados do servidor sao
+// inseridos via innerHTML. Uso: ${escapeHtml(valor)}.
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, m => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[m]));
 }
 
 // Fecha o autocomplete quando clicar fora
@@ -802,27 +876,42 @@ if (registroForm) {
 }
 
 function atualizarRegistros() {
-    // Evitar mostrar o indicador de carregamento para tornar a atualização menos perceptível
-    fetch('/registros-plantao/')
-        .then(response => response.json())
+    // Endpoint agora retorna {status, registros, totais} (mesmo formato
+    // usado pela view de treinamento) - evita o bug "data.forEach is
+    // not a function" quando o usuario alterna entre os dois modos.
+    fetch(URLS.registros)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status + ' ' + response.statusText);
+            }
+            return response.json();
+        })
         .then(data => {
-            // Renderiza a tabela com os dados obtidos
-            renderizarTabela(data);
-            
+            // Erro retornado pelo backend: {status: 'error', message: '...'}
+            if (data && data.status === 'error') {
+                throw new Error(data.message || 'Erro desconhecido');
+            }
+
+            // Extrai a lista de registros do envelope
+            const registros = (data && data.registros) || [];
+
+            // Renderiza a tabela
+            renderizarTabela(registros);
+
             // Reaplica os filtros existentes
             const filtroNomeEl = document.getElementById('filtroNome');
             const filtroDocumentoEl = document.getElementById('filtroDocumento');
             const filtroSetorEl = document.getElementById('filtroSetor');
             const filtroISVEl = document.getElementById('filtroISV');
             const filtroSaidaEl = document.getElementById('filtroSaida');
-            
-            const temFiltroAtivo = 
-                (filtroNomeEl && filtroNomeEl.value) || 
-                (filtroDocumentoEl && filtroDocumentoEl.value) || 
-                (filtroSetorEl && filtroSetorEl.value) || 
-                (filtroISVEl && filtroISVEl.value) || 
+
+            const temFiltroAtivo =
+                (filtroNomeEl && filtroNomeEl.value) ||
+                (filtroDocumentoEl && filtroDocumentoEl.value) ||
+                (filtroSetorEl && filtroSetorEl.value) ||
+                (filtroISVEl && filtroISVEl.value) ||
                 (filtroSaidaEl && filtroSaidaEl.value);
-                
+
             if (temFiltroAtivo) {
                 aplicarFiltros();
             }
@@ -830,16 +919,18 @@ function atualizarRegistros() {
         .catch(error => {
             console.error('Erro ao atualizar registros:', error);
             const tbody = document.getElementById('registros-tbody');
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="8" class="text-center">
-                        <div class="alert alert-danger mb-0">
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            Erro ao carregar registros: ${error.message}
-                        </div>
-                    </td>
-                </tr>
-            `;
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center">
+                            <div class="alert alert-danger mb-0">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                Erro ao carregar registros: ${escapeHtml(error.message)}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
             // Esconde a instrução de clique direito em caso de erro
             const instrucaoCliqueDir = document.getElementById('instrucao-clique-direito');
             if (instrucaoCliqueDir) {
@@ -866,7 +957,7 @@ function confirmarExclusao() {
     formData.append('justificativa', justificativa);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
-    fetch(`/registro/${registroParaExcluir}/excluir/`, {
+    fetch(URLS.registro_excluir(registroParaExcluir), {
         method: 'POST',
         body: formData
     })
@@ -884,7 +975,7 @@ function confirmarExclusao() {
 }
 
 function exportarExcel() {
-    window.location.href = '/exportar-excel/';
+    window.location.href = URLS.exportar_excel;
 }
 
 function confirmarLimparPlanilha() {
@@ -931,7 +1022,7 @@ function registrarSaidaDefinitiva() {
     formData.append('observacao', justificativa);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
-    fetch('/registro/saida-definitiva/', {
+    fetch(URLS.saida_definitiva, {
         method: 'POST',
         body: formData
     })
@@ -1003,7 +1094,7 @@ function limparDashboard() {
     formData.append('senha', senha);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
-    fetch('/limpar-dashboard/', {
+    fetch(URLS.limpar_dashboard, {
         method: 'POST',
         body: formData
     })
@@ -1046,7 +1137,7 @@ function retirarFaltas() {
     const filtro = filtroFaltasEl ? filtroFaltasEl.value : '';
     
     // Faz a requisição para o backend incluindo o filtro
-    fetch(`/retirar-faltas/?nome=${encodeURIComponent(filtro)}`, {
+    fetch(`${URLS.retirar_faltas}?nome=${encodeURIComponent(filtro)}`, {
         method: 'GET',
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
@@ -1098,10 +1189,10 @@ function retirarFaltas() {
                 data.faltosos.forEach(faltoso => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td class="text-center">${faltoso.ord}</td>
-                        <td>${faltoso.nome}</td>
-                        <td>${faltoso.documento}</td>
-                        <td>${faltoso.setor || '-'}</td>
+                        <td class="text-center">${escapeHtml(faltoso.ord)}</td>
+                        <td>${escapeHtml(faltoso.nome)}</td>
+                        <td>${escapeHtml(faltoso.documento)}</td>
+                        <td>${escapeHtml(faltoso.setor || '-')}</td>
                     `;
                     faltasTableBody.appendChild(tr);
                 });
@@ -1129,10 +1220,10 @@ function retirarFaltas() {
                 data.isvs_presentes.forEach(isv => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td class="text-center">${isv.ord}</td>
-                        <td>${isv.nome}</td>
-                        <td>${isv.documento}</td>
-                        <td class="text-center">${isv.hora_entrada}</td>
+                        <td class="text-center">${escapeHtml(isv.ord)}</td>
+                        <td>${escapeHtml(isv.nome)}</td>
+                        <td>${escapeHtml(isv.documento)}</td>
+                        <td class="text-center">${escapeHtml(isv.hora_entrada)}</td>
                     `;
                     isvsTableBody.appendChild(tr);
                 });
@@ -1160,15 +1251,15 @@ function retirarFaltas() {
                 data.permutas_reposicao.forEach(permuta => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td class="text-center">${permuta.ord}</td>
-                        <td>${permuta.nome}</td>
-                        <td>${permuta.documento}</td>
+                        <td class="text-center">${escapeHtml(permuta.ord)}</td>
+                        <td>${escapeHtml(permuta.nome)}</td>
+                        <td>${escapeHtml(permuta.documento)}</td>
                         <td class="text-center">
-                            <span class="badge bg-warning text-dark">${permuta.plantao_servidor}</span>
+                            <span class="badge bg-warning text-dark">${escapeHtml(permuta.plantao_servidor)}</span>
                             <i class="bi bi-arrow-right mx-1"></i>
-                            <span class="badge bg-primary">${permuta.plantao_atual}</span>
+                            <span class="badge bg-primary">${escapeHtml(permuta.plantao_atual)}</span>
                         </td>
-                        <td class="text-center">${permuta.hora_entrada}</td>
+                        <td class="text-center">${escapeHtml(permuta.hora_entrada)}</td>
                     `;
                     permutasTableBody.appendChild(tr);
                 });
@@ -1196,7 +1287,7 @@ function retirarFaltas() {
 }
 
 function baixarPDFFaltas() {
-    window.open('/retirar-faltas/?format=pdf', '_blank');
+    window.open(`${URLS.retirar_faltas}?format=pdf`, '_blank');
 }
 
 // Adiciona evento de input no campo de filtro
@@ -1348,7 +1439,7 @@ function registrarSaida(id) {
     const formData = new FormData();
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
-    fetch(`/registro/${id}/registrar-saida/`, {
+    fetch(URLS.registro_saida(id), {
         method: 'POST',
         body: formData
     })
@@ -1501,27 +1592,27 @@ function renderizarTabela(data) {
             if (registro.hora_entrada !== '-') totalEntradas++;
             if (registro.hora_saida) totalSaidas++;
             if (registro.hora_entrada !== '-' && !registro.hora_saida) totalPendentes++;
-            
+
             // Cria linha da tabela
             const tr = document.createElement('tr');
             tr.dataset.registroId = registro.id;
             tr.innerHTML = `
                 <td>${index + 1}</td>
-                <td>${registro.servidor_nome}</td>
-                <td>${registro.servidor_documento}</td>
-                <td>${registro.setor}</td>
-                <td>${registro.veiculo}</td>
+                <td>${escapeHtml(registro.servidor_nome)}</td>
+                <td>${escapeHtml(registro.servidor_documento)}</td>
+                <td>${escapeHtml(registro.setor)}</td>
+                <td>${escapeHtml(registro.veiculo)}</td>
                 <td>
                     <span class="badge ${registro.isv ? 'bg-success' : 'bg-secondary'}">
                         ${registro.isv ? 'Sim' : 'Não'}
                     </span>
                 </td>
                 <td>
-                    <span class="badge bg-success">${registro.hora_entrada || '-'}</span>
+                    <span class="badge bg-success">${escapeHtml(registro.hora_entrada || '-')}</span>
                 </td>
                 <td>
-                    ${registro.hora_saida ? 
-                        `<span class="badge bg-danger">${registro.hora_saida}</span>` : 
+                    ${registro.hora_saida ?
+                        `<span class="badge bg-danger">${escapeHtml(registro.hora_saida)}</span>` :
                         `<span class="badge bg-warning">Pendente</span>`
                     }
                 </td>

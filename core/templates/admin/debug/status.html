@@ -1,0 +1,58 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }} | {{ site_title }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:debug_index' %}">Debug</a>
+    &rsaquo; Status
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="module">
+        <h1>ℹ️ Status do sistema</h1>
+        <div style="padding: 1rem;">
+
+            {% if db_ok %}
+            <div style="background: #d1fae5; border-left: 4px solid #10b981; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
+                <strong style="color: #065f46;">✅ Banco de dados OK</strong>
+            </div>
+            {% else %}
+            <div style="background: #fee2e2; border-left: 4px solid #dc2626; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem;">
+                <strong style="color: #991b1b;">❌ Erro de conexão com o banco</strong>
+                <pre style="margin: 0.5rem 0 0 0; color: #991b1b;">{{ db_error }}</pre>
+            </div>
+            {% endif %}
+
+            <h2 style="font-size: 1.1rem; margin-top: 1.5rem;">Versões</h2>
+            <table class="table table-bordered table-sm">
+                <tr><td style="width: 200px;"><strong>Django</strong></td><td><code>{{ django_version }}</code></td></tr>
+                <tr><td><strong>Python</strong></td><td><code>{{ python_version }}</code></td></tr>
+                <tr><td><strong>Plataforma</strong></td><td><code>{{ platform }}</code></td></tr>
+                <tr><td><strong>Time Zone</strong></td><td><code>{{ time_zone }}</code></td></tr>
+                <tr><td><strong>Idioma</strong></td><td><code>{{ language }}</code></td></tr>
+                <tr><td><strong>DEBUG mode</strong></td><td>{% if debug_mode %}<span style="color: #dc2626;"><strong>ATIVADO</strong> (não use em produção)</span>{% else %}Desativado (correto para produção){% endif %}</td></tr>
+            </table>
+
+            <h2 style="font-size: 1.1rem; margin-top: 1.5rem;">Banco de dados</h2>
+            <table class="table table-bordered table-sm">
+                <tr><td style="width: 200px;"><strong>Engine</strong></td><td><code>{{ database_engine }}</code></td></tr>
+                <tr><td><strong>Nome</strong></td><td><code>{{ database_name }}</code></td></tr>
+            </table>
+
+            <h2 style="font-size: 1.1rem; margin-top: 1.5rem;">Contagens</h2>
+            <table class="table table-bordered table-sm">
+                <tr><td style="width: 200px;">Servidores</td><td><code>{{ contagens.servidores }}</code></td></tr>
+                <tr><td>Registros de acesso</td><td><code>{{ contagens.registros }}</code></td></tr>
+                <tr><td>Logs de auditoria</td><td><code>{{ contagens.logs }}</code></td></tr>
+                <tr><td>Vídeos tutoriais</td><td><code>{{ contagens.tutoriais }}</code></td></tr>
+                <tr><td>Usuários</td><td><code>{{ contagens.usuarios }}</code></td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -20,7 +20,7 @@ from django.utils import timezone
 import pytz
 
 from core.authentication import CanaimeAuthBackend
-from core.models import PerfilUsuario, RegistroDashboard, Servidor
+from core.models import Servidor
 from core.utils import calcular_plantao_atual, dashboard_registros_ativos
 
 
@@ -149,56 +149,77 @@ def welcome(request):
 @login_required
 def home(request):
     """
-    View principal do dashboard de produção.
-    
-    Exibe:
-    - Resumo do plantão atual
-    - Estatísticas de entradas, saídas e pendentes
-    - Lista de servidores ativos
-    - Controles de acordo com permissões do usuário
+    View principal do dashboard.
+
+    Renderiza o mesmo template (core/home.html) tanto para producao quanto
+    para treinamento. A diferenca e controlada pelo contexto via
+    `modo_treinamento` e `modelo_registro`. O JS detecta o modo atraves
+    da variavel window.MODO_TREINAMENTO e aponta para os endpoints certos.
     """
+    # Detecta modo de operacao via query string (?treinamento=1)
+    # ou via session (caso o user tenha entrado direto pela URL /treinamento/)
+    modo_treinamento = (
+        request.GET.get('treinamento') == '1'
+        or '/treinamento/' in request.path
+    )
+
     # Define o timezone UTC-4
     tz = pytz.timezone('America/Manaus')
     agora = timezone.localtime(timezone.now(), tz)
-    
+
     # Atualiza a última visita do usuário (mantido para outras funcionalidades)
     request.session['ultima_visita_dashboard'] = agora.isoformat()
-    
+
     # Obtém hora atual para uso em outros lugares
     hora_atual = agora.hour
     minuto_atual = agora.minute
-    
+
     # Define mostrar_aviso como False para desativar o aviso de troca de plantão
     mostrar_aviso = False
-    
+
     plantao_atual = calcular_plantao_atual()
-    
-    # Filtra registros do plantão atual
-    registros = dashboard_registros_ativos().select_related('servidor', 'operador')
-    
-    # Calcula totais para os cards
-    total_entradas = registros.filter(tipo_acesso='ENTRADA').count()  # Total de entradas
-    total_saidas = registros.filter(data_hora_saida__isnull=False).count()  # Total de saídas normais
-    total_pendentes = registros.filter(tipo_acesso='ENTRADA', saida_pendente=True).count()  # Entradas sem saída
-    
-    # Lista de servidores para os modais
+
+    # Escolhe o queryset de registros conforme o modo
+    if modo_treinamento:
+        from core.models import RegistroAcessoTreinamento
+        registros = RegistroAcessoTreinamento.objects.select_related(
+            'servidor', 'operador', 'operador_saida'
+        )
+        total_entradas = registros.filter(tipo_acesso='ENTRADA').count()
+        total_saidas = registros.filter(data_hora_saida__isnull=False).count()
+        total_pendentes = registros.filter(tipo_acesso='ENTRADA', saida_pendente=True).count()
+    else:
+        registros = dashboard_registros_ativos().select_related('servidor', 'operador')
+        total_entradas = registros.filter(tipo_acesso='ENTRADA').count()
+        total_saidas = registros.filter(data_hora_saida__isnull=False).count()
+        total_pendentes = registros.filter(tipo_acesso='ENTRADA', saida_pendente=True).count()
+
+    # Lista de servidores para os modais (sempre do cadastro principal)
     servidores = Servidor.objects.filter(ativo=True).order_by('nome')
-    
+
     # Verifica permissões do usuário
-    try:
-        perfil = request.user.perfil
-        pode_registrar = perfil.pode_registrar_acesso()
-        pode_excluir = perfil.pode_excluir_registros()
-        pode_limpar = perfil.pode_limpar_dashboard()
-        pode_saida_def = perfil.pode_saida_definitiva()
-        tipo_usuario = perfil.get_tipo_usuario_display()
-    except:
-        # Se não tem perfil, assume operador completo
+    # Em treinamento: sempre tem permissao total (ambiente de pratica)
+    if modo_treinamento:
         pode_registrar = True
         pode_excluir = True
         pode_limpar = True
         pode_saida_def = True
-        tipo_usuario = 'Operador'
+        tipo_usuario = 'Treinamento'
+    else:
+        try:
+            perfil = request.user.perfil
+            pode_registrar = perfil.pode_registrar_acesso()
+            pode_excluir = perfil.pode_excluir_registros()
+            pode_limpar = perfil.pode_limpar_dashboard()
+            pode_saida_def = perfil.pode_saida_definitiva()
+            tipo_usuario = perfil.get_tipo_usuario_display()
+        except Exception:
+            # Se nao tem perfil, assume operador completo
+            pode_registrar = True
+            pode_excluir = True
+            pode_limpar = True
+            pode_saida_def = True
+            tipo_usuario = 'Operador'
 
     context = {
         'plantao_atual': plantao_atual,
@@ -214,16 +235,7 @@ def home(request):
         'pode_limpar_dashboard': pode_limpar,
         'pode_saida_definitiva': pode_saida_def,
         'tipo_usuario': tipo_usuario,
+        'modo_treinamento': modo_treinamento,
     }
-    
-    return render(request, 'core/home.html', context)
 
-
-def trocar_senha_view(request):
-    """View para trocar senha"""
-    return render(request, 'core/trocar_senha.html')
-
-
-def tutoriais_view(request):
-    """View de tutoriais"""
-    return render(request, 'core/tutoriais.html') 
+    return render(request, 'core/home.html', context) 

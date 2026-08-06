@@ -103,16 +103,16 @@ def registros_plantao(request):
     registros = dashboard_registros_ativos().select_related(
         'servidor', 'operador', 'operador_saida'
     ).order_by('data_hora', 'id')
-    
+
     # Define o timezone UTC-4
     tz = pytz.timezone('America/Manaus')
-    
+
     data = []
     for registro in registros:
         # Converte os horários para UTC-4
         data_hora = timezone.localtime(registro.data_hora, tz)
         data_hora_saida = timezone.localtime(registro.data_hora_saida, tz) if registro.data_hora_saida else None
-        
+
         # Se for uma entrada normal
         if registro.tipo_acesso == 'ENTRADA':
             data.append({
@@ -141,8 +141,24 @@ def registros_plantao(request):
                 'tipo_acesso': registro.tipo_acesso,
                 'saida_pendente': False
             })
-    
-    return JsonResponse(data, safe=False)
+
+    # Mesmo formato da view de treinamento ({status, registros, totais}).
+    # O JS espera esse envelope - unificar evita o bug "data.forEach is not
+    # a function" que aparecia quando o cliente alternava entre os dois modos.
+    total_entradas = sum(1 for r in data if r['hora_entrada'] != '-')
+    total_saidas = sum(1 for r in data if r['hora_saida'])
+    total_pendentes = sum(
+        1 for r in data
+        if r['hora_entrada'] != '-' and not r['hora_saida']
+    )
+
+    return JsonResponse({
+        'status': 'success',
+        'registros': data,
+        'total_entradas': total_entradas,
+        'total_saidas': total_saidas,
+        'total_pendentes': total_pendentes,
+    })
 
 
 @login_required

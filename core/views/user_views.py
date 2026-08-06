@@ -8,6 +8,7 @@ Responsável por:
 - Reset de senhas por administradores
 - Troca de senha pelos próprios usuários
 - Perfis de usuário
+- Tela de confirmação de senha com envio opcional por email
 """
 
 import random
@@ -16,15 +17,92 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.contrib import messages
+from django.conf import settings
 from django.db.models import Case, When, IntegerField
 
 from ..models import LogAuditoria, PerfilUsuario
-from ..decorators import log_errors
+from ..utils import enviar_senha_usuario, get_unidade_prisional
 
 
 def is_staff(user):
     """Verifica se o usuário é staff."""
     return user.is_staff
+
+
+@login_required
+@user_passes_test(is_staff)
+def user_confirmacao_senha(request):
+    """
+    Tela de confirmação exibida apos criar/resetar usuario.
+    Mostra a senha temporaria em destaque + botao copiar + opcao de
+    envio por email. A senha vem da sessao (request.session['pending_password'])
+    e NAO e persistida em banco.
+
+    IMPORTANTE: a sessao so e consumida (session.pop) no POST final -
+    confirmacao manual ou envio de email. No GET usamos session.get para
+    que o admin possa dar F5 sem perder a tela, e o POST do botao
+    'Enviar' encontre a sessao ainda disponivel.
+    """
+    if request.method == 'POST':
+        # Consome a sessao APENAS no POST final (acao irreversivel).
+        pending = request.session.pop('pending_password', None)
+        if not pending:
+            messages.info(request, 'Nenhuma senha pendente para exibir.')
+            return redirect('user_list')
+
+        try:
+            user = User.objects.select_related('perfil').get(pk=pending['user_id'])
+        except User.DoesNotExist:
+            messages.error(request, 'Usuário não encontrado.')
+            return redirect('user_list')
+
+        perfil = getattr(user, 'perfil', None)
+        tipo_nome = perfil.get_tipo_usuario_display() if perfil else 'N/A'
+        senha = pending['senha']
+        acao = pending.get('acao', 'criado')
+
+        # Reenvio por email solicitado. O template so renderiza o form
+        # de envio quando o usuario tem email cadastrado, e o botao
+        # so envia se o admin clicou explicitamente - nao precisa de
+        # confirmacao dupla (removida em 2026-06-19, ver CHANGELOG).
+        if 'enviar_email' in request.POST:
+            sucesso, msg = enviar_senha_usuario(user, senha, request)
+            if sucesso:
+                messages.success(request, msg)
+            else:
+                messages.warning(request, msg)
+        # Confirmacao manual (admin ja anotou)
+        return redirect('user_list')
+
+    # GET: le mas NAO consome a sessao (permite F5 sem perder a tela)
+    pending = request.session.get('pending_password')
+    if not pending:
+        messages.info(request, 'Nenhuma senha pendente para exibir.')
+        return redirect('user_list')
+
+    try:
+        user = User.objects.select_related('perfil').get(pk=pending['user_id'])
+    except User.DoesNotExist:
+        messages.error(request, 'Usuário não encontrado.')
+        return redirect('user_list')
+
+    perfil = getattr(user, 'perfil', None)
+    tipo_nome = perfil.get_tipo_usuario_display() if perfil else 'N/A'
+    senha = pending['senha']
+    acao = pending.get('acao', 'criado')
+
+    user_email_configurado = bool(getattr(settings, 'EMAIL_HOST', ''))
+
+    context = {
+        'usuario': user,
+        'perfil': perfil,
+        'tipo_nome': tipo_nome,
+        'senha': senha,
+        'acao': acao,
+        'unidade_prisional': get_unidade_prisional(),
+        'user_email_configurado': user_email_configurado,
+    }
+    return render(request, 'core/user_confirmacao_senha.html', context)
 
 
 @login_required
@@ -46,7 +124,10 @@ def user_list(request):
         )
     ).order_by('ordem_tipo', 'username')
 
-    # Prepara os dados para o template, incluindo informações do perfil
+    # Prepara os dados para o template, incluindo informações do perfil.
+    # A senha temporária NÃO é mais persistida: ela é mostrada uma única vez
+    # na flash message após user_create/user_reset_password/user_update.
+    # Listar usuários não regenera nem exibe a senha.
     users_data = []
     for user in users:
         # Obtém ou cria o perfil do usuário
@@ -59,46 +140,26 @@ def user_list(request):
                 tipo_usuario='OPERADOR'
             )
 
-        # Para usuários de visualização, sempre mostra a senha (mesmo que não seja temporária)
-        # Para outros tipos, só mostra se for senha temporária
-        if perfil.tipo_usuario == 'VISUALIZACAO':
-            # Se não tem senha temporária salva, gera uma nova no padrão
-            if not perfil.senha_temporaria:
-                numeros_aleatorios = ''.join([str(random.randint(0, 9)) for _ in range(4)])
-                senha_temporaria = f"{user.username}@{numeros_aleatorios}"
-                # Atualiza a senha do usuário e salva no perfil
-                user.set_password(senha_temporaria)
-                user.save()
-                perfil.senha_temporaria = senha_temporaria
-                perfil.save()
-            else:
-                senha_temporaria = perfil.senha_temporaria
-        else:
-            # Para outros tipos, só mostra se precisar trocar senha
-            senha_temporaria = perfil.senha_temporaria if perfil.precisa_trocar_senha else None
-
-        # Adiciona à lista de dados
         users_data.append({
             'user': user,
             'perfil': perfil,
-            'senha_temporaria': senha_temporaria
         })
 
     return render(request, 'core/user_list.html', {
-        'users_data': users_data, 
+        'users_data': users_data,
         'is_superuser': request.user.is_superuser
     })
 
 
 @login_required
 @user_passes_test(is_staff)
-@log_errors
 def user_create(request):
     """Cria um novo usuário."""
     if request.method == 'POST':
         username = request.POST.get('username')
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
+        email = (request.POST.get('email') or '').strip()
         tipo_usuario = request.POST.get('tipo_usuario', 'OPERADOR')
 
         # Define is_staff baseado no tipo de usuário
@@ -132,14 +193,14 @@ def user_create(request):
             password=password,
             first_name=first_name,
             last_name=last_name,
+            email=email,
             is_staff=is_staff
         )
 
-        # Cria o perfil do usuário com senha temporária
+        # Cria o perfil do usuário
         PerfilUsuario.objects.create(
             usuario=user,
             precisa_trocar_senha=True,  # Força a troca de senha no primeiro login
-            senha_temporaria=password,  # Salva a senha temporária
             tipo_usuario=tipo_usuario  # Usa o tipo selecionado
         )
 
@@ -152,13 +213,14 @@ def user_create(request):
             detalhes=f'Criação do usuário {username} ({first_name} {last_name})'
         )
 
-        # Obtém o nome amigável do tipo de usuário
-        tipo_nome = dict(PerfilUsuario.TIPO_USUARIO_CHOICES)[tipo_usuario]
-        messages.success(request, 
-            f'Usuário {username} ({first_name} {last_name}) criado como "{tipo_nome}" com sucesso! '
-            f'A senha temporária é: {password}'
-        )
-        return redirect('user_list')
+        # Armazena a senha temporária na sessão para a tela de confirmação.
+        # Não persiste no banco - sessão é descartada após o admin visualizar.
+        request.session['pending_password'] = {
+            'user_id': user.id,
+            'senha': password,
+            'acao': 'criado',
+        }
+        return redirect('user_confirmacao_senha')
 
     return render(request, 'core/user_form.html')
 
@@ -203,10 +265,15 @@ def user_update(request, pk):
             numeros_aleatorios = ''.join([str(random.randint(0, 9)) for _ in range(4)])
             nova_senha = f"{usuario.username}@{numeros_aleatorios}"
             usuario.set_password(nova_senha)
-            perfil.senha_temporaria = nova_senha
             perfil.precisa_trocar_senha = True
             perfil.save()
-            messages.success(request, f'Usuário atualizado! Nova senha temporária: {nova_senha}')
+            # Redireciona para a tela de confirmação com a senha na sessão
+            request.session['pending_password'] = {
+                'user_id': usuario.id,
+                'senha': nova_senha,
+                'acao': 'resetado',
+            }
+            return redirect('user_confirmacao_senha')
         elif forcar_troca:
             perfil.precisa_trocar_senha = True
             perfil.save()
@@ -264,13 +331,12 @@ def user_reset_password(request, pk):
         perfil = PerfilUsuario.objects.create(usuario=user, tipo_usuario='OPERADOR')
 
     # Para usuários de visualização, não força a troca de senha
-    # A senha fica sempre visível e pode ser usada diretamente
+    # A senha é exibida uma única vez na flash message abaixo.
     if perfil.tipo_usuario == 'VISUALIZACAO':
         perfil.precisa_trocar_senha = False
     else:
         perfil.precisa_trocar_senha = True
 
-    perfil.senha_temporaria = temp_password
     perfil.save()
 
     # Registra a ação no log de auditoria
@@ -282,8 +348,13 @@ def user_reset_password(request, pk):
         detalhes=f'Reset de senha do usuário {user.username}'
     )
 
-    messages.success(request, f'Senha resetada com sucesso! A nova senha temporária é: {temp_password}')
-    return redirect('user_list')
+    # Redireciona para a tela de confirmação (senha na sessão, nunca persistida)
+    request.session['pending_password'] = {
+        'user_id': user.id,
+        'senha': temp_password,
+        'acao': 'resetado',
+    }
+    return redirect('user_confirmacao_senha')
 
 
 @login_required
@@ -300,12 +371,11 @@ def trocar_senha(request):
         )
 
     if request.method == 'POST':
-        senha_atual = request.POST.get('senha_atual')
         nova_senha = request.POST.get('nova_senha')
         confirmar_senha = request.POST.get('confirmar_senha')
 
         # Validações básicas
-        if not senha_atual or not nova_senha or not confirmar_senha:
+        if not nova_senha or not confirmar_senha:
             messages.error(request, 'Todos os campos são obrigatórios.')
             return render(request, 'core/trocar_senha.html', {'perfil': perfil})
 
@@ -317,10 +387,26 @@ def trocar_senha(request):
             messages.error(request, 'A nova senha deve ter pelo menos 8 caracteres.')
             return render(request, 'core/trocar_senha.html', {'perfil': perfil})
 
-        # Verifica se a senha atual está correta
-        if not request.user.check_password(senha_atual):
-            messages.error(request, 'Senha atual incorreta.')
-            return render(request, 'core/trocar_senha.html', {'perfil': perfil})
+        # Senha atual só é exigida em troca voluntária.
+        # Quando precisa_trocar_senha=True, a senha atual É a temporária
+        # gerada pelo admin — o usuário nem a escolheu, então exigir que
+        # ele a redigite é fricção sem ganho de segurança (já provou
+        # conhecê-la ao logar).
+        if not perfil.precisa_trocar_senha:
+            senha_atual = request.POST.get('senha_atual')
+            if not senha_atual:
+                messages.error(request, 'Informe a senha atual.')
+                return render(request, 'core/trocar_senha.html', {'perfil': perfil})
+
+            if not request.user.check_password(senha_atual):
+                messages.error(request, 'Senha atual incorreta.')
+                return render(request, 'core/trocar_senha.html', {'perfil': perfil})
+        else:
+            # Troca obrigatória: bloqueia o caso de o usuário só "renomear"
+            # a temporária em vez de criar uma senha própria.
+            if request.user.check_password(nova_senha):
+                messages.error(request, 'A nova senha deve ser diferente da senha temporária atual.')
+                return render(request, 'core/trocar_senha.html', {'perfil': perfil})
 
         # Validações adicionais de segurança
         if nova_senha.lower() in [request.user.username.lower(), request.user.first_name.lower(), request.user.last_name.lower()]:
@@ -340,7 +426,6 @@ def trocar_senha(request):
         # Atualiza o perfil do usuário
         try:
             perfil.precisa_trocar_senha = False
-            perfil.senha_temporaria = None  # Limpa a senha temporária
             perfil.save()
         except Exception as e:
             # Se houver erro ao atualizar o perfil, registra o erro mas permite continuar

@@ -13,7 +13,10 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management.utils import get_random_secret_key
+from django.urls import reverse_lazy
+from django.utils.translation import gettext_lazy as _
 
 # Carrega variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -26,7 +29,9 @@ LOGS_DIR = os.path.join(BASE_DIR, 'logs')
 os.makedirs(LOGS_DIR, exist_ok=True)
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# Usa a chave do .env se definida, senão gera uma automaticamente
+# Em desenvolvimento, gera uma chave aleatória a cada restart (ok para dev).
+# Em produção (DEBUG=False), DJANGO_SECRET_KEY é OBRIGATÓRIO e o sistema
+# falha no boot se não estiver definido — evita sessões inválidas a cada iisreset.
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY') or get_random_secret_key()
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -43,8 +48,26 @@ if allowed_hosts_env == '*':
 else:
     ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',')]
 
+# Fail-fast em produção: evita deploys acidentais com defaults inseguros.
+# Em dev, o fallback abaixo não dispara (DEBUG=True).
+if not DEBUG:
+    if not os.getenv('DJANGO_SECRET_KEY'):
+        raise ImproperlyConfigured(
+            "DJANGO_SECRET_KEY é obrigatória em produção. "
+            "Gere uma com: python manage.py check_secret_key --generate"
+        )
+    if allowed_hosts_env == '*' or not allowed_hosts_env.strip():
+        raise ImproperlyConfigured(
+            "DJANGO_ALLOWED_HOSTS não pode ser '*' em produção. "
+            "Defina o(s) domínio(s) (ex.: DJANGO_ALLOWED_HOSTS=controle.exemplo.gov.br,www.exemplo.gov.br)"
+        )
+
 # Application definition
 INSTALLED_APPS = [
+    'unfold',
+    'unfold.contrib.filters',
+    'unfold.contrib.forms',
+    'unfold.contrib.inlines',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -52,6 +75,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'core',
+    'import_export',
 ]
 
 MIDDLEWARE = [
@@ -119,6 +143,9 @@ TIME_ZONE = os.getenv('TIME_ZONE', 'America/Manaus')  # UTC-4
 USE_I18N = True
 USE_TZ = True
 
+# Caminho para arquivos de traducao .po/.mo
+LOCALE_PATHS = [BASE_DIR / 'locale']
+
 # Configurações de codificação UTF-8
 DEFAULT_CHARSET = 'utf-8'
 FILE_CHARSET = 'utf-8'
@@ -149,6 +176,22 @@ X_FRAME_OPTIONS = 'DENY'
 # Configurações de cookie em desenvolvimento
 SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() in ['true', '1', 'yes']  # Permite cookies em HTTP para desenvolvimento
 CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False').lower() in ['true', '1', 'yes']    # Permite CSRF em HTTP para desenvolvimento
+
+# Configurações de e-mail
+# Por padrão, em desenvolvimento, usa console (imprime o e-mail no stdout).
+# Em produção, defina EMAIL_HOST/EMAIL_PORT/EMAIL_HOST_USER/EMAIL_HOST_PASSWORD
+# no .env para usar SMTP real (Gmail, Hostinger, Office365, Mailgun, etc.).
+# Provedor padrão deste projeto: Gmail com App Password (docs/SMTP_GMAIL.md).
+# Se EMAIL_HOST não estiver definido em produção, o backend cai para console
+# com warning (em vez de quebrar - o sistema continua funcionando).
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', '')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ['true', '1', 'yes']
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@controle-acesso.local')
+SERVER_EMAIL = os.getenv('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
 
 # Media files
 MEDIA_URL = 'media/'
@@ -237,5 +280,87 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': False,
         },
+    },
+}
+
+
+# =============================================================================
+# CONFIGURACAO DO DJANGO-UNFOLD
+# https://unfoldadmin.com/docs/
+# =============================================================================
+
+UNFOLD = {
+    # Cores primarias - paleta da PAMC
+    "COLORS": {
+        "primary": {
+            "50": "#f0f4f8",
+            "100": "#d9e2ec",
+            "200": "#b3c5d9",
+            "300": "#8da8c6",
+            "400": "#678bb3",
+            "500": "#416ea0",
+            "600": "#1a3a5c",
+            "700": "#0a2540",
+            "800": "#061a30",
+            "900": "#030f20",
+            "950": "#010813",
+        },
+        "accent": {
+            "50": "#fffbeb",
+            "100": "#fef3c7",
+            "200": "#fde68a",
+            "300": "#fcd34d",
+            "400": "#fbbf24",
+            "500": "#ffc107",
+            "600": "#d97706",
+            "700": "#b45309",
+            "800": "#92400e",
+            "900": "#78350f",
+        },
+    },
+
+    # Sidebar - lista de grupos visuais com items.
+    # 'link' aceita: string (caminho de callable) ou callable direto
+    # (que recebe request e retorna URL). Usamos reverse_lazy que
+    # e lazy e resolve a URL quando o menu e renderizado.
+    # Ordem dos items no Operacao: Dashboard -> Historico -> Servidores -> Registros.
+    # Logs de Auditoria fica por ultimo (grupo "Sistema").
+    "SIDEBAR": {
+        "show_search": False,  # busca da sidebar desativada - a busca do
+        # proprio ModelAdmin ja filtra registros (caixa duplicada removida)
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": _("Operação"),
+                "items": [
+                    {"title": _("Registros"), "link": reverse_lazy("admin:core_registrodashboard_changelist")},
+                    {"title": _("Histórico"), "link": reverse_lazy("admin:core_registroacesso_changelist")},
+                    {"title": _("Servidores"), "link": reverse_lazy("admin:core_servidor_changelist")},
+                ],
+            },
+            {
+                "title": _("Sistema"),
+                "items": [
+                    {"title": _("Usuários"), "link": reverse_lazy("admin:auth_user_changelist")},
+                    {"title": _("Logs de Auditoria"), "link": reverse_lazy("admin:core_logauditoria_changelist")},
+                ],
+            },
+        ],
+    },
+
+    # Site
+    "SITE_TITLE": "PAMC - Controle de Acesso",
+    "SITE_HEADER": "Sistema de Controle de Acesso",
+    "SITE_URL": "/",
+    "SITE_FAVICON": "/static/images/canaime_logo.png",
+
+    # Tema - dark mode nativo
+    "DARK_MODE": True,
+    "DARK_THEME": True,
+
+    # Login
+    "LOGIN": {
+        "image": "/static/images/canaime_logo.png",
+        "redirect": "/admin/",
     },
 }
