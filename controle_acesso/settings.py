@@ -15,8 +15,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.utils import get_random_secret_key
-from django.urls import reverse_lazy
-from django.utils.translation import gettext_lazy as _
 
 # Carrega variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -331,18 +329,18 @@ UNFOLD = {
         "show_all_applications": False,
         "navigation": [
             {
-                "title": _("Operação"),
+                "title": "Operação",
                 "items": [
-                    {"title": _("Registros"), "link": reverse_lazy("admin:core_registrodashboard_changelist")},
-                    {"title": _("Histórico"), "link": reverse_lazy("admin:core_registroacesso_changelist")},
-                    {"title": _("Servidores"), "link": reverse_lazy("admin:core_servidor_changelist")},
+                    {"title": "Registros", "link": "/admin/core/registrodashboard/"},
+                    {"title": "Histórico", "link": "/admin/core/registroacesso/"},
+                    {"title": "Servidores", "link": "/admin/core/servidor/"},
                 ],
             },
             {
-                "title": _("Sistema"),
+                "title": "Sistema",
                 "items": [
-                    {"title": _("Usuários"), "link": reverse_lazy("admin:auth_user_changelist")},
-                    {"title": _("Logs de Auditoria"), "link": reverse_lazy("admin:core_logauditoria_changelist")},
+                    {"title": "Usuários", "link": "/admin/auth/user/"},
+                    {"title": "Logs de Auditoria", "link": "/admin/core/logauditoria/"},
                 ],
             },
         ],
