@@ -22,7 +22,7 @@ class Command(BaseCommand):
             Permission.objects.get(content_type=registro_ct, codename='add_registroacesso'),
             Permission.objects.get(content_type=registro_ct, codename='change_registroacesso'),
 
-            # Permissões para Servidor (anteriormente chamado Pessoa)
+            # Permissões para Servidor
             Permission.objects.get(content_type=servidor_ct, codename='view_servidor'),
             Permission.objects.get(content_type=servidor_ct, codename='add_servidor'),
             Permission.objects.get(content_type=servidor_ct, codename='change_servidor'),
@@ -36,4 +36,4 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS('Grupo de Administradores criado/atualizado com sucesso!')
-        ) 
+        )
