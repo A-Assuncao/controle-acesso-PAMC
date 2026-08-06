@@ -52,6 +52,17 @@ DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
 DJANGO_ALLOWED_HOSTS=seu-sistema.pamc.am.gov.br,10.0.0.100
 ```
 
+Para acesso interno pelo nome da máquina via mDNS, inclua também o nome curto e o domínio
+`.local`. Exemplo para a UPRRO:
+
+```env
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.2,uprro,uprro.local
+```
+
+Com um binding IIS na porta 80 usando o host `uprro.local`, o endereço fica
+`http://uprro.local`, sem precisar informar a porta 3000. Consulte
+[INSTALACAO_PRODUCAO.md](INSTALACAO_PRODUCAO.md#acesso-pelo-nome-da-unidade-local).
+
 ## 🗄️ **Configuração de Banco de Dados**
 
 ### SQLite (padrão - desenvolvimento)
@@ -271,4 +282,4 @@ python manage.py check_secret_key --generate
 - 🔄 Reinicie o servidor após alterar o `.env`
 - 🔐 Use senhas/chaves fortes em produção
 - 📊 Monitor os logs regularmente
-- 🔄 Faça backup das configurações de produção 
+- 🔄 Faça backup das configurações de produção
