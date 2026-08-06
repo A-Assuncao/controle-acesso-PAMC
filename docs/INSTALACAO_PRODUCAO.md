@@ -72,6 +72,36 @@ notepad .env
 | Pasta | `C:\inetpub\wwwroot\controle-acesso-PAMC` |
 | Porta | `3000` |
 
+#### Acesso pelo nome da unidade (`.local`)
+
+Quando o nome da máquina estiver publicado na rede por mDNS, a unidade pode ser acessada como
+`http://<sigla>.local`, sem depender de o usuário conhecer o IP e sem informar `:3000`.
+
+1. Confirme, em outro computador da mesma rede, que o nome responde:
+
+```powershell
+$sigla="uprro"; Test-NetConnection "${sigla}.local" -Port 3000
+```
+
+2. Inclua o nome curto e o nome `.local` no `.env`:
+
+```env
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,<ip-atual>,<sigla>,<sigla>.local
+```
+
+3. Crie no site da aplicação um binding HTTP na porta 80 com o host `<sigla>.local`:
+
+```powershell
+$sigla="uprro"; Import-Module WebAdministration; if(-not (Get-WebBinding -Name "controle-acesso-PAMC" -Protocol http | Where-Object {$_.bindingInformation -eq "*:80:${sigla}.local"})){New-WebBinding -Name "controle-acesso-PAMC" -Protocol http -Port 80 -HostHeader "${sigla}.local"}; iisreset
+```
+
+Troque o valor de `$sigla` em cada unidade. Exemplo para a UPRRO: `http://uprro.local`.
+
+O binding com host específico pode coexistir com o `Default Web Site` na porta 80. O endereço
+`.local` normalmente funciona apenas na mesma sub-rede; entre VLANs ou quando mDNS estiver
+bloqueado, configure o nome no DNS da rede. Uma reserva DHCP mantém o Windows em DHCP e evita
+mudanças inesperadas de endereço.
+
 ### C — Configurar tudo (um comando)
 
 ```powershell
@@ -85,6 +115,8 @@ Inclui: `.env`, unlock, `web.config`, permissões, app pool, porta 3000, firewal
 Verificar sem alterar: `-SomenteVerificar`
 
 Teste: **http://localhost:3000/login/**
+
+Se configurou o nome da unidade: **http://&lt;sigla&gt;.local/login/**
 
 ### D — Runner GitHub (deploy no `git push`)
 
