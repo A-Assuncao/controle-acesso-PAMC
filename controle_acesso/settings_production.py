@@ -60,7 +60,8 @@ if custom_domains:
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Logging para produção
+# Logging para produção: o filesystem da Vercel é somente leitura.
+# Os logs devem ser enviados para stdout/stderr e consultados no painel da Vercel.
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -79,5 +80,20 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'core': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
+
+# Não tente gravar logs no diretório da aplicação serverless.
+LOG_DIR = None
+DEBUG_LOG_FILE = None
+ERROR_LOG_FILE = None
