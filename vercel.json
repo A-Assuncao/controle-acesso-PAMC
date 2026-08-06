@@ -21,6 +21,6 @@
     }
   ],
   "env": {
-    "DJANGO_SETTINGS_MODULE": "controle_acesso.settings"
+    "DJANGO_SETTINGS_MODULE": "controle_acesso.settings_production"
   }
 }
