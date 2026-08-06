@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Admin customizado (Servidor, RegistroAcesso, LogAuditoria, etc).
-
-UI em admin_custom.css/js — ver static/.
-"""
+"""Admin customizado (Servidor, RegistroAcesso, LogAuditoria, etc)."""
 
 from django.contrib import admin
 from django.utils.html import format_html
@@ -1099,12 +1096,6 @@ class UserAdmin(DjangoUserAdmin, UnfoldModelAdmin):
     # Actions de export CSV/XLSX
     actions = [exportar_csv_action, exportar_xlsx_action]
 
-    # Aplica o Media (CSS customizado) manualmente
-    class Media:
-        css = {'all': ('css/admin_custom.css',)}
-        js = ('js/admin_custom.js',)
-
-
 _add_import_url(UserAdmin, 'User')
 
 
@@ -1120,7 +1111,7 @@ LogAuditoriaAdmin.actions = list(LogAuditoriaAdmin.actions) + [
 
 admin.site.index_title = 'Administração do Sistema'
 
-# CSS customizado para melhorar a aparência
+# Mantém a navegação lateral do admin habilitada.
 admin.site.enable_nav_sidebar = True
 
 # =============================================================================
@@ -1138,24 +1129,3 @@ def _get_urls_customizadas():
 
 
 admin.site.get_urls = _get_urls_customizadas
-
-# =============================================================================
-# CONFIGURAÇÃO DE MÍDIA PERSONALIZADA
-# =============================================================================
-
-class AdminMediaMixin:
-    """Mixin para incluir CSS e JS customizados em todas as páginas do admin"""
-
-    class Media:
-        css = {
-            'all': ('css/admin_custom.css',)
-        }
-        js = ('js/admin_custom.js',)
-
-# Aplicar o mixin em todas as classes Admin
-for admin_class in [
-    ServidorAdmin, RegistroAcessoAdmin, RegistroDashboardAdmin,
-    LogAuditoriaAdmin, VideoTutorialAdmin
-]:
-    # Adicionar o mixin dinamicamente
-    admin_class.Media = AdminMediaMixin.Media
