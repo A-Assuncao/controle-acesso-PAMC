@@ -58,7 +58,9 @@ if custom_domains:
 
 # Arquivos estáticos
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STORAGES['staticfiles']['BACKEND'] = (
+    'whitenoise.storage.CompressedManifestStaticFilesStorage'
+)
 
 # Logging para produção: o filesystem da Vercel é somente leitura.
 # Os logs devem ser enviados para stdout/stderr e consultados no painel da Vercel.
