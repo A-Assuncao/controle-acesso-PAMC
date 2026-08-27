@@ -15,13 +15,30 @@ import random
 import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.contrib import messages
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Case, When, IntegerField
+from django.http import Http404, HttpResponseForbidden
+from django.views.decorators.http import require_POST
 
 from ..models import LogAuditoria, PerfilUsuario
 from ..utils import enviar_senha_usuario, get_unidade_prisional
+
+
+COURSE_STAFF_MANAGED_GROUP = '_curso_staff_gerenciado'
+COURSE_STAFF_NONSTAFF_GROUP = '_curso_staff_original_sem_staff'
+COURSE_STAFF_TYPE_GROUPS = {
+    'OPERADOR': '_curso_staff_original_operador',
+    'VISUALIZACAO': '_curso_staff_original_visualizacao',
+    'STAFF': '_curso_staff_original_staff',
+    'ADMIN': '_curso_staff_original_admin',
+}
+
+
+def _course_staff_mode_active():
+    return Group.objects.filter(name=COURSE_STAFF_MANAGED_GROUP).exists()
 
 
 def is_staff(user):
@@ -147,8 +164,112 @@ def user_list(request):
 
     return render(request, 'core/user_list.html', {
         'users_data': users_data,
-        'is_superuser': request.user.is_superuser
+        'is_superuser': request.user.is_superuser,
+        'course_staff_toggle_enabled': getattr(
+            settings, 'COURSE_STAFF_TOGGLE_ENABLED', False
+        ),
+        'course_staff_mode_active': _course_staff_mode_active(),
     })
+
+
+@login_required
+@require_POST
+def toggle_course_staff(request):
+    """Ativa/restaura Staff em massa para uso temporário durante cursos."""
+    if not getattr(settings, 'COURSE_STAFF_TOGGLE_ENABLED', False):
+        raise Http404
+
+    if not request.user.is_superuser:
+        return HttpResponseForbidden('Apenas superusuários podem alterar o modo de curso.')
+
+    with transaction.atomic():
+        managed_group, created = Group.objects.select_for_update().get_or_create(
+            name=COURSE_STAFF_MANAGED_GROUP
+        )
+
+        if created:
+            nonstaff_group, _ = Group.objects.get_or_create(
+                name=COURSE_STAFF_NONSTAFF_GROUP
+            )
+            type_groups = {
+                tipo: Group.objects.get_or_create(name=group_name)[0]
+                for tipo, group_name in COURSE_STAFF_TYPE_GROUPS.items()
+            }
+
+            users = list(
+                User.objects.select_for_update()
+                .filter(is_superuser=False)
+                .select_related('perfil')
+            )
+
+            for user in users:
+                perfil, _ = PerfilUsuario.objects.get_or_create(
+                    usuario=user,
+                    defaults={
+                        'precisa_trocar_senha': False,
+                        'tipo_usuario': 'OPERADOR',
+                    },
+                )
+                original_type = perfil.tipo_usuario
+
+                user.groups.add(managed_group, type_groups[original_type])
+                if not user.is_staff:
+                    user.groups.add(nonstaff_group)
+
+                user.is_staff = True
+                user.save(update_fields=['is_staff'])
+                perfil.tipo_usuario = 'STAFF'
+                perfil.save(update_fields=['tipo_usuario', 'data_atualizacao'])
+
+            LogAuditoria.objects.create(
+                usuario=request.user,
+                tipo_acao='EDICAO',
+                modelo='User',
+                detalhes=f'Modo de curso ativado para {len(users)} usuário(s)',
+            )
+            messages.success(
+                request,
+                f'Modo de curso ativado: {len(users)} usuário(s) agora são Staff.'
+            )
+        else:
+            users = list(
+                User.objects.select_for_update()
+                .filter(is_superuser=False, groups=managed_group)
+                .select_related('perfil')
+                .prefetch_related('groups')
+            )
+
+            for user in users:
+                group_names = {group.name for group in user.groups.all()}
+                user.is_staff = COURSE_STAFF_NONSTAFF_GROUP not in group_names
+                user.save(update_fields=['is_staff'])
+
+                perfil, _ = PerfilUsuario.objects.get_or_create(usuario=user)
+                for original_type, group_name in COURSE_STAFF_TYPE_GROUPS.items():
+                    if group_name in group_names:
+                        perfil.tipo_usuario = original_type
+                        break
+                perfil.save(update_fields=['tipo_usuario', 'data_atualizacao'])
+
+            marker_names = [
+                COURSE_STAFF_MANAGED_GROUP,
+                COURSE_STAFF_NONSTAFF_GROUP,
+                *COURSE_STAFF_TYPE_GROUPS.values(),
+            ]
+            Group.objects.filter(name__in=marker_names).delete()
+
+            LogAuditoria.objects.create(
+                usuario=request.user,
+                tipo_acao='EDICAO',
+                modelo='User',
+                detalhes=f'Modo de curso desativado para {len(users)} usuário(s)',
+            )
+            messages.success(
+                request,
+                f'Modo de curso desativado: {len(users)} usuário(s) foram restaurados.'
+            )
+
+    return redirect('user_list')
 
 
 @login_required
@@ -434,4 +555,4 @@ def trocar_senha(request):
         messages.success(request, 'Senha alterada com sucesso! Por favor, faça login novamente.')
         return redirect('login')
 
-    return render(request, 'core/trocar_senha.html', {'perfil': perfil}) 
+    return render(request, 'core/trocar_senha.html', {'perfil': perfil})

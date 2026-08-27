@@ -67,3 +67,4 @@ Thumbs.db
 .cursor
 .coverage
 htmlcov/
+.vercel

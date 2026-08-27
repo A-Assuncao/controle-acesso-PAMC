@@ -33,6 +33,7 @@ urlpatterns = [
     path('retirar-faltas/', views.retirar_faltas, name='retirar_faltas'),
     path('exportar-excel/', views.exportar_excel, name='exportar_excel'),
     path('usuarios/', views.user_list, name='user_list'),
+    path('usuarios/modo-curso-staff/', views.toggle_course_staff, name='toggle_course_staff'),
     path('usuarios/novo/', views.user_create, name='user_create'),
     path('usuarios/<int:pk>/editar/', views.user_update, name='user_update'),
     path('usuarios/<int:pk>/atualizar/', views.user_reset_password, name='user_reset_password'),
@@ -52,4 +53,4 @@ urlpatterns = [
     path('canaime/user-info/', views.canaime_user_info, name='canaime_user_info'),
 
 
-] 
+]

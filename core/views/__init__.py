@@ -22,7 +22,7 @@ from .registro_views import (
 from .user_views import (
     user_list, user_create, user_update, user_delete,
     user_reset_password, user_confirmacao_senha,
-    trocar_senha, is_staff
+    trocar_senha, toggle_course_staff, is_staff
 )
 
 # Views de relatórios refatoradas
@@ -43,4 +43,4 @@ from .treinamento_views import (
 # Views de autenticação Canaimé (experimental)
 from .canaime_views import (
     canaime_login, test_canaime_connection, canaime_user_info, logout_canaime
-) 
+)

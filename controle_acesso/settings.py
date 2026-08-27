@@ -36,6 +36,13 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY') or get_random_secret_key()
 # Em ambiente de produção, defina DEBUG = False para ativar as páginas de erro personalizadas
 DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ['true', '1', 'yes']
 
+# Recurso temporário para cursos: permite que um superusuário promova todos os
+# usuários não administradores a Staff e restaure os estados anteriores.
+# Defina como False para esconder o controle e bloquear o endpoint.
+COURSE_STAFF_TOGGLE_ENABLED = os.getenv(
+    'COURSE_STAFF_TOGGLE_ENABLED', 'False'
+).lower() in ['true', '1', 'yes']
+
 # Quando DEBUG for False, ative esta configuração para servir arquivos estáticos
 SERVE_STATIC_FILES = os.getenv('SERVE_STATIC_FILES', 'True').lower() in ['true', '1', 'yes']
 

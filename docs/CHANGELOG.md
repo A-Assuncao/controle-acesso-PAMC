@@ -10,6 +10,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 ## [Unreleased] - **Próximas Melhorias**
 
 ### ✨ Adicionado
+- **Modo Staff para cursos**: controle reversível e exclusivo de superusuário para promover temporariamente usuários não administradores a Staff. É opt-in por `COURSE_STAFF_TOGGLE_ENABLED=True`; instalações sem a variável permanecem inalteradas.
 - **Tela de confirmacao de senha**: apos criar/resetar usuario, abre pagina dedicada com a senha em destaque (hero gradient + fonte mono), botao "Copiar" e cartao opcional de envio por email. Substitui o flash message que era facil de perder.
 - **Envio de credenciais por email (SMTP)**: funcao `core.utils.enviar_senha_usuario` com template HTML (nome, login, senha, link de login). Configuracao SMTP generica no `settings.py` (funciona com Mailgun, Hostinger, Gmail, Office365 ou servidor interno). Guia passo a passo para Mailgun em `docs/SMTP_MAILGUN.md`.
 - **Campo de email no cadastro de usuarios**: opcional, captura o email para o envio de credenciais.
@@ -300,4 +301,4 @@ Este projeto segue o [Versionamento Semântico](https://semver.org/):
   
   ### 🤝 **Contribua com o Projeto**
   <p>Ajude a manter este changelog atualizado seguindo as convenções acima!</p>
-</div> 
+</div>
