@@ -16,6 +16,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.
 - **Campo de email no cadastro de usuarios**: opcional, captura o email para o envio de credenciais.
 
 ### 🐛 Corrigido
+- **Modo Staff no PostgreSQL**: removido `LEFT JOIN` da consulta bloqueada com `FOR UPDATE`, evitando erro 500 ao ativar ou restaurar o modo de curso na Vercel/Supabase.
 - **Importacao CSV servidores**: leitura com `utf-8-sig`, normalizacao de BOM nos cabecalhos e `colapsar_espacos()` (espacos duplos entre palavras)
 - **Scripts legados removidos**: wrappers IIS/update, `iis_startup.py`, `validate_changelog.py`, `AtualizarControleAcesso.xml`
 - **Debug Canaimé**: removido dump de HTML em `logs/` durante autenticação

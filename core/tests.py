@@ -53,6 +53,15 @@ class CourseStaffToggleTests(TestCase):
         self.assertEqual(self.viewer.perfil.tipo_usuario, 'VISUALIZACAO')
         self.assertFalse(Group.objects.filter(name=COURSE_STAFF_MANAGED_GROUP).exists())
 
+    def test_locked_user_query_does_not_join_nullable_profile(self):
+        """Evita FOR UPDATE em LEFT JOIN, que o PostgreSQL não aceita."""
+        query = (
+            User.objects.select_for_update()
+            .filter(is_superuser=False)
+        )
+
+        self.assertNotIn(' JOIN ', str(query.query).upper())
+
     def test_non_superuser_cannot_toggle_mode(self):
         self.client.force_login(self.existing_staff)
 
