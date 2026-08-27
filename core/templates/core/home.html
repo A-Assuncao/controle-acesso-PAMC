@@ -67,7 +67,7 @@ window.URLS = {
 {% endif %}
 
 {% if not modo_treinamento %}
-    {% if user.is_staff or user.is_superuser %}
+    {% if user.is_superuser %}
 <!-- Acesso ao painel admin Django (apenas administradores) -->
 <div class="row mb-4">
     <div class="col-12">
@@ -1645,4 +1645,4 @@ function limparFiltros() {
     atualizarRegistros();
 }
 </script>
-{% endblock %} 
+{% endblock %}

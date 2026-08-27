@@ -87,3 +87,33 @@ class CourseStaffToggleTests(TestCase):
         self.assertNotContains(response, 'Ativar Staff para o curso')
         response = self.client.post(reverse('toggle_course_staff'))
         self.assertEqual(response.status_code, 404)
+
+
+class AdminBannerVisibilityTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            'staff_sem_admin', password='test-password', is_staff=True
+        )
+        PerfilUsuario.objects.create(usuario=self.staff, tipo_usuario='STAFF')
+        self.superuser = User.objects.create_superuser(
+            'admin_banner', password='test-password'
+        )
+        PerfilUsuario.objects.create(usuario=self.superuser, tipo_usuario='ADMIN')
+
+    def test_admin_banner_is_hidden_from_staff(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.get(reverse('home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Administração do Sistema')
+        self.assertNotContains(response, 'Abrir Painel Admin')
+
+    def test_admin_banner_is_visible_to_superuser(self):
+        self.client.force_login(self.superuser)
+
+        response = self.client.get(reverse('home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Administração do Sistema')
+        self.assertContains(response, 'Abrir Painel Admin')
