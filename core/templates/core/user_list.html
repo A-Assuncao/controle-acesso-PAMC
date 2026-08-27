@@ -4,13 +4,31 @@
 
 {% block content %}
 <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
         <h5 class="mb-0">Usuários do Sistema</h5>
-                        <a href="{% url 'user_create' %}" class="btn btn-primary">
-                    <i class="bi bi-person-plus"></i> Novo Usuário
-                </a>
+        <div class="d-flex flex-wrap gap-2">
+            {% if is_superuser and course_staff_toggle_enabled %}
+            <form method="post" action="{% url 'toggle_course_staff' %}" class="m-0"
+                  onsubmit="return confirm('{% if course_staff_mode_active %}Restaurar as permissões anteriores de todos os usuários?{% else %}Tornar todos os usuários não administradores Staff durante o curso?{% endif %}');">
+                {% csrf_token %}
+                <button type="submit" class="btn {% if course_staff_mode_active %}btn-outline-secondary{% else %}btn-warning{% endif %}">
+                    <i class="bi {% if course_staff_mode_active %}bi-arrow-counterclockwise{% else %}bi-mortarboard{% endif %}" aria-hidden="true"></i>
+                    {% if course_staff_mode_active %}Restaurar permissões{% else %}Ativar Staff para o curso{% endif %}
+                </button>
+            </form>
+            {% endif %}
+            <a href="{% url 'user_create' %}" class="btn btn-primary">
+                <i class="bi bi-person-plus" aria-hidden="true"></i> Novo Usuário
+            </a>
+        </div>
     </div>
     <div class="card-body">
+        {% if is_superuser and course_staff_toggle_enabled and course_staff_mode_active %}
+        <div class="alert alert-warning d-flex align-items-center gap-2" role="status">
+            <i class="bi bi-mortarboard" aria-hidden="true"></i>
+            <span><strong>Modo de curso ativo.</strong> Usuários não administradores estão temporariamente como Staff.</span>
+        </div>
+        {% endif %}
         {% csrf_token %}
         <div class="table-responsive">
             <table class="table table-hover">
@@ -227,4 +245,4 @@ function forcarTrocaSenha(userId, username) {
     });
 }
 </script>
-{% endblock %} 
+{% endblock %}

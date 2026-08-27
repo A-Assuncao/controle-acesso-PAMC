@@ -147,6 +147,21 @@ DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/seu-webhook-id/seu-token
 UNIDADE_PRISIONAL=Centro de Detenção Provisória de Manaus
 ```
 
+### Modo Staff para cursos (opcional)
+
+O modo de curso adiciona, na lista de usuários, um controle exclusivo para
+superusuários promoverem temporariamente todos os usuários não administradores
+a Staff. O mesmo controle restaura as permissões anteriores ao final do curso.
+
+```env
+COURSE_STAFF_TOGGLE_ENABLED=True
+```
+
+A variável é opcional e o padrão é `False`. Instalações que não possuam essa
+configuração continuam funcionando normalmente e não exibem o controle. Depois
+de alterar o valor, reinicie a aplicação. Apenas superusuários conseguem ver ou
+executar a ação, mesmo quando o recurso está habilitado.
+
 ## 🖥️ **Configurações do Servidor**
 
 ### Porta do servidor
@@ -271,4 +286,4 @@ python manage.py check_secret_key --generate
 - 🔄 Reinicie o servidor após alterar o `.env`
 - 🔐 Use senhas/chaves fortes em produção
 - 📊 Monitor os logs regularmente
-- 🔄 Faça backup das configurações de produção 
+- 🔄 Faça backup das configurações de produção
