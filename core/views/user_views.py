@@ -199,7 +199,6 @@ def toggle_course_staff(request):
             users = list(
                 User.objects.select_for_update()
                 .filter(is_superuser=False)
-                .select_related('perfil')
             )
 
             for user in users:
@@ -235,7 +234,6 @@ def toggle_course_staff(request):
             users = list(
                 User.objects.select_for_update()
                 .filter(is_superuser=False, groups=managed_group)
-                .select_related('perfil')
                 .prefetch_related('groups')
             )
 
